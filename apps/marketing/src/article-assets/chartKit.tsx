@@ -315,7 +315,26 @@ export function YAxis({ x, width, ticks, toY, format }: Readonly<YAxisProps>): J
 
 const AXIS_LABEL_GAP = 15;
 /** Puts a text baseline on the optical centre of its anchor. */
-const BASELINE_NUDGE = 6;
+export const BASELINE_NUDGE = 6;
+
+/**
+ * Evenly spaced tick values from 0 to `max`, inclusive.
+ *
+ * Both trend scenes wrote the same `Array.from({ length: max / step + 1 })`
+ * over their own `Y_MAX`/`Y_TICK_STEP`, which the duplication gate reads as
+ * one clone group across two files. The ladders themselves differ — 0–9 in
+ * threes for the web, 0–80 in twenties for Firefox — so what is shared is the
+ * arithmetic, not the numbers, and only the arithmetic moves here.
+ */
+export function linearTicks(max: number, step: number): readonly number[] {
+  return Array.from({ length: max / step + 1 }, (_unused, index) => index * step);
+}
+
+/* Line weight and end-dot radius for the multi-series trend scenes. The Steam
+ * scene keeps its own smaller dot: it labels every point rather than just the
+ * ends, so a 7px dot crowds its value labels. */
+export const TREND_LINE_WIDTH = 4;
+export const TREND_DOT_RADIUS = 7;
 
 interface BarProps {
   x: number;

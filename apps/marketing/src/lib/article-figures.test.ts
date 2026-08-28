@@ -13,6 +13,9 @@ import {
   change,
   cyberpunk,
   delta,
+  firefox,
+  firefoxFirst,
+  firefoxLatest,
   hellboy,
   formatCount,
   formatShare,
@@ -327,6 +330,20 @@ describe('the MacPaw claim stays on the checkable half', () => {
 
 describe('the search section admits what it cannot prove', () => {
   /*
+   * Firefox's series is the one place the post shows a *setting* counter aimed
+   * at Ukraine rather than at the world, so it is also the one most tempting to
+   * quote by its flattering half alone. Two things have to travel with it: that
+   * Russian is still the majority reading, and that English rose over the same
+   * window — the same non-transfer the W3Techs section makes about the web.
+   */
+  it('keeps the Firefox section honest about who else gained', () => {
+    expect(firefoxLatest.ru).toBeGreaterThan(50);
+    expect(firefoxLatest.en).toBeGreaterThan(firefoxFirst.en);
+    expect(article).toContain(flatten(formatShare(firefoxLatest.en)));
+    expect(article).toContain(flatten('телеметрія одного виробника'));
+  });
+
+  /*
    * The lead promises every number can be opened and recounted. `aiOverview`
    * is the one dataset that cannot be: no published data, no collection
    * window, no split by query language. Printing it quietly would spend the
@@ -379,6 +396,7 @@ describe('every figure carries its provenance', () => {
    */
   it.each([
     ['steam', steam],
+    ['firefox', firefox],
     ['cyberpunk', cyberpunk],
     ['wikipedia', wikipedia],
     ['web', web],

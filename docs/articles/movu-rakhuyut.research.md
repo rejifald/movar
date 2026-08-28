@@ -12,7 +12,9 @@ summary: >-
   recorded here with its primary source, the date it was gathered, and the
   methodological limit that keeps it honest. Gathered 2026-08-26 by direct
   fetch of the sources listed, §7 added 2026-08-27; figures that could only be
-  had second-hand are flagged inline.
+  had second-hand are flagged inline. §1b and §7d added 2026-08-28: the
+  browser's own language counter, and the record of the search that established
+  the header has no public table.
 ---
 
 # «Мову рахують» — verified figures and sources
@@ -113,6 +115,73 @@ Policy) to 29 million (Institute of Demography) to 32.3 million (Wikipedia,
 Apr 2026) to 39.5 million (Worldometer). A conclusion resting on a figure
 with that spread is not evidence, and printing it would undercut the
 article's whole posture. Left out on purpose — do not add it back.
+
+---
+
+## 1b. Firefox — the same kind of counter, aimed at one country
+
+Added 2026-08-28. Found while checking a negative (§7d) and kept because it
+answers a question §1 cannot: Steam's table is worldwide, so 0,70% says nothing
+about what is set **inside Ukraine**. This is the only counter in the post that
+is both a setting and filtered to the country.
+
+### The series
+
+Firefox Desktop interface locale among clients in Ukraine, as a share of that
+country's clients. Seven anchors from a 288-point weekly series:
+
+| Week       | `ru`  | `uk`  | `en-US` |
+| ---------- | ----- | ----- | ------- |
+| 2021-02-01 | 74.5% | 16.4% | 8.4%    |
+| 2021-12-27 | 74.8% | 16.4% | 7.8%    |
+| 2022-12-26 | 69.3% | 21.0% | 8.8%    |
+| 2023-12-25 | 63.9% | 24.7% | 10.6%   |
+| 2024-12-30 | 58.9% | 28.3% | 11.8%   |
+| 2025-12-22 | 55.6% | 31.4% | 12.1%   |
+| 2026-08-17 | 52.0% | 33.7% | 13.2%   |
+
+- **Source:** Firefox Public Data Report, "Top Languages", region Ukraine —
+  https://data.firefox.com/dashboard/usage-behavior. The series behind the
+  chart is public JSON:
+  https://data.firefox.com/datasets/desktop/usage-behavior/Ukraine/locale/index.json
+  — 288 weekly points, 2021-02-01 to 2026-08-17, fetched 2026-08-28.
+- **Ratio:** Russian leads Ukrainian **1.54×** at the last reading. Computed by
+  `ratio()`, never stored.
+- **Rounding.** The JSON carries raw telemetry floats
+  (`55.13948978069521`). One decimal in both prose and chart: two would assert
+  a precision this sample cannot support, and the report's own chart rounds too.
+- **Why the December 2021 row is in the anchor set.** It is the flat one —
+  Ukrainian is 16.4% in February 2021 and 16.4% ten months later. Without it
+  the series reads as a steady climb from the start, when in fact nothing moves
+  until 2022. Same shape as the Steam series, and the same reason to draw it.
+
+### The three limits, all of which the article prints
+
+1. **It is one vendor's telemetry, not a market figure.** Firefox is a small
+   share of the Ukrainian browser market. The prose says «телеметрія одного
+   виробника, а не зріз усього ринку» and a test pins that phrase.
+2. **It measures the interface locale, not the header.** The article's first
+   mechanism is the list the browser _sends_; this is the language the browser
+   _runs in_. They are different settings — the first usually follows the
+   second, which is what the prose says and all it says. Conflating them is the
+   §2 storefront error in another costume, and §7d exists to keep that straight.
+3. **English rose too.** `en-US` went from 8.4% to 13.2% across the same window,
+   so the share Russian lost here did not all go to Ukrainian either — the same
+   non-transfer §5 makes about the open web. This is the section's
+   counter-figure, it is in the prose, in the chart as a third line, and pinned
+   by `article-figures.test.ts`.
+
+And the reason it is worth the section: **52.0% is still a majority.** The most
+uncomfortable single number in the post is the one that says the majority
+setting on browsers in Ukraine is still Russian, five years on.
+
+### Why it gets a chart when the search section deliberately does not
+
+The rule stated for §7 is that the most prominent visual treatment must not go
+to the least checkable figure. This is the opposite case: a weekly series a
+reader can open in a browser, filter to their own country and read off the same
+line. It is the **most** re-derivable figure in the post, which is exactly what
+the closing sentence of its section tells the reader to go and do.
 
 ---
 
@@ -543,6 +612,51 @@ a series that does not exist.
 
 ---
 
+## 7d. The browser's language list — searched for, and there is no table
+
+The article's **first** mechanism is the only one of the four it prints no
+figure for. The prose now says so in the paragraph that introduces it, rather
+than leaving the gap to read as an omission. Searched 2026-08-28; if this is
+revisited, these are the places already checked.
+
+- **StatCounter Global Stats** — browsers, operating systems, screen
+  resolutions, search engines, social platforms. No visitor-language
+  dimension. https://gs.statcounter.com/
+- **W3Counter global stats** — browsers, platforms, screen resolutions,
+  computed over "the past month's traffic to all websites that use W3Counter's
+  free web stats". The July 2026 report has no language section at all; the
+  string does not appear on the page.
+  https://www.w3counter.com/globalstats.php — fetched 2026-08-28.
+- **Cloudflare Radar** — HTTP request data is broken out by device type, IP
+  version, bot class, browser, OS, HTTP and TLS version, content type and
+  location. "Language" appears nowhere in the Radar documentation as a
+  dimension — every occurrence in `llms-full.txt` is boilerplate
+  (`inLanguage`, "programming languages", "large language models").
+  https://developers.cloudflare.com/radar/investigate/http-requests/ — fetched
+  2026-08-28.
+- **W3Techs** (§5) classifies the language a _site is written in_. That is the
+  supply side, not what visitors request, and the article already uses it as
+  such.
+
+**What does exist is the per-site version, which is the point.** Google
+Analytics and Adobe Analytics both read the header into a "Language" dimension
+in each site owner's own reports — so the counter is real, it is read on every
+page load, and its readings never leave the site that took them.
+https://experienceleague.adobe.com/en/docs/analytics/components/dimensions/language
+
+### Where the search led instead
+
+The same sweep turned up Mozilla's **Firefox Public Data Report**, which does
+publish a per-country language series. It measures a different thing — the
+browser's own interface locale, i.e. mechanism _2_ — so it does not close this
+gap, but it was worth a section of its own: **§1b**. Keeping the two apart is
+the point of this note. Reading that series as "what browsers ask sites for"
+would be the same category error as citing the Steam storefront's interface
+menu for a game's localisation table (§2), and the article's Firefox section
+says so in its own prose.
+
+---
+
 ## 8. Context figures (background, not load-bearing)
 
 - **Language at home (KIIS/Rating, 2025):** 63% Ukrainian, up from 52% in
@@ -575,6 +689,11 @@ a series that does not exist.
    same section, not in a footnote: the Steam plateau, the 47% who stayed on
    Russian, the flat 0.6% on the web, the 90% of tracks nobody heard, the
    falling share of paid releases carrying Ukrainian.
+   2b. **The mechanism with no figure says so.** The list of languages the
+   browser sends is the only one of the four the article prints no number for.
+   §7d records the search that established there is no public table for it, and
+   the prose states the absence in the paragraph that introduces the mechanism —
+   so a reader meets it as a property of the counter rather than as an omission.
 3. No causal claim beyond what a source states. Platforms publish these
    numbers and say they use them; that is documented. That any given
    localisation happened _because of_ a table is not, and the article does
@@ -599,12 +718,13 @@ a series that does not exist.
 
 ## Charts
 
-Seven scenes across two articles, all under `apps/marketing/src/article-assets/`,
+Eight scenes across two articles, all under `apps/marketing/src/article-assets/`,
 all reading their figures from `src/lib/article-figures.ts`.
 
 | Scene                      | File                        | Why this form                                                                                                                |
 | -------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `SteamUkrainianTrendChart` | `steam-ukrainian-trend.svg` | Line on a **real elapsed-time axis** — equal-spaced readings would draw a smooth climb and hide the stall                    |
+| `FirefoxUkraineChart`      | `firefox-ukraine.svg`       | **Three** lines on a real elapsed-time axis — the English one is the section's counter-figure, so it is drawn, not footnoted |
 | `CyberpunkLanguagesChart`  | `cyberpunk-languages.svg`   | **Grouped, not stacked**: the published "after" shares sum to 96% and stacking would mean inventing the remainder            |
 | `WikipediaUkraineChart`    | `wikipedia-ukraine.svg`     | **Stacked** — here the parts genuinely make a whole, and the point is that Ukrainian grew _out of_ the Russian share         |
 | `WebLanguagesTrendChart`   | `web-languages-trend.svg`   | Two lines on **one shared linear axis** — a second axis or a log scale would flatter the comparison by construction          |

@@ -312,19 +312,142 @@ struct AuditView: View {
 
     var body: some View {
 #if os(macOS)
-        // macOS has no navigation stack to push onto — `NavigationView` there is
-        // a split view, which would wrap this single pane in a sidebar — so the
-        // report replaces the composer and draws its own way back. iOS pushes;
-        // see `reportLink`.
-        if let run = model.openedRun {
-            AuditReportView(run: run, model: model, onBack: { model.openedRunID = nil })
-        } else {
-            composer
-        }
+        macBody
 #else
         composer
 #endif
     }
+
+#if os(macOS)
+
+    // MARK: - The Mac layout
+
+    /// macOS: compose on the left, results on the right.
+    ///
+    /// This replaces a swap. macOS has no navigation stack to push onto, so the
+    /// report used to REPLACE the composer and draw its own way back — a phone's
+    /// answer to a phone's constraint, reproduced in a window that never had the
+    /// constraint. The cost was that the thing you audited and the verdict on it
+    /// could not be seen at once: to re-read the URL you had just typed, or to
+    /// audit a second site after reading the first, you had to dismiss the
+    /// answer.
+    ///
+    /// The split is the other way round from the Detector's, and deliberately.
+    /// There the input is the big surface and the verdict is a line; here the
+    /// composer is a URL, a switch and a button, while the report is a document
+    /// with a matrix and its findings. The pane that needs the room gets it.
+    ///
+    /// `previousSection` moves into the right pane with the report it links to —
+    /// past audits and the open one are the same subject, and the left pane is
+    /// then only ever the question.
+    private var macBody: some View {
+        HSplitView {
+            composerPane
+                // A CEILING is what stops the drift. `HSplitView` re-negotiated
+                // this split every time the pane beside it changed identity —
+                // twice in a normal reading, composer to report and report back
+                // to the list — and each pass moved the divider RIGHT: 403 ->
+                // 470 -> 540pt, until the report was standing on its 400pt floor
+                // and a URL, a switch and a button had the wider half. An
+                // `idealWidth` does not prevent that (`HSplitView` ignores it);
+                // a `maxWidth` does, and 420 is about as wide as this pane's
+                // longest row — "Набір правил українського закону" and its
+                // switch — has any use for.
+                .frame(minWidth: 300, maxWidth: 420)
+            resultsPane
+                // Uncapped on purpose: whatever the composer does not take is
+                // the document's, which is the sentence above made structural.
+                .frame(minWidth: 400, maxWidth: .infinity)
+        }
+        // The platform's own size class, as on the Detector; see `movarFormMeasure`.
+        .movarActionSize()
+        .sheet(isPresented: confirmPresented) {
+            if let target = model.confirming {
+                AuditConfirmSheet(
+                    target: target,
+                    onCancel: { model.confirming = nil },
+                    onProceed: { model.confirmRun(target) })
+                    // Handed the accent again across the presentation; see
+                    // `movarDetailSheet`.
+                    .movarTint()
+            }
+        }
+        .movarDetailSheet(
+            isPresented: $showingAbout,
+            title: HostStrings.auditAboutTitle,
+            measure: .explainer
+        ) {
+            AuditAboutView()
+        }
+    }
+
+    /// The left pane: what to audit, under which rules, and the button that starts it.
+    ///
+    /// The run button sits on its own line at the foot of the pane rather than in
+    /// a bar across the whole window. The reasoning `composer` records still
+    /// holds — a filled button inside a grouped row draws its own fill over the
+    /// row's — but a pane has a foot of its own, so the button can be the pane's
+    /// action without spanning a window it does not own.
+    private var composerPane: some View {
+        VStack(spacing: 0) {
+            List {
+                targetSection
+                activitySection
+                packSection
+                explainerSection
+            }
+            .movarListStyle()
+            // Same reason as the Detector's rail: `InsetListStyle` reserves ~20pt
+            // above its first header, which reads as a band under the tab strip
+            // rather than as breathing room.
+            //
+            // Less of a pull than the rail takes, though. The rail is a pane of
+            // the split and clips against the window; this list is inside a
+            // `VStack` with the action bar below it, and at the rail's -14 its
+            // first header lost its top half off the pane's own edge.
+            .padding(.top, -6)
+            Divider()
+            HStack(spacing: 12) {
+                Spacer(minLength: 0)
+                Button(model.isRunning ? HostStrings.auditRunning : HostStrings.auditRun) {
+                    model.runTyped()
+                }
+                // `.borderedProminent` is what the root `.tint` reaches; a plain
+                // default button takes AppKit's system accent instead. Same trap
+                // the Detector's pane hit.
+                .movarProminentButtonStyle()
+                .keyboardShortcut(.defaultAction)
+                .disabled(model.isRunning)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+    }
+
+    /// The right pane: the report that is open, or the audits already run.
+    ///
+    /// Empty before the first audit, and that is the honest state — the same
+    /// argument `previousSection` already makes for having no empty-state row.
+    private var resultsPane: some View {
+        Group {
+            if let run = model.openedRun {
+                AuditReportView(run: run, model: model, onBack: { model.openedRunID = nil })
+            } else {
+                List {
+                    previousSection
+                }
+                .movarListStyle()
+                // The same pull the composer takes (`composerPane`), for the
+                // same reason and by the same amount. Without it `InsetListStyle`
+                // reserved its ~20pt here and not there, so "Аудит сайту" and
+                // "Попередні аудити" — the first thing in each pane, either side
+                // of one divider — sat 7pt out of step.
+                .padding(.top, -6)
+            }
+        }
+    }
+
+#endif
 
     private var composer: some View {
         List {
@@ -335,6 +458,10 @@ struct AuditView: View {
             explainerSection
         }
         .movarListStyle()
+        // Measured on iPad for the same reason the Detector's column is, and
+        // with more at stake: this list is short, so a stretched one was mostly
+        // a URL field the width of the screen. See `movarColumnMeasure`.
+        .movarColumnMeasure()
         // The run button is PINNED BELOW THE LIST rather than sitting in the
         // target section. A `.borderedProminent` button inside a grouped row
         // supplies its own fill, corner radius and inset on top of the ones the
@@ -358,9 +485,16 @@ struct AuditView: View {
                     target: target,
                     onCancel: { model.confirming = nil },
                     onProceed: { model.confirmRun(target) })
+                    // Handed the accent again across the presentation; see
+                    // `movarDetailSheet`.
+                    .movarTint()
             }
         }
-        .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.auditAboutTitle) {
+        .movarDetailSheet(
+            isPresented: $showingAbout,
+            title: HostStrings.auditAboutTitle,
+            measure: .explainer
+        ) {
             AuditAboutView()
         }
     }
@@ -384,6 +518,7 @@ struct AuditView: View {
             Text(HostStrings.auditTitle)
         } footer: {
             movarUnhyphenated(HostStrings.auditIntro)
+                .movarWrapping()
         }
     }
 
@@ -410,6 +545,7 @@ struct AuditView: View {
                 .accessibilityElement(children: .combine)
             } footer: {
                 Text(HostStrings.auditRunningNote)
+                    .movarWrapping()
             }
         case .failed(let message):
             Section {
@@ -464,6 +600,7 @@ struct AuditView: View {
             }
         } footer: {
             movarUnhyphenated(HostStrings.auditUaPackHint)
+                .movarWrapping()
         }
     }
 
@@ -494,6 +631,7 @@ struct AuditView: View {
                 // case against a company needs to know this BEFORE they close the
                 // app, not after.
                 Text(HostStrings.auditNotStored)
+                    .movarWrapping()
             }
         }
     }
@@ -644,7 +782,7 @@ struct AuditConfirmSheet: View {
         // scrolled with the content, so neither choice can end up below the fold
         // at a large text size — a confirmation whose cancel is off screen is not
         // a confirmation.
-        MovarSheetContainer(title: HostStrings.auditConfirmTitle) {
+        MovarSheetContainer(title: HostStrings.auditConfirmTitle, measure: .confirmation) {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
@@ -666,11 +804,13 @@ struct AuditConfirmSheet: View {
                     .accessibilityElement(children: .combine)
                 } footer: {
                     movarUnhyphenated(HostStrings.auditConfirmBody(AuditModel.hostOf(target)))
+                        .movarWrapping()
                 }
 
                 Section {
                     ForEach(HostStrings.auditConfirmPoints, id: \.self) { point in
                         movarUnhyphenated(point)
+                            .movarWrapping()
                     }
                 } footer: {
                     // Says the asking is once per session, so pressing through
@@ -679,6 +819,7 @@ struct AuditConfirmSheet: View {
                     // choices, and a sentence between them and the content
                     // would read as a caption on the button.
                     Text(HostStrings.auditConfirmOnce)
+                        .movarWrapping()
                 }
             }
             .movarListStyle()

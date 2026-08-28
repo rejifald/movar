@@ -7,6 +7,7 @@ import {
   collectNetwork,
   createPageSet,
   createProber,
+  documentHeadersOf,
   LOCAL_VANTAGE,
   parseLinkHeader,
 } from './node';
@@ -18,6 +19,7 @@ import { evaluate } from '../evaluate';
 import type { Report, RuleResult } from '../report';
 import { CORE_RULESET } from '../ruleset';
 import { textNodeDenominator } from '../text-samples';
+import { makeProbe } from '../../test/fixtures';
 
 /** Narrow to the network branch, so assertions never sit inside a conditional. */
 function networkSource(evidence: Evidence): NetworkSource {
@@ -75,6 +77,13 @@ function routed(routes: Readonly<Record<string, Stub>>): FetchLike {
     if (stub === undefined) throw new Error(`unstubbed ${lang} ${url}`);
     return respond(stub);
   };
+}
+
+/** Every `Cookie` header a set of requests carried, so a failure names it. */
+function cookiesOn(
+  requests: readonly { readonly headers: Readonly<Record<string, string>> }[],
+): readonly string[] {
+  return requests.flatMap((request) => request.headers['cookie'] ?? []);
 }
 
 /** Wraps a `FetchLike` to record every URL asked for, in order. */
@@ -251,6 +260,8 @@ describe('collectNetwork', () => {
     const source = networkSource(evidence);
     expect(source.vantage).toEqual(LOCAL_VANTAGE);
     expect(source.robots).toBe('not-applicable');
+    // ADR §4: no jar unless one was asked for, and the run says which it was.
+    expect(source.cookies).toBe('cold');
   });
 
   it('never adjudicates a blocked interstitial into a page', async () => {
@@ -815,6 +826,380 @@ describe('collectNetwork', () => {
   });
 
   /**
+   * The warm cookie leg, collector to verdict.
+   *
+   * `core/serving-cookie-overrides-header` had been in the catalogue since
+   * family C landed without ever adjudicating anything: the prober could keep a
+   * jar, but `collectNetwork` exposed no way to ask for one and the CLI had no
+   * flag, so every real run read `not-applicable` and the rule was unreachable
+   * from any command. Driven through `CORE_RULESET` rather than asserted at the
+   * probe, because that is the shape of the defect — the collector's fields all
+   * looked right while the verdict a site owner reads never moved.
+   */
+  describe('the warm cookie leg', () => {
+    const COOKIE_RULE = 'core/serving-cookie-overrides-header';
+    const ALTERNATES =
+      '<link rel="alternate" hreflang="uk" href="/uk/">' +
+      '<link rel="alternate" hreflang="ru" href="/">';
+    const RU_HOME = `<html lang="ru"><head>${ALTERNATES}</head><body><p>русское тело</p></body></html>`;
+    const UK_HOME = `<html lang="uk"><head>${ALTERNATES}</head><body><p>українське тіло</p></body></html>`;
+
+    interface Sent {
+      readonly url: string;
+      readonly headers: Readonly<Record<string, string>>;
+    }
+
+    /**
+     * A site that decides by cookie — the defect the rule is written for.
+     *
+     * Cookie-free, it honours `Accept-Language`. Once its own `lang=ru` comes
+     * back to it, it answers Russian whatever the header says. And it sets that
+     * cookie on the very first visit, which is why the warm leg has to open
+     * with a request that states no preference: warmed by `uk`, the jar would
+     * only ever hold what our own header talked it into.
+     */
+    function cookieDecidedSite(sent: Sent[]): FetchLike {
+      return async (url, init) => {
+        await tick();
+        sent.push({ url, headers: init.headers });
+        if (url === HOME_ROBOTS) return respond({ status: 200, body: ALLOW_ALL });
+        if (url === UK) return respond({ status: 200, body: UK_PAGE });
+        if (url !== HOME) throw new Error(`unstubbed ${url}`);
+        const stored = init.headers['cookie'] !== undefined;
+        const honoured = !stored && init.headers['accept-language'] === 'uk';
+        return respond({
+          status: 200,
+          headers: { 'set-cookie': 'lang=ru; Path=/' },
+          body: honoured ? UK_HOME : RU_HOME,
+        });
+      };
+    }
+
+    async function collectWarm(sent: Sent[] = []): Promise<Evidence> {
+      return collectNetwork({
+        url: HOME,
+        headers: [null, 'uk', 'ru'],
+        warm: true,
+        fetchImpl: cookieDecidedSite(sent),
+      });
+    }
+
+    /** The same site under `--warm --follow`, against one stated ceiling. */
+    async function collectWarmAndFollow(budget: number): Promise<Evidence> {
+      return collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        warm: true,
+        followDeclaredTargets: true,
+        budget,
+        fetchImpl: cookieDecidedSite([]),
+      });
+    }
+
+    /** A leg is `(url, vantage, cookieState)`, so the warm one is a second leg. */
+    it('collects a warm matrix beside the cold one, each stamped as its own leg', async () => {
+      const evidence = await collectWarm();
+      const { probes, cookies } = networkSource(evidence);
+      const headersOf = (state: string): (string | null)[] =>
+        probes.filter((probe) => probe.cookieState === state).map((probe) => probe.acceptLanguage);
+
+      expect(cookies).toBe('warm');
+      expect(headersOf('cold')).toEqual([null, 'uk', 'ru']);
+      expect(headersOf('warm')).toEqual([null, 'uk', 'ru']);
+      // The cold matrix is untouched, so the other six family-C rules still
+      // read a differential nothing but the header varied in.
+      expect(deriveCapabilities(evidence).has('matrix')).toBe(true);
+    });
+
+    it('opens the warm leg with a request that states no preference, and no cookie', async () => {
+      const sent: Sent[] = [];
+      await collectWarm(sent);
+      const [cold, warm] = [sent.slice(0, 3), sent.slice(3)];
+
+      expect(cold.every((request) => request.headers['cookie'] === undefined)).toBe(true);
+      expect(warm[0]?.headers['accept-language']).toBeUndefined();
+      expect(warm[0]?.headers['cookie']).toBeUndefined();
+      // …and from there the session is the site's own choice, carried forward.
+      expect(warm[1]?.headers['cookie']).toBe('lang=ru');
+      expect(warm[1]?.headers['accept-language']).toBe('uk');
+    });
+
+    /**
+     * The no-preference request is **hoisted**, not assumed to be there.
+     *
+     * Every fixture and the default matrix already open with `null`, so the
+     * whole defensive half of `warmOrderOf` sat untested: replacing its body
+     * with `return headers` left the suite green. Only an order that lacks a
+     * leading `null` can show what the hoist is for — without it the leg opens
+     * with `Accept-Language: uk`, the jar holds whatever cookie *our own*
+     * header talked the site into setting, and the warm reading the rule is
+     * handed answers a question nobody asked.
+     */
+    it('opens with no preference even when the caller listed none', async () => {
+      const sent: Sent[] = [];
+      await collectNetwork({
+        url: HOME,
+        headers: ['uk', 'ru'],
+        warm: true,
+        fetchImpl: cookieDecidedSite(sent),
+      });
+      // Two cold legs, `uk` then `ru`; everything after them is the warm leg.
+      const warm = sent.slice(2);
+
+      expect(warm.map((request) => request.headers['accept-language'])).toEqual([
+        undefined,
+        'uk',
+        'ru',
+      ]);
+      expect(warm[0]?.headers['cookie']).toBeUndefined();
+    });
+
+    /**
+     * `options.prober` is an exported seam, and a caller can hand in a prober
+     * already built warm without ever setting the flag. Reading the posture off
+     * `options.warm` alone stamped `cold` on that bundle — not a cautious
+     * reading but a false one, contradicted by every probe beneath it.
+     */
+    it('says warm for a prober handed in warm, flag or no flag', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        prober: createProber({
+          vantage: LOCAL_VANTAGE,
+          cookieState: 'warm',
+          fetchImpl: cookieDecidedSite([]),
+        }),
+      });
+      const { probes, cookies } = networkSource(evidence);
+
+      expect(probes.map((probe) => probe.cookieState)).toEqual(['warm', 'warm']);
+      expect(cookies).toBe('warm');
+    });
+
+    /**
+     * The warm leg runs **before** declared-target expansion, so one ceiling
+     * too low for both costs the run its `traversal` capability and the whole
+     * family of rules that reads it.
+     *
+     * That order is a decision rather than where the call landed: `--warm` is
+     * an opt-in naming one rule nothing else in the bundle can answer, and
+     * expansion reads the page set the matrices built — this leg's pages
+     * included — so running it first would spend the budget on targets
+     * discovered from half the pages. Pinned so a future reordering is
+     * deliberate; what the run loses, it loses visibly, as `not-collected`
+     * under an absent capability rather than as a pass.
+     */
+    it('spends a tight budget on the warm leg before expanding to declared targets', async () => {
+      const starved = await collectWarmAndFollow(4);
+      expect(networkSource(starved).probes.map((probe) => probe.cookieState)).toEqual([
+        'cold',
+        'cold',
+        'warm',
+        'warm',
+      ]);
+      expect(deriveCapabilities(starved).has('traversal')).toBe(false);
+
+      // …and it is the ceiling doing that, not the fixture: given room for
+      // both, the expansion still happens.
+      expect(deriveCapabilities(await collectWarmAndFollow(8)).has('traversal')).toBe(true);
+    });
+
+    it('lets core/serving-cookie-overrides-header reach a verdict at last', async () => {
+      const result = ruleResult(evaluate(await collectWarm(), CORE_RULESET), COOKIE_RULE);
+
+      expect(result.verdict).toBe('warn');
+      expect(result.findings).toHaveLength(1);
+      expect(result.findings[0]?.grounding).toBe('observed');
+      expect(result.findings[0]?.summary).toContain(
+        'a stored cookie is taking precedence over the stated uk preference',
+      );
+    });
+
+    /**
+     * The control: the same site, the same markup, no `--warm`. The finding
+     * above is the flag's doing rather than the fixture's, and a cold run still
+     * refuses to guess — `not-applicable`, never a pass.
+     */
+    it('leaves the same site not-applicable without the flag', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk', 'ru'],
+        fetchImpl: cookieDecidedSite([]),
+      });
+      const result = ruleResult(evaluate(evidence, CORE_RULESET), COOKIE_RULE);
+
+      expect(networkSource(evidence).cookies).toBe('cold');
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toContain('every probe in this run was cold');
+    });
+
+    /**
+     * Only the URL the operator typed goes warm. A cookie this run collected is
+     * never presented to `robots.txt` or to a declared target — those stay the
+     * unauthenticated page view the network posture documents, and their probes
+     * say so.
+     */
+    it('keeps robots.txt and the declared targets cold', async () => {
+      const sent: Sent[] = [];
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        warm: true,
+        followDeclaredTargets: true,
+        fetchImpl: cookieDecidedSite(sent),
+      });
+      const elsewhere = sent.filter((request) => request.url !== HOME);
+
+      expect(elsewhere.map((request) => request.url)).toContain(HOME_ROBOTS);
+      expect(elsewhere.every((request) => request.headers['cookie'] === undefined)).toBe(true);
+      expect(
+        networkSource(evidence)
+          .probes.filter((probe) => probe.url !== HOME)
+          .every((probe) => probe.cookieState === 'cold'),
+      ).toBe(true);
+    });
+
+    /**
+     * A budget too small for both buys the cold matrix, which is the right way
+     * round — it is the leg the other six family-C rules are adjudicated from.
+     *
+     * What must not happen is the run then reading as a cold one. Every probe
+     * it kept *is* cold, so the probes alone can no longer tell "nobody asked"
+     * from "we asked and got nothing", and answering the first would hand the
+     * collector's shortfall to the operator as their own choice. The posture on
+     * `NetworkSource` is the only place that difference survives, and this is
+     * what it buys.
+     */
+    it('spends a short budget on the cold matrix and still says warm was asked for', async () => {
+      const evidence = await collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        warm: true,
+        budget: 2,
+        fetchImpl: cookieDecidedSite([]),
+      });
+      const { probes, cookies } = networkSource(evidence);
+      const result = ruleResult(evaluate(evidence, CORE_RULESET), COOKIE_RULE);
+
+      expect(probes.map((probe) => probe.cookieState)).toEqual(['cold', 'cold']);
+      expect(cookies).toBe('warm');
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.notApplicableReason).toContain('asked for a warm cookie leg');
+    });
+
+    /**
+     * A session is one host's, not the run's.
+     *
+     * The jar outliving a single probe is what makes a warm leg warm, and it is
+     * also what turns a flat `name → value` map into a courier: a cookie set by
+     * whichever origin a redirect happened to end on would go out on every
+     * later request the run made, to any host, over any scheme. That is a
+     * privacy defect rather than an untidiness — this tool fetches third-party
+     * sites that never agreed to be audited, and the three shapes below are the
+     * three ways the courier does damage: a stranger's cookie handed to the
+     * site the operator typed, the typed site's cookie handed to a stranger,
+     * and an `https`-only cookie put on the wire in clear.
+     *
+     * Each needs the jar to survive a probe, so each is a leak the run-scoped
+     * jar introduced and the per-probe one could not reach.
+     */
+    describe('keeps a cookie with the host that set it', () => {
+      const TYPED = 'https://site.example/';
+      const CONSENT = 'https://consent.thirdparty.example/';
+      const BEACON = 'https://analytics.thirdparty.example/beacon';
+      /** The same host, one scheme down — a downgrade redirect, which is ordinary. */
+      const INSECURE = 'http://site.example/insecure';
+      const PAGE = '<html lang="en"><head></head><body><p>english body</p></body></html>';
+
+      async function warmRun(fetchImpl: FetchLike): Promise<Sent[]> {
+        const sent: Sent[] = [];
+        await collectNetwork({
+          url: TYPED,
+          headers: [null, 'uk'],
+          warm: true,
+          fetchImpl: async (url, init) => {
+            sent.push({ url, headers: init.headers });
+            return fetchImpl(url, init);
+          },
+        });
+        return sent;
+      }
+
+      /**
+       * The typed URL bounces through a consent host, which sets its own
+       * cookie. No browser would ever show that cookie to `site.example`.
+       */
+      it('does not hand a third party cookie back to the site the operator typed', async () => {
+        const sent = await warmRun(async (url) => {
+          await tick();
+          if (url === TYPED) return respond({ status: 302, headers: { location: CONSENT } });
+          if (url !== CONSENT) throw new Error(`unstubbed ${url}`);
+          return respond({
+            status: 200,
+            headers: { 'set-cookie': 'CONSENT=PENDING+abc; Path=/' },
+            body: PAGE,
+          });
+        });
+
+        const typed = sent.filter((request) => request.url === TYPED);
+        expect(typed.length).toBeGreaterThan(1);
+        expect(cookiesOn(typed)).toEqual([]);
+      });
+
+      /**
+       * And the other direction: the typed origin's own session cookie must not
+       * ride along to the analytics host its `uk` handling redirects to.
+       */
+      it('does not carry the typed origin cookie onward to a foreign origin', async () => {
+        const sent = await warmRun(async (url, init) => {
+          await tick();
+          if (url === BEACON) return respond({ status: 200, body: PAGE });
+          if (url !== TYPED) throw new Error(`unstubbed ${url}`);
+          // The hand-off sets nothing itself, so only a jar that outlived the
+          // earlier probe can put a cookie on this chain.
+          if (init.headers['accept-language'] === 'uk') {
+            return respond({ status: 302, headers: { location: BEACON } });
+          }
+          return respond({
+            status: 200,
+            headers: { 'set-cookie': 'sid=typed-origin-secret; Path=/' },
+            body: PAGE,
+          });
+        });
+
+        const foreign = sent.filter((request) => request.url === BEACON);
+        expect(foreign).not.toHaveLength(0);
+        expect(cookiesOn(foreign)).toEqual([]);
+      });
+
+      /**
+       * `Secure` is the one attribute whose whole content is "not over this
+       * scheme". Replaying such a cookie on an `http` hop puts a value the site
+       * said must stay encrypted in front of anyone on the path.
+       */
+      it('does not replay a Secure cookie over plain http', async () => {
+        const sent = await warmRun(async (url, init) => {
+          await tick();
+          if (url === INSECURE) return respond({ status: 200, body: PAGE });
+          if (url !== TYPED) throw new Error(`unstubbed ${url}`);
+          if (init.headers['accept-language'] === 'uk') {
+            return respond({ status: 302, headers: { location: INSECURE } });
+          }
+          return respond({
+            status: 200,
+            headers: { 'set-cookie': 'sid=https-only; Path=/; Secure; HttpOnly' },
+            body: PAGE,
+          });
+        });
+
+        const inClear = sent.filter((request) => request.url.startsWith('http://'));
+        expect(inClear).not.toHaveLength(0);
+        expect(cookiesOn(inClear)).toEqual([]);
+      });
+    });
+  });
+
+  /**
    * The pathological chain, end to end — collector to verdict.
    *
    * `probe.ts` walks a chain hop by hop precisely because `core/switch-bounces`
@@ -899,19 +1284,255 @@ describe('collectNetwork', () => {
     });
 
     /**
-     * Seeing the chain is the point; turning the report green is not. The `uk`
-     * alternate is genuinely absent from the collected page set, and that
-     * `fail` is the honest reading of a target eleven redirects never served.
+     * Seeing the chain is the point; turning the report green is not — and this
+     * used to read the second as licence for the first. The `uk` alternate is
+     * absent from the collected page set because the collector stopped walking
+     * at hop eleven, so `core/hreflang-target-unresolvable`'s `declared` **fail**
+     * — _"the declared alternate cannot be reached"_ — was the collector's own
+     * ceiling published as a fact about the site, in the same report as the
+     * `switch-bounces` warn saying reachability _"was not determined"_.
+     *
+     * It is withheld now, and withholding is not green: the rule reads
+     * `not-applicable` rather than `pass`, so nothing here says the target
+     * resolves either. The warn below is what the run actually observed.
      */
-    it('leaves core/hreflang-target-unresolvable failing on the same target', async () => {
-      const evidence = await collectDrill();
+    it('withholds core/hreflang-target-unresolvable on the same target', async () => {
+      const report = evaluate(await collectDrill(), CORE_RULESET);
+      const result = ruleResult(report, 'core/hreflang-target-unresolvable');
+
+      expect(result.findings).toEqual([]);
+      expect(result.verdict).toBe('not-applicable');
+      expect(result.verdict).not.toBe('pass');
+      // Both pages declare the same unwalked `uk` target, so neither adjudicates.
+      expect(result.pagesAdjudicated).toBe(0);
+      expect(ruleResult(report, 'core/switch-bounces').verdict).toBe('warn');
+    });
+  });
+
+  /**
+   * A chain the **budget** ended, rather than the hop cap.
+   *
+   * `spend()` sits inside the per-hop fetch, so one `probe()` costs 1 to
+   * `maxHops + 1` requests and a redirecting declared target can reach the
+   * ceiling on a hop nobody could have predicted. `RequestBudgetExhaustedError`
+   * then came out of `collectNetwork` and took the whole audit with it — a user
+   * who set a tight `--budget` on a site with a redirecting alternate got a
+   * crash instead of a partial report, and the throw depended on hop counts
+   * they had no way to predict. Adjudicated through `CORE_RULESET`, not just
+   * asserted on the probe: a run that reports nothing is exactly what this is
+   * about.
+   */
+  describe('a chain the request budget ended', () => {
+    /** Two declared targets: one that serves, and one that redirects forever. */
+    const TWO_TARGETS_PAGE =
+      '<html lang="en"><head><link rel="alternate" hreflang="de" href="/de/">' +
+      '<link rel="alternate" hreflang="uk" href="/uk/"></head>' +
+      '<body><p>english body</p></body></html>';
+
+    /** Each hop a URL never seen before, so only a ceiling can end the walk. */
+    function endlessUkHops(): Record<string, Stub> {
+      const routes: Record<string, Stub> = {};
+      for (let n = 0; n <= 8; n += 1) {
+        const from = n === 0 ? UK : `${UK}${n}`;
+        routes[from] = { status: 302, headers: { location: `/uk/${n + 1}` } };
+      }
+      return routes;
+    }
+
+    const ROUTES: Record<string, Stub> = {
+      [HOME]: { status: 200, body: TWO_TARGETS_PAGE },
+      [HOME_ROBOTS]: { status: 200, body: ALLOW_ALL },
+      [DE]: { status: 200, body: DE_PAGE },
+      ...endlessUkHops(),
+    };
+
+    /**
+     * Five requests buys `/` (1), `example.com/robots.txt` (2), the `de`
+     * alternate (3) and two hops of the `uk` one (4, 5) — the walk then wants a
+     * sixth and has none. The `de` target is what grants `traversal`, so the
+     * switch rules are genuinely adjudicated rather than `not-collected`.
+     */
+    async function collectOnFive(log?: string[]): Promise<Evidence> {
+      const inner = routed(ROUTES);
+      return collectNetwork({
+        url: HOME,
+        headers: [null],
+        followDeclaredTargets: true,
+        budget: 5,
+        fetchImpl: log === undefined ? inner : recording(log, inner),
+      });
+    }
+
+    it('reports what it collected instead of throwing out of collectNetwork', async () => {
+      const evidence = await collectOnFive();
+      const probe = networkSource(evidence).probes.find((entry) => entry.url === UK);
+
+      expect(evidence.pages.map((page) => page.url)).toEqual([HOME, DE]);
+      expect(probe?.outcome).toBe('ok');
+      expect(probe?.redirectChain).toHaveLength(2);
+      // The last hop really did answer 302; `0` would claim no response at all.
+      expect(probe?.status).toBe(302);
+    });
+
+    /**
+     * Marked by the same flag the hop cap sets, so every rule that already asks
+     * "did this walk see the end?" is right about this chain without being
+     * taught a second question. `core/switch-bounces` consequently warns off
+     * the hops it did see — never a bounce, never a `pass`.
+     */
+    it('hands core/switch-bounces a truncated chain, not a silent pass', async () => {
+      const evidence = await collectOnFive();
+      const probe = networkSource(evidence).probes.find((entry) => entry.url === UK);
+      const result = ruleResult(evaluate(evidence, CORE_RULESET), 'core/switch-bounces');
+      const unfinished = result.findings.filter((finding) => finding.summary.includes('uk'));
+
+      expect(probe?.redirectChainTruncated).toBe(true);
+      expect(result.verdict).toBe('warn');
+      expect(unfinished).toHaveLength(1);
+      expect(unfinished[0]?.grounding).toBe('observed');
+      expect(unfinished[0]?.summary).toContain('2 redirects');
+      // The collector stopped short of wherever this ends, so the finding must
+      // not describe a landing it never saw.
+      expect(unfinished[0]?.summary).not.toMatch(/lands on/u);
+    });
+
+    /** Every request the budget had, and not one past it. */
+    it('spends the whole budget and stops exactly there', async () => {
+      const fetched: string[] = [];
+      await collectOnFive(fetched);
+      expect(fetched).toEqual([HOME, HOME_ROBOTS, DE, UK, `${UK}1`]);
+    });
+
+    /**
+     * The cost of finishing the run instead of throwing: a report now *exists*
+     * where none did, and every rule in it is answering about a site whose
+     * `/uk/` nobody finished following.
+     *
+     * `core/hreflang-target-unresolvable` resolves a declared target against
+     * the collected page set and a truncated chain produces no page, so it read
+     * the operator's `--budget` as the site's defect and published a `declared`
+     * **fail** — "absent from the collected page set" — in the same report as
+     * the `switch-bounces` warn saying reachability was not determined. Two
+     * findings contradicting each other, the accusing one carrying the verdict.
+     * The same hazard is older than the budget path: an 11-hop chain sets the
+     * same flag and failed here too.
+     */
+    it('withholds the core/hreflang-target-unresolvable fail it never observed', async () => {
+      const report = evaluate(await collectOnFive(), CORE_RULESET);
+      const unresolvable = ruleResult(report, 'core/hreflang-target-unresolvable');
+      const bounces = ruleResult(report, 'core/switch-bounces');
+
+      expect(unresolvable.findings).toEqual([]);
+      expect(unresolvable.verdict).not.toBe('fail');
+      // ...and withholding is not passing. Silence here would say every
+      // declared target resolves, of a page whose `uk` target was followed two
+      // hops and no further — `not-collected` is never `pass`, and neither is
+      // an accusation the collector simply could not gather the evidence for.
+      expect(unresolvable.verdict).not.toBe('pass');
+      // The honest statement about that chain survives, in the rule that saw it.
+      expect(bounces.verdict).toBe('warn');
+      expect(bounces.findings.map((finding) => finding.summary)).toContainEqual(
+        expect.stringContaining('was not determined'),
+      );
+    });
+  });
+
+  /**
+   * A redirect's own `Link` header belongs to the redirect, not to the page it
+   * points at.
+   *
+   * `responseHeaders` is deliberately the FIRST response's — `Vary` is about
+   * the resource a shared cache stores for the probed URL — and it was being
+   * folded into the digest of the document at the END of the chain. Two
+   * resources' declarations in one `DocumentEvidence`, which
+   * `core/inventory-sources-disagree` then published as a defect of the site,
+   * in both directions at once. Neither resource disagrees with itself.
+   */
+  describe('a redirect that carries its own Link alternates', () => {
+    const REDIRECT_LINK = `<${DE}>; rel="alternate"; hreflang="de"`;
+    /** The destination declares `uk` and nothing else. Its own markup, its own inventory. */
+    const UK_ONLY_PAGE =
+      '<html lang="uk"><head><link rel="alternate" hreflang="uk" href="/uk/"></head>' +
+      '<body><p>українське тіло сторінки</p></body></html>';
+
+    async function collectRedirected(destination: Stub): Promise<Evidence> {
+      return collectNetwork({
+        url: HOME,
+        headers: [null],
+        fetchImpl: routed({
+          [HOME]: {
+            status: 302,
+            headers: { location: UK, link: REDIRECT_LINK, 'content-language': 'de' },
+          },
+          [UK]: destination,
+        }),
+      });
+    }
+
+    it('digests the destination with its own inventory, not the redirect’s', async () => {
+      const evidence = await collectRedirected({ status: 200, body: UK_ONLY_PAGE });
+      const page = firstPage(evidence);
+
+      expect(page.url).toBe(UK);
+      expect(page.document.alternates.map((alternate) => alternate.hreflang)).toEqual(['uk']);
+      expect(page.document.alternates.every((alternate) => alternate.source === 'link')).toBe(true);
+      // The same defect one field over: `Content-Language` is a head
+      // declaration too, and `core/lang-contradicts-content-language` reads it.
+      expect(page.document.head?.declarations.map((entry) => entry.kind)).not.toContain(
+        'content-language',
+      );
+    });
+
+    /** The exact reproduction from the report. Two `fail`s, one per direction. */
+    it('publishes no core/inventory-sources-disagree finding', async () => {
+      const evidence = await collectRedirected({ status: 200, body: UK_ONLY_PAGE });
       const result = ruleResult(
         evaluate(evidence, CORE_RULESET),
-        'core/hreflang-target-unresolvable',
+        'core/inventory-sources-disagree',
       );
 
-      expect(result.verdict).toBe('fail');
-      expect(result.findings[0]?.summary).toMatch(/hreflang="uk".*cannot be reached/u);
+      expect(result.findings).toEqual([]);
+      expect(result.verdict).not.toBe('fail');
+    });
+
+    /**
+     * The probe keeps both halves, and each caller names which it means.
+     * `core/serving-vary-missing` asks about the redirect a shared cache stores
+     * for `/`; the digest asks about the document `/uk/` served.
+     */
+    it('keeps the first response’s headers on the probe for Vary semantics', async () => {
+      const evidence = await collectRedirected({ status: 200, body: UK_ONLY_PAGE });
+      const probe = networkSource(evidence).probes[0];
+
+      expect(probe?.responseHeaders['link']).toBe(REDIRECT_LINK);
+      expect(probe?.finalResponseHeaders?.['link']).toBeUndefined();
+    });
+
+    /**
+     * The other direction, so the fix is "read the right resource" rather than
+     * "read no headers on a redirect": a `Link` header the DESTINATION serves
+     * is that document's own declaration and is folded in exactly as before.
+     */
+    it('still folds in the destination’s own Link header', async () => {
+      const evidence = await collectRedirected({
+        status: 200,
+        // A DIFFERENT `hreflang` from the redirect's, which is the whole test:
+        // give both resources the same header and the assertion passes off
+        // either one, leaving the direction the fix is about unpinned.
+        headers: { link: '<https://example.com/fr/>; rel="alternate"; hreflang="fr"' },
+        body: UK_ONLY_PAGE,
+      });
+      const page = firstPage(evidence);
+
+      expect(page.document.alternates.map((alternate) => alternate.hreflang).toSorted()).toEqual([
+        'fr',
+        'uk',
+      ]);
+      expect(
+        page.document.alternates.find((alternate) => alternate.hreflang === 'fr')?.source,
+      ).toBe('header');
+      // The redirect declared `de`, and the redirect is not this document.
+      expect(page.document.alternates.map((alternate) => alternate.hreflang)).not.toContain('de');
     });
   });
 });
@@ -983,6 +1604,41 @@ describe('parseLinkHeader', () => {
 
   it('is empty for an absent header', () => {
     expect(parseLinkHeader('')).toEqual([]);
+  });
+});
+
+/**
+ * Which of a probe's two header bags describes the **document** it produced.
+ *
+ * The kernel adjudicates bundles from collectors it has never seen, and the
+ * Safari conformer records only the first response's today — so the "a chain
+ * redirected and nobody wrote down where it ended" case is a live shape, not a
+ * museum piece, and it must fold in nothing rather than the redirect's.
+ */
+describe('documentHeadersOf', () => {
+  const LINK = '<https://example.com/de/>; rel="alternate"; hreflang="de"';
+
+  it('reads the first response’s headers when the chain never redirected', () => {
+    const probe = makeProbe({ responseHeaders: { link: LINK }, redirectChain: [] });
+    expect(documentHeadersOf(probe)).toEqual({ link: LINK });
+  });
+
+  it('reads the destination’s when the chain redirected', () => {
+    const probe = makeProbe({
+      responseHeaders: { link: LINK },
+      finalResponseHeaders: { link: 'none' },
+      redirectChain: [{ url: HOME, status: 302, location: UK }],
+    });
+    expect(documentHeadersOf(probe)).toEqual({ link: 'none' });
+  });
+
+  /** A pre-v6 bundle: the chain redirected and nobody recorded the end of it. */
+  it('answers undefined rather than the redirect’s, on a bundle without them', () => {
+    const probe = makeProbe({
+      responseHeaders: { link: LINK },
+      redirectChain: [{ url: HOME, status: 302, location: UK }],
+    });
+    expect(documentHeadersOf(probe)).toBeUndefined();
   });
 });
 

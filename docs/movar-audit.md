@@ -133,7 +133,9 @@ survives the first question about how a phone sets a request header.
   evidence, and rules needing it degrade honestly instead of crashing. The one bump that
   added no field is v5, where a text sample's `nodePath` began pointing at the passage
   rather than at the element around it; nothing recomputes a stored bundle, so the version
-  is what says which of the two a path in front of you was written under.
+  is what says which of the two a path in front of you was written under. v6 added
+  `source.cookies`, the run's cookie posture — what the run _asked_ of cookies, which is
+  not the same claim as what any probe's `cookieState` came back as.
 
 ### 4. Method
 
@@ -279,6 +281,31 @@ Wording it as an absolute today would mean retracting it later in front of
 - **`robots.txt`**: ignored for the single URL the user typed (that is a page view);
   **honoured for site-scope expansion** (that is automated multi-page access);
   `--ignore-robots` for audits of a site you own.
+- **Cold by default**, per §4: no cookie jar unless `--warm` asks for one, and the choice
+  is stamped on the evidence (`source.cookies`) as well as on every probe. A warm leg is
+  collected _beside_ the cold matrix, never instead of it — a leg is
+  _(url × vantage × cookie state)_, so the two are different legs, and
+  `core/serving-cookie-overrides-header` is the rule that reads the pair. Only the URL the
+  user typed goes warm: `robots.txt` and declared targets stay cold, so no cookie the run
+  collected is ever presented to an origin nobody typed. **The order under one budget is
+  cold matrix, then warm leg, then `--follow`'s expansion**, so `--warm --follow` under a
+  tight `--budget` can spend the ceiling before the expansion and leave the run without
+  `traversal`. That is the intended order — `--warm` names a rule nothing else in the
+  bundle can answer, and expansion reads the pages both matrices built — and what the run
+  loses it loses visibly, as `not-collected` under an absent capability rather than as a
+  pass.
+- **A warm run's jar is scoped to the host that set each cookie**, and to `https` where the
+  cookie said `Secure`. A jar that outlives one probe and answers every request from a
+  single pile is a courier: a cookie a redirect collected from a consent or analytics
+  origin goes back out to the site the user typed, and the typed site's own session goes
+  out to strangers. Matching is on the **exact** host rather than the registrable domain —
+  the latter needs a public-suffix list to be correct, and a hand-rolled guess fails open
+  across a whole registry suffix, while exact matching can only withhold. `Domain` is read
+  only to refuse a cookie the responding host may not set; `Path` and an already-past
+  expiry are honoured; every judgement resolves toward sending less, because under-sending
+  costs one rule a reading and over-sending puts somebody's data on the wire. `CookieJar`
+  in `src/collect/probe.ts` states what is deliberately not honoured and why it costs
+  nothing.
 - **A future `relay` is an open-proxy/SSRF surface** and must be designed as one when it
   lands: scheme allowlist, private-range blocking, per-account rate limits, no arbitrary
   response passthrough. It is infrastructure for Movar's own client, never a general proxy

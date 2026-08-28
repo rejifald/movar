@@ -47,6 +47,21 @@
  *   replays exactly as it always did — this version is what tells a reader
  *   which of the two contracts the paths in front of them were written under,
  *   and therefore whether two equal paths mean one passage or several.
+ * - **v6** added {@link ProbeEvidence.finalResponseHeaders}, the headers of the
+ *   response that actually served the body — {@link ProbeEvidence.responseHeaders}
+ *   being deliberately the **first** response's. Optional, and written only on a
+ *   chain that redirected, so absent means one of two things a reader can tell
+ *   apart from `redirectChain` alone: an empty chain, where the first response
+ *   *is* the serving one, or a pre-v6 collector that never recorded the
+ *   destination's. In that second case a destination document's own header
+ *   declarations are simply not collected, which is the honest degradation —
+ *   before this field they were collected from the wrong resource.
+ * - **v6** added {@link NetworkSource.cookies}, the run's cookie posture.
+ *   Optional, and absent means "this collector declared none" rather than
+ *   "cold": every probe has always carried its own {@link CookieState}, so a
+ *   pre-v6 bundle still says what each request was — what it cannot say is what
+ *   the run *asked for*, which is the difference between a cold run and a warm
+ *   one whose warm leg came back blocked.
  *
  *   Note the rules that read these fields fork on the field being `undefined`,
  *   not on this number — nothing in the package branches on `schemaVersion`.
@@ -58,7 +73,7 @@
  * report has exactly one producer and its fields are already their own
  * provenance. See that constant for the full argument.
  */
-export const EVIDENCE_SCHEMA_VERSION = 5;
+export const EVIDENCE_SCHEMA_VERSION = 6;
 
 /**
  * A stable pointer to one place inside a collected page (a CSS-ish path).
@@ -121,6 +136,26 @@ export interface VantageCountry {
 /** How `robots.txt` was treated for this run. */
 export type RobotsPosture = 'honoured' | 'ignored' | 'not-applicable';
 
+/**
+ * What this run *asked* of cookies — the run-level twin of {@link RobotsPosture},
+ * and not a summary of {@link ProbeEvidence.cookieState}.
+ *
+ * `'cold'` is the posture ADR §4 requires by default: no jar anywhere in the
+ * run, so "everything else identical" is true of the response matrix by
+ * construction rather than by inspection. `'warm'` says the operator opted in,
+ * and the run therefore carries a warm leg **alongside** its cold one — a leg
+ * is `(url, vantage, cookieState)`, so the two are different legs and a warm
+ * run never replaces the cold observations it is read against.
+ *
+ * It says what was asked for, never what came back, exactly as
+ * `robots: 'honoured'` does not claim every target was permitted. That is the
+ * whole reason it is not derived from the probes: a warm leg that met a
+ * challenge interstitial, or ran out of budget, leaves a bundle whose probes
+ * are all cold — and reading "this was a cold run" off that would attribute the
+ * collector's bad luck to an operator who asked for the opposite.
+ */
+export type CookiePosture = 'cold' | 'warm';
+
 /** A collected page fetched over the network. */
 export interface NetworkSource {
   readonly kind: 'network';
@@ -132,6 +167,12 @@ export interface NetworkSource {
    */
   readonly probes: readonly ProbeEvidence[];
   readonly robots: RobotsPosture;
+  /**
+   * The cookie posture the run was launched with. Optional: absent on a bundle
+   * written before `schemaVersion` 6, where it means "this collector declared
+   * none" and never "cold". See {@link CookiePosture}.
+   */
+  readonly cookies?: CookiePosture;
 }
 
 /** A built `dist/` read off disk. A filesystem has no network location. */
@@ -187,11 +228,69 @@ export interface ProbeEvidence {
   readonly cookieState: CookieState;
   readonly outcome: ProbeOutcome;
   readonly status: number;
+  /**
+   * The **first** response's headers — the direct answer to the request at
+   * {@link url}, before any redirect.
+   *
+   * This, not the destination's, is what caching semantics are about: a
+   * locale-autodetect `302` at `/` is the response a shared cache stores for
+   * `/`, so it is the one `core/serving-vary-missing` asks about. For the
+   * headers of the response that served the body, see
+   * {@link finalResponseHeaders}.
+   */
   readonly responseHeaders: Readonly<Record<string, string>>;
+  /**
+   * The headers of the response that actually served the body — the end of
+   * {@link redirectChain}, where {@link responseHeaders} is deliberately its
+   * start.
+   *
+   * The two are different resources whenever the chain redirected, and a
+   * document's own declarations — `Link: …; rel="alternate"`,
+   * `Content-Language` — belong to the one that served it. Folding the first
+   * response's into the destination's digest merged two resources'
+   * declarations into one `DocumentEvidence`, and `core/inventory-sources-disagree`
+   * then published the collector's own merge as a site defect: a `302` carrying
+   * `hreflang="de"` in front of a page declaring only `hreflang="uk"` failed
+   * twice, in both directions, though neither resource disagreed with itself.
+   *
+   * Written only when {@link redirectChain} is non-empty **and a body was
+   * served**. On a chain that never redirected the first response *is* the
+   * serving one, and a second copy of the same map on every probe ever stored
+   * says nothing new. And a walk can end on a live response that served no
+   * body at all — a ceiling (see {@link redirectChainTruncated}), a loop, an
+   * unresolvable `Location` — where the last response is the last *redirect*:
+   * writing its headers here would hand back exactly the `Link` and
+   * `Content-Language` this field exists to keep out of a document's digest.
+   * There is no document, so there are no document headers.
+   *
+   * So absent means "read {@link responseHeaders}" on an empty chain, "no body
+   * to describe" on a chain that redirected and served none, and "this
+   * collector did not record them" on a chain that redirected and did — where
+   * a reader must fold in no header declarations at all rather than the wrong
+   * resource's.
+   *
+   * Added in `schemaVersion` 6.
+   */
+  readonly finalResponseHeaders?: Readonly<Record<string, string>>;
   readonly redirectChain: readonly RedirectHop[];
   /**
-   * The collector stopped following this chain at its own hop ceiling, so
+   * The collector stopped following this chain at a ceiling of its own — the
+   * hop cap, or the request budget running out mid-walk — so
    * {@link redirectChain} has an end this probe never reached.
+   *
+   * One flag for both ceilings, deliberately. What a rule has to know is
+   * whether the walk saw where the chain ended, and neither ceiling did; a
+   * second flag would mean every reader has to remember to ask twice, and the
+   * one that forgot would publish `pass` off a chain nobody saw the end of.
+   * *Why* the walk stopped is the operator's business (raise `--budget`, raise
+   * `maxHops`), not a different fact about the site — and the bundle does not
+   * say which ceiling it was. `maxHops` is not on the wire, and a bundle is
+   * adjudicated by a kernel that never saw the collector that wrote it, so
+   * "shorter than the hop cap, therefore the budget" reads one collector's
+   * ceiling into another's evidence: a collector run with `maxHops: 3` records
+   * a 4-hop cap truncation that recipe misreads as a budget stop. Nothing here
+   * needs the distinction; the operator who set both limits already knows
+   * which one they set.
    *
    * A chain that closed a loop, or whose `Location` could not be resolved,
    * reached an end and carries no flag — the difference is exactly what

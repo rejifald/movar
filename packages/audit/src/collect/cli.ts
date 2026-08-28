@@ -10,6 +10,7 @@
  *   movar-audit --url https://movar.fyi/
  *   movar-audit --dist ../../apps/marketing/dist
  *   movar-audit --url https://movar.fyi/ --follow --json out.json
+ *   movar-audit --url https://movar.fyi/ --warm
  *
  * Every piece is exported and the entry point only runs when this module is the
  * process's own entry — an entry point that cannot be imported cannot be
@@ -27,7 +28,7 @@ import type { Finding, Verdict } from '../finding';
 import type { Report, RuleResult } from '../report';
 import { CORE_RULESET, UA_PACK_FAMILIES, withPack } from '../ruleset';
 import { applySuppressions, parseSuppressionPolicy } from '../suppress';
-import type { SuppressionOutcome } from '../suppress';
+import type { Suppression, SuppressionOutcome } from '../suppress';
 import { collectFilesystem, collectNetwork } from './node';
 
 export interface Args {
@@ -35,6 +36,8 @@ export interface Args {
   readonly dist?: string;
   readonly follow: boolean;
   readonly ignoreRobots: boolean;
+  /** Collect a warm cookie leg beside the cold matrix. Off unless asked for. */
+  readonly warm: boolean;
   readonly ua: boolean;
   readonly json?: string;
   readonly budget?: number;
@@ -42,7 +45,7 @@ export interface Args {
 }
 
 export const USAGE =
-  'usage: movar-audit --url <url> | --dist <path> [--follow] [--ignore-robots] [--ua] [--budget n] [--suppress file] [--json out]\n';
+  'usage: movar-audit --url <url> | --dist <path> [--follow] [--ignore-robots] [--warm] [--ua] [--budget n] [--suppress file] [--json out]\n';
 
 /** The verdicts, worst first: a reader should meet the failures before the passes. */
 const VERDICT_ORDER: readonly Verdict[] = [
@@ -65,7 +68,7 @@ const SYMBOL: Readonly<Record<string, string>> = {
 const VALUE_FLAGS = ['--url', '--dist', '--json', '--budget', '--suppress'] as const;
 
 /** The flags that take none. `VALUE_FLAGS` and these are the whole language. */
-const SWITCH_FLAGS = ['--follow', '--ignore-robots', '--ua'] as const;
+const SWITCH_FLAGS = ['--follow', '--ignore-robots', '--warm', '--ua'] as const;
 
 const TAKES_VALUE: ReadonlySet<string> = new Set<string>(VALUE_FLAGS);
 const KNOWN_FLAGS: ReadonlySet<string> = new Set<string>([...VALUE_FLAGS, ...SWITCH_FLAGS]);
@@ -181,6 +184,7 @@ export function parseArgs(argv: readonly string[]): Args | Error {
     ...(suppress === undefined ? {} : { suppress }),
     follow: argv.includes('--follow'),
     ignoreRobots: argv.includes('--ignore-robots'),
+    warm: argv.includes('--warm'),
     ua: argv.includes('--ua'),
   };
 }
@@ -247,12 +251,45 @@ export function formatReport(report: Report): string {
   return formatHeader(report) + sections.join('');
 }
 
+/** Did the rule reach a judgement here, or was it never in a position to? */
+function reachedJudgement(result: RuleResult): boolean {
+  return result.verdict !== 'not-collected' && result.verdict !== 'not-applicable';
+}
+
+/**
+ * Doctrine 5's line — and the one place its advice must not be the same twice.
+ *
+ * _"Delete it"_ is right for a rule that **ran** and silenced nothing: the site
+ * was fixed, or the entry named a page that no longer fails, and this run is
+ * authoritative about both. It is exactly wrong for a rule that never reached a
+ * judgement — `not-collected` because a `--dist` build carries no response
+ * matrix, `not-applicable` because the subject was absent — where the entry
+ * silenced nothing because there was nothing to silence, and deleting it
+ * un-silences a real finding in the job where the rule does collect. Two
+ * opposite meanings, and only the first is a deletion.
+ *
+ * Read off the `RuleResult`'s verdict rather than off a finding count, which is
+ * `0` in both cases and is what made them look alike in the first place.
+ */
+function formatStale(report: Report, entry: Suppression): string {
+  const result = report.results.find((candidate) => candidate.rule === entry.rule);
+  if (result === undefined || reachedJudgement(result)) {
+    return `   ${entry.rule} silenced nothing in this run — delete it\n`;
+  }
+  const why = formatWhy(result);
+  const because = why === undefined ? result.verdict : `${result.verdict} — ${why}`;
+  return (
+    `   ${entry.rule} never ran here (${because}) — it judged nothing, ` +
+    `so this run cannot say the entry is dead; do not delete it on this run's word\n`
+  );
+}
+
 /**
  * Render what the policy did. Suppressed findings are printed in full, never
  * hidden: a silenced accusation the reader cannot see is how a suppression file
  * turns into a graveyard.
  */
-export function formatSuppressions(outcome: SuppressionOutcome): string {
+export function formatSuppressions(report: Report, outcome: SuppressionOutcome): string {
   const sections: string[] = [];
 
   if (outcome.violations.length > 0) {
@@ -266,9 +303,7 @@ export function formatSuppressions(outcome: SuppressionOutcome): string {
   if (outcome.stale.length > 0) {
     sections.push(
       `✗ stale suppressions (${outcome.stale.length})\n` +
-        outcome.stale
-          .map((entry) => `   ${entry.rule} silenced nothing in this run — delete it\n`)
-          .join(''),
+        outcome.stale.map((entry) => formatStale(report, entry)).join(''),
     );
   }
   if (outcome.suppressed.length > 0) {
@@ -282,13 +317,21 @@ export function formatSuppressions(outcome: SuppressionOutcome): string {
   return sections.length === 0 ? '' : `${sections.join('')}\n`;
 }
 
-/** Collect from whichever source the arguments name. */
+/**
+ * Collect from whichever source the arguments name.
+ *
+ * `--warm` reaches the network collector and nothing else: a build on disk has
+ * no request to send a cookie on, so a `--dist --warm` run is a flag with no
+ * subject rather than a warm one — the matrix rules are already structurally
+ * `not-collected` there, which is what says so.
+ */
 export async function collect(args: Args): Promise<Evidence> {
   if (args.dist !== undefined) return collectFilesystem({ root: nodePath.resolve(args.dist) });
   return collectNetwork({
     url: args.url ?? '',
     followDeclaredTargets: args.follow,
     ignoreRobots: args.ignoreRobots,
+    warm: args.warm,
     ...(args.budget === undefined ? {} : { budget: args.budget }),
   });
 }
@@ -424,7 +467,7 @@ export async function runCli(
   write(formatReport(report));
 
   const outcome = policy === undefined ? undefined : applySuppressions(report, policy);
-  if (outcome !== undefined) write(formatSuppressions(outcome));
+  if (outcome !== undefined) write(formatSuppressions(report, outcome));
 
   if (args.json !== undefined) {
     await writeFile(args.json, JSON.stringify({ evidence, report }, null, 2), 'utf8');

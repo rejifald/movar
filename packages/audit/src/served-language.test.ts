@@ -18,9 +18,24 @@ function alwaysClassifies(language: LanguageCode): Classifier {
   return () => ({ language, margin: 4, rung: 1, discriminating: true });
 }
 
+/**
+ * Two passages that clear the shared gates in `text-samples.ts` — over the
+ * 40-character floor, not a run of proper nouns, not inside `<code>`. The
+ * arithmetic below is what is under test, and it never runs at all on text the
+ * catalogue excludes: see `the shared text-sample gates` at the foot of this
+ * file for that half.
+ */
 const SAMPLES: readonly TextNodeSample[] = [
-  { nodePath: 'main > h1', text: 'Дрель ударная', inheritedLang: null },
-  { nodePath: 'main > p', text: 'Доставка по всей стране', inheritedLang: null },
+  {
+    nodePath: 'main > h1',
+    text: 'Дрель ударная с металлическим патроном и регулировкой оборотов',
+    inheritedLang: null,
+  },
+  {
+    nodePath: 'main > p',
+    text: 'Доставка по всей стране за три рабочих дня, оплата при получении',
+    inheritedLang: null,
+  },
 ];
 
 function pageWith(
@@ -101,11 +116,70 @@ describe('classifiedPageLanguage', () => {
     it('counts matches within the sample even as examined states the population', () => {
       const mixed: readonly TextNodeSample[] = [
         ...SAMPLES,
-        { nodePath: 'main > footer', text: 'Доставка', inheritedLang: null },
+        {
+          nodePath: 'main > footer',
+          text: 'Мы доставляем заказы по всей стране в течение трёх рабочих дней',
+          inheritedLang: null,
+        },
       ];
       const page = pageWith(mixed, { examined: 9000, sampled: 3, cappedAt: 3 });
       const determination = classifiedPageLanguage(page, alwaysClassifies('ru'), CANDIDATES);
       expect(determination?.denominator).toEqual({ examined: 9000, matched: 3 });
+    });
+  });
+
+  /**
+   * This seam used to hand the classifier raw `sample.text`, so families C, D
+   * and F asked "what language is this?" of text `text-samples.ts` refuses to
+   * classify at all — the whole point of that module being that two copies of
+   * the question must not drift into two answers (#435). What it published was
+   * not a near-miss: `via: 'classified'` costs a finding its failing power, but
+   * the observation still names a site and still rests on nothing, and in
+   * `core/switch-no-effect` a determination naming *any* other language is what
+   * suppresses a real draft.
+   *
+   * The gates themselves are pinned in `rules/content-language.test.ts`
+   * § `the text-sample exclusions`; these cases pin that this seam is behind
+   * them.
+   */
+  describe('the shared text-sample gates', () => {
+    /** The issue's own reproduction: two two-character words and one `<code>` node. */
+    it('classifies nothing when every passage is excluded', () => {
+      const page = pageWith([
+        { nodePath: 'main > p.a', text: 'Ні', inheritedLang: null },
+        { nodePath: 'main > p.b', text: 'Це', inheritedLang: null },
+        { nodePath: 'main > pre > code', text: SAMPLES[0]?.text ?? '', inheritedLang: null },
+      ]);
+      expect(classifiedPageLanguage(page, alwaysClassifies('uk'), CANDIDATES)).toBeNull();
+      expect(servedLanguage(page, alwaysClassifies('uk'), CANDIDATES)).toBeNull();
+    });
+
+    it('drops a passage under the minimum length from the vote and keeps the denominator whole', () => {
+      const page = pageWith(
+        [...SAMPLES, { nodePath: 'main > p.short', text: 'Ні', inheritedLang: null }],
+        { examined: 3, sampled: 3 },
+      );
+      const determination = classifiedPageLanguage(page, alwaysClassifies('ru'), CANDIDATES);
+      expect(determination?.denominator).toEqual({ examined: 3, matched: 2 });
+    });
+
+    it('drops a run of proper nouns, which is a brand and not prose', () => {
+      const page = pageWith([
+        {
+          nodePath: 'main > h1',
+          text: 'Nova Poshta Rozetka Ukraine Delivery Service Limited',
+          inheritedLang: null,
+        },
+      ]);
+      expect(classifiedPageLanguage(page, alwaysClassifies('uk'), CANDIDATES)).toBeNull();
+    });
+
+    it('drops a code element even when its text would otherwise classify', () => {
+      const page = pageWith([
+        { nodePath: 'main > pre > code', text: SAMPLES[0]?.text ?? '', inheritedLang: null },
+        { nodePath: 'main > samp', text: SAMPLES[1]?.text ?? '', inheritedLang: null },
+      ]);
+      expect(classifiedPageLanguage(page, alwaysClassifies('ru'), CANDIDATES)).toBeNull();
     });
   });
 });

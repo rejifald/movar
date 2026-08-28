@@ -45,6 +45,16 @@ function pageAt(
   return makePage({ url, document: makeDocument({ alternates }), ...overrides });
 }
 
+/** The same page off disk: a build `path`, and no `url` for a base to read. */
+function buildPageAt(
+  path: string,
+  alternates: readonly AlternateLink[],
+  id: string,
+  htmlLang = 'uk',
+): PageEvidence {
+  return makeBuildPage({ id, path, document: makeDocument({ htmlLang, alternates }) });
+}
+
 /**
  * The alternates block of a cross-domain translation set: the Ukrainian
  * version lives on a *different* host. Reciprocal hreflang means every page in
@@ -140,6 +150,14 @@ describe('core/hreflang-self-missing', () => {
   it('recognises a bare "./" self-reference on a directory URL', () => {
     const page = pageAt('https://example.com.ua/uk/', [link('uk', './'), link('ru', '../ru/')]);
     expect(onPage(RULE, page).verdict).toBe('pass');
+  });
+
+  it('recognises the same "./" self-reference on a build page', () => {
+    // `/uk/index.html` is the page at `/uk/`, so `./` names it. Off disk the
+    // base was `undefined` and `./` parsed to the literal `/.`, warning that a
+    // page declaring itself was missing from its own translation set.
+    const page = buildPageAt('uk/index.html', [link('uk', './'), link('ru', '../ru/')], 'uk');
+    expect(resultFor(RULE, filesystemEvidence([page])).verdict).toBe('pass');
   });
 
   it('is not-applicable when the page carries neither a URL nor a build path', () => {
@@ -434,11 +452,62 @@ describe('core/hreflang-target-unresolvable', () => {
     expect(result.findings[0]?.evidence).toContainEqual({ kind: 'probe', probeId: 'probe-404' });
   });
 
+  /**
+   * A chain the collector stopped following at a ceiling of its own. **One
+   * check for both ceilings**, because they share the one flag: an 11-hop chain
+   * and a chain the request budget ended are the same fact here — nobody
+   * fetched the URL the last hop pointed at, so no page exists to resolve
+   * against, and "absent from the collected page set" would name a site for the
+   * operator's `--budget` or the collector's `maxHops`. `core/switch-bounces`
+   * publishes the truthful `observed` warn about that same chain.
+   */
+  it('withholds the fail when the target’s chain was never followed to its end', () => {
+    const uk = pageAt('https://example.com/uk/', [link('ru', 'https://example.com/ru/')], {
+      id: 'uk',
+    });
+    const probe = makeProbe({
+      id: 'probe-truncated',
+      url: 'https://example.com/ru/',
+      status: 302,
+      redirectChain: [
+        { url: 'https://example.com/ru/', status: 302, location: 'https://example.com/ru/1' },
+      ],
+      redirectChainTruncated: true,
+    });
+    const result = resultFor(RULE, networkEvidence([uk, ANCHOR], [probe]));
+
+    expect(result.findings).toEqual([]);
+    // Withholding is not passing. `pass` would say the declared `ru` target
+    // resolves, off a chain whose end nobody saw — the silence one layer up
+    // that "`not-collected` is never `pass`" exists to refuse.
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toMatch(/never observed/u);
+  });
+
+  /** The withholding is that flag's, not "any probe whose chain redirected". */
+  it('still fails a target whose chain the collector followed to its end', () => {
+    const uk = pageAt('https://example.com/uk/', [link('ru', 'https://example.com/ru/')], {
+      id: 'uk',
+    });
+    const probe = makeProbe({
+      id: 'probe-landed',
+      url: 'https://example.com/ru/',
+      status: 404,
+      redirectChain: [
+        { url: 'https://example.com/ru/', status: 302, location: 'https://example.com/ru/1' },
+      ],
+    });
+    expect(resultFor(RULE, networkEvidence([uk, ANCHOR], [probe])).verdict).toBe('fail');
+  });
+
   it('resolves targets on a filesystem build with no fetch involved', () => {
     const uk = makeBuildPage({
       id: 'uk',
+      // Declared from `/uk/index.html`, so the sibling build directory is
+      // `../ru/`. A bare `ru/index.html` would name `/uk/ru/index.html` —
+      // which is what a browser reads, and what this rule must read too.
+      document: makeDocument({ alternates: [link('ru', '../ru/index.html')] }),
       path: 'uk/index.html',
-      document: makeDocument({ alternates: [link('ru', 'ru/index.html')] }),
     });
     const ru = makeBuildPage({ id: 'ru', path: 'ru/index.html' });
     expect(resultFor(RULE, filesystemEvidence([uk, ru])).verdict).toBe('pass');
@@ -450,6 +519,25 @@ describe('core/hreflang-target-unresolvable', () => {
     });
     const target = pageAt('https://example.com/docs/uk/guide.html', [], { id: 'uk-doc' });
     expect(resultFor(RULE, networkEvidence([en, target, ANCHOR])).verdict).toBe('pass');
+  });
+
+  it('resolves a relative target on a build the same way — the dogfood gate’s own shape', () => {
+    // Filesystem evidence is what `nx run marketing:audit` adjudicates, and a
+    // build page carries a `path` and no `url`. Threading the url as the base
+    // handed this page `undefined` and the alternate fell back to the site
+    // root, publishing a `fail` against markup a browser resolves correctly.
+    const en = buildPageAt('docs/en/guide.html', [link('uk', '../uk/guide.html')], 'en');
+    const target = buildPageAt('docs/uk/guide.html', [], 'uk-doc');
+    expect(resultFor(RULE, filesystemEvidence([en, target])).verdict).toBe('pass');
+  });
+
+  it('still fails a relative target on a build that resolves to nothing collected', () => {
+    // The mirror of the case above: correct resolution is not permissiveness.
+    const en = buildPageAt('docs/en/guide.html', [link('uk', '../uk/guide.html')], 'en');
+    const stray = buildPageAt('uk/guide.html', [], 'stray');
+    const result = resultFor(RULE, filesystemEvidence([en, stray]));
+    expect(result.verdict).toBe('fail');
+    expect(result.findings[0]?.summary).toMatch(/absent from the collected page set/);
   });
 
   it('resolves an absolute target on a build that declares that origin for itself', () => {
@@ -658,7 +746,11 @@ describe('core/hreflang-target-wrong-language', () => {
     const finding = result.findings[0];
     expect(finding?.via).toBe('classified');
     expect(finding?.summary).toMatch(/classified uk/);
-    expect(finding?.denominator).toEqual({ examined: 3, matched: 3 });
+    // Two of the three nodes classified `uk`; the third classified `ru`. The
+    // published sentence reads «N of M text nodes … classified uk», so `matched`
+    // has to be the winner's own count — a third node that voted for something
+    // else cannot be counted toward the language the sentence names.
+    expect(finding?.denominator).toEqual({ examined: 3, matched: 2 });
   });
 
   it('does not flag a target with no classifiable text and no <html lang>', () => {

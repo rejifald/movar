@@ -23,8 +23,21 @@
 import { readdir, readFile } from 'node:fs/promises';
 import nodePath from 'node:path';
 import { EVIDENCE_SCHEMA_VERSION } from '../evidence';
-import type { Evidence, PageEvidence, ProbeEvidence, RobotsPosture, Vantage } from '../evidence';
-import { createPageSet, finalUrlOf, isServedResource, LOCAL_VANTAGE } from './assemble';
+import type {
+  CookiePosture,
+  Evidence,
+  PageEvidence,
+  ProbeEvidence,
+  RobotsPosture,
+  Vantage,
+} from '../evidence';
+import {
+  createPageSet,
+  documentHeadersOf,
+  finalUrlOf,
+  isServedResource,
+  LOCAL_VANTAGE,
+} from './assemble';
 import type { CollectedPage, PageSet } from './assemble';
 import { digestDocument } from './digest';
 import { createProber, EMPTY_ROBOTS, parseRobots, robotsAllows, sha256 } from './probe';
@@ -46,6 +59,11 @@ export interface NetworkCollectOptions {
   readonly budget?: number;
   /** Follow the targets the page's own markup declares. Grants `traversal`. */
   readonly followDeclaredTargets?: boolean;
+  /**
+   * Collect a warm leg as well as the cold one. Off by default, per ADR §4, and
+   * stamped on the evidence when it is on. See {@link collectWarmLeg}.
+   */
+  readonly warm?: boolean;
   /** `robots.txt` applies to declared-target expansion, not the URL you typed. */
   readonly ignoreRobots?: boolean;
   readonly now?: string;
@@ -58,7 +76,9 @@ export interface NetworkCollectOptions {
  *
  * Every leg shares one vantage and one cookie state, so `matrixLegKey` in
  * `capability.ts` groups them as comparable — the differential the serving rules
- * adjudicate is only valid because nothing but the header changed.
+ * adjudicate is only valid because nothing but the header changed. A `warm` run
+ * collects a **second** matrix rather than changing this one, for exactly that
+ * reason; see {@link collectWarmLeg}.
  */
 export async function collectNetwork(options: NetworkCollectOptions): Promise<Evidence> {
   const vantage = options.vantage ?? LOCAL_VANTAGE;
@@ -87,6 +107,12 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 
+  // Before declared-target expansion, deliberately: see {@link collectWarmLeg}
+  // for what a budget too small for both buys, and why this way round.
+  if (options.warm === true) {
+    await collectWarmLeg(prober, pages, probes, options);
+  }
+
   const robots = robotsPostureOf(options);
   if (options.followDeclaredTargets === true) {
     await followDeclared(prober, pages, probes, createRobotsGate(prober, robots));
@@ -94,7 +120,8 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
 
   return {
     schemaVersion: EVIDENCE_SCHEMA_VERSION,
-    source: { kind: 'network', vantage, probes, robots },
+    // Stamped from the probes as well as the flag, so read last of all.
+    source: { kind: 'network', vantage, probes, robots, cookies: cookiePostureOf(options, probes) },
     collectedAt: options.now ?? new Date().toISOString(),
     collector: { id: COLLECTOR_ID, version: '1' },
     pages: pages.pages(),
@@ -106,6 +133,14 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
  * document — an error template, which the page set refuses on the status. Node
  * hashes the body itself: the probe already carries a `bodyHash`, but only for
  * a body it did not withhold, and recomputing keeps this independent of that.
+ *
+ * Every field here is read off the **end** of the chain, `headers` included:
+ * `finalUrlOf` for where the body came from, `probe.status` for what served it,
+ * and `documentHeadersOf` for its declarations. `probe.responseHeaders` is the
+ * first response's on purpose and was the odd one out — a `302`'s `Link:
+ * …; rel="alternate"` folded into the destination's digest, so
+ * `core/inventory-sources-disagree` reported the collector's own merge of two
+ * resources as a disagreement inside one.
  */
 function addPage(
   pages: PageSet,
@@ -113,14 +148,123 @@ function addPage(
   body: string,
   reach: PageEvidence['reach'],
 ): string | null {
+  const headers = documentHeadersOf(probe);
   return pages.add({
     url: finalUrlOf(probe),
     body,
     reach,
     status: probe.status,
-    headers: probe.responseHeaders,
+    ...(headers === undefined ? {} : { headers }),
     identity: sha256(body),
   });
+}
+
+/**
+ * Was this a warm run? `cold` only when nothing about it was warm.
+ *
+ * ADR §4 makes the empty jar the default because a warm, logged-in session is
+ * precisely a difference the matrix's "everything else identical" promise has
+ * no room for. The flag answers first and on its own, because it says what the
+ * operator **asked for**, and that is a claim the probes stop being able to
+ * make: a warm leg that met a challenge interstitial, failed in transport, or
+ * was priced out by the budget leaves a bundle whose probes are all cold, and
+ * reading "this was a cold run" off that hands the collector's luck to the
+ * operator as their own choice. `noWarmLegReason` in `rules/serving.ts` forks
+ * on exactly that difference.
+ *
+ * The probes are then consulted, and only ever to say `warm`. `options.prober`
+ * is an exported seam, so a caller may hand in a prober already built with
+ * `cookieState: 'warm'` and never touch the flag; stamping `cold` on that
+ * bundle is not the cautious reading, it is a false one, contradicted by every
+ * probe beneath it. Asking through the flag and asking through the prober are
+ * the same request, and neither direction can turn a warm probe into a cold
+ * run. Read after collection for that reason — a posture taken before the
+ * probes exist can only report half of this.
+ */
+function cookiePostureOf(
+  options: NetworkCollectOptions,
+  probes: readonly ProbeEvidence[],
+): CookiePosture {
+  if (options.warm === true) return 'warm';
+  return probes.some((probe) => probe.cookieState === 'warm') ? 'warm' : 'cold';
+}
+
+/**
+ * The warm leg's headers: one no-preference request first, then the caller's
+ * explicit ones exactly as they were listed.
+ *
+ * The leading request is the one that fills the jar, and it must not state a
+ * preference. A jar warmed by `Accept-Language: uk` holds whatever cookie *our
+ * own header* talked the site into setting, so a warm `uk` probe answered in
+ * Ukrainian demonstrates nothing — the question
+ * `core/serving-cookie-overrides-header` asks is whether the language the site
+ * picked **on its own** outranks a preference stated afterwards. Asking for
+ * nothing is how the site is left to pick.
+ *
+ * So the `null` is **hoisted**, never assumed: a caller whose order does not
+ * begin with one — or holds none at all — still opens the leg with it, and any
+ * further `null` behind it is dropped, because a second request for nothing is
+ * not the question this leg exists to ask. That is the only de-duplication
+ * here. An explicit header the caller repeated stays repeated: collapsing it
+ * would drop a leg that was asked for, which is the silent shortening this
+ * module refuses everywhere else, and the cold matrix runs the same list
+ * verbatim — the two legs must differ in the opening request and in nothing
+ * else.
+ */
+function warmOrderOf(headers: readonly (string | null)[]): readonly (string | null)[] {
+  return [null, ...headers.filter((header) => header !== null)];
+}
+
+/**
+ * The warm leg: the same matrix a second time, over one jar the site fills.
+ *
+ * A second leg rather than a warmer version of the first, because a matrix leg
+ * is `(url, vantage, cookieState)` — `matrixLegKey` in `capability.ts` says so,
+ * and every family-C rule groups by it. Warming the one leg in place would not
+ * give `core/serving-cookie-overrides-header` a warm reading to compare, it
+ * would delete the cold reading it compares *against*, and take the header
+ * differential every other rule in the family is adjudicated from with it.
+ *
+ * **Only the URL the operator typed goes warm.** `robots.txt` and the declared
+ * targets keep the prober's own cold default, so no cookie this run collected
+ * is ever presented to an origin nobody typed, and the expansion stays the
+ * unauthenticated page view it is documented to be.
+ *
+ * The budget is the same hard ceiling, re-read before every probe and never
+ * reserved out of the cold pass. A budget too small for both therefore buys the
+ * cold matrix, which is the right way round: it is the leg the other six rules
+ * need, and a run that could not afford the warm one says so — the posture is
+ * on the evidence and the probes are not there.
+ *
+ * **This leg runs before declared-target expansion**, so the same ceiling can
+ * cost a `--warm --follow` run its `traversal` capability and the whole family
+ * of rules that reads it. That order is a decision, not where the call landed.
+ * `--warm` is an opt-in naming one rule that nothing else in the bundle can
+ * answer, while expansion widens a capability the run may simply have less of;
+ * and expansion reads the page set the matrices built — including this leg's
+ * own pages, whose markup contributes declared targets — so going first would
+ * spend the budget on targets discovered from half the pages and then find
+ * nothing left for the leg that was asked for by name. What the run loses
+ * either way it loses visibly: a withheld target is `not-collected` under an
+ * absent `traversal`, never a pass. `node.test.ts` pins the order so changing
+ * it stays a decision somebody makes on purpose.
+ */
+async function collectWarmLeg(
+  prober: Prober,
+  pages: PageSet,
+  probes: ProbeEvidence[],
+  options: NetworkCollectOptions,
+): Promise<void> {
+  for (const header of warmOrderOf(options.headers ?? DEFAULT_MATRIX_HEADERS)) {
+    if (prober.remaining() === 0) break;
+    const { probe, body } = await prober.probe({
+      url: options.url,
+      acceptLanguage: header,
+      cookieState: 'warm',
+    });
+    const pageId = body === null ? null : addPage(pages, probe, body, 'requested');
+    probes.push(pageId === null ? probe : { ...probe, pageId });
+  }
 }
 
 /**
@@ -152,10 +296,13 @@ function robotsOriginOf(target: string): string | null {
  * permission slip is never what ends the run.
  *
  * That covers the budget too. A `robots.txt` chain that reaches the ceiling
- * mid-redirect throws `RequestBudgetExhaustedError` out of `probe`, and it is
- * caught here and read as "no rules published" — but no target is ever fetched
- * on the strength of rules nobody read, because {@link followDeclared} re-reads
- * the ceiling the moment the gate returns and stops there.
+ * mid-redirect now ends as a truncated chain with no body, which reads as "no
+ * rules published" by the `served` test above rather than by the `catch` — but
+ * no target is ever fetched on the strength of rules nobody read, because
+ * {@link followDeclared} re-reads the ceiling the moment the gate returns and
+ * stops there. The `catch` stays for the probe that throws rather than answers:
+ * a budget with nothing left at all, and whatever a future transport surprises
+ * this module with. Asking for a permission slip must never be what ends a run.
  *
  * Rules are read from a **2xx** body and no other, which is the same judgement
  * `createPageSet` makes about a page and the same predicate. A site answering
@@ -209,12 +356,12 @@ async function fetchRobots(prober: Prober, origin: string): Promise<RobotsRules>
  * Nothing is held back for it, because a reserve cannot be sized. `probe`
  * charges a request **per redirect hop**, and a `robots.txt` that redirects —
  * `http`→`https`, `www`→apex, CDN normalisation — is ordinary, so a reserve of
- * two bought the target nothing and the probe behind it walked into
- * `RequestBudgetExhaustedError`; sized larger it withholds targets the budget
- * could have paid for, and a withheld target is published as "cannot be
- * reached" about a site that serves it. The gate is only ever asked while a
- * request remains, so it asks, and {@link followDeclared} re-reads the ceiling
- * afterwards. `false` from here therefore means one thing: the site said no.
+ * two bought the target nothing and the probe behind it ran out mid-chain;
+ * sized larger it withholds targets the budget could have paid for, and a
+ * withheld target is published as "cannot be reached" about a site that serves
+ * it. The gate is only ever asked while a request remains, so it asks, and
+ * {@link followDeclared} re-reads the ceiling afterwards. `false` from here
+ * therefore means one thing: the site said no.
  */
 function createRobotsGate(
   prober: Prober,

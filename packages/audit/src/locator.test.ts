@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { locatorOf, parseLocator, resolveTargetPage, resolvesToCollectedPage } from './locator';
+import {
+  declaredLocator,
+  locatorOf,
+  parseLocator,
+  resolveTargetPage,
+  resolvesToCollectedPage,
+} from './locator';
 import type { AlternateLink, PageEvidence } from './evidence';
 import { makeBuildPage, makeDocument, makePage } from '../test/fixtures';
 
@@ -67,6 +73,94 @@ describe('locatorOf', () => {
   it('reads a network page from its url and a filesystem page from its path', () => {
     expect(locatorOf(pageAt('https://example.com/uk/'))?.path).toBe('/uk');
     expect(locatorOf(pageAt('/uk/index.html'))?.path).toBe('/uk');
+  });
+
+  it('reads a build path recorded without a leading slash', () => {
+    expect(locatorOf(pageAt('uk/index.html'))?.path).toBe('/uk');
+  });
+
+  it('reads no authority out of a build path that leads with two slashes', () => {
+    // `//evil.example/uk/index.html` is a file name, but `movar-build://…` is
+    // an authority, and the page would report a host it never had — the
+    // fabricated origin this module refuses, arriving through the scheme
+    // chosen to prevent it.
+    expect(locatorOf(pageAt('//evil.example/uk/index.html'))).toEqual({
+      host: null,
+      path: '/evil.example/uk',
+    });
+  });
+
+  it('keeps the whole of a build path whose file name spells a “#” or a “?”', () => {
+    // Both end a URL's path, so read verbatim the lift truncates the name and
+    // two distinct files land on one locator. Encoded, they stay path
+    // characters — and `%23` is how a browser must ask for that file anyway,
+    // so an href naming it spells it the same way.
+    expect(locatorOf(pageAt('/a#b.html'))?.path).toBe('/a%23b.html');
+    expect(locatorOf(pageAt('/q?x=1.html'))?.path).toBe('/q%3Fx=1.html');
+  });
+
+  it('spells a non-ASCII build path the way a declared href spells it', () => {
+    // Both sides go through one `URL` parse, so the page's own path and every
+    // href compared against it are percent-encoded identically. Read raw, the
+    // page said `/пошук` while every href said `/%D0%BF…` and no alternate
+    // naming it could resolve.
+    expect(locatorOf(pageAt('/пошук/index.html'))?.path).toBe(
+      parseLocator('https://example.com/пошук/')?.path,
+    );
+  });
+});
+
+/**
+ * The base half of the same rule: a declared href is read relative to the page
+ * that declared it, on disk exactly as over the network. Threading `page.url`
+ * handed a build page `undefined` and dropped it back to the site-root reading
+ * — the defect #430 fixed for network evidence and left here.
+ */
+describe('declaredLocator', () => {
+  it('resolves a relative href against the build path it was declared on', () => {
+    expect(declaredLocator(pageAt('/docs/en/guide.html'), '../uk/guide.html')).toEqual({
+      host: null,
+      path: '/docs/uk/guide.html',
+    });
+  });
+
+  it('resolves against a build path recorded without a leading slash', () => {
+    expect(declaredLocator(pageAt('docs/en/guide.html'), '../uk/guide.html')?.path).toBe(
+      '/docs/uk/guide.html',
+    );
+  });
+
+  it('reads a bare "./" as the declaring page itself, off disk as over the network', () => {
+    const build = pageAt('/uk/index.html');
+    expect(declaredLocator(build, './')).toEqual(locatorOf(build));
+  });
+
+  it('invents no host for a page that has none — the lifted base carries no authority', () => {
+    // Catches a scheme that grew an authority, but only at this seam, and it
+    // is no regression test: before the base existed there was nothing to
+    // resolve against and these read `null` for the opposite reason. What a
+    // host-less scheme *buys* is pinned in `resolveTargetPage` below, on an
+    // absolute href reaching a build page.
+    expect(declaredLocator(pageAt('/docs/en/guide.html'), '../uk/guide.html')?.host).toBeNull();
+    expect(declaredLocator(pageAt('/docs/en/guide.html'), '/uk/')?.host).toBeNull();
+  });
+
+  it('keeps the host an absolute href names', () => {
+    expect(declaredLocator(pageAt('/docs/en/guide.html'), 'https://other-brand.de/uk/')).toEqual({
+      host: 'other-brand.de',
+      path: '/uk',
+    });
+  });
+
+  it('still resolves a network page against the URL it was collected from', () => {
+    expect(declaredLocator(pageAt('https://example.com/ru/page'), '../uk/')).toEqual(
+      parseLocator('https://example.com/uk'),
+    );
+  });
+
+  it('declares no target for an empty href or a bare fragment', () => {
+    expect(declaredLocator(pageAt('/docs/en/guide.html'), '#uk')).toBeNull();
+    expect(declaredLocator(pageAt('/docs/en/guide.html'), '')).toBeNull();
   });
 });
 
@@ -177,5 +271,71 @@ describe('resolveTargetPage', () => {
   it('returns null rather than fetching when the target was never collected', () => {
     const from = pageAt('https://example.com/ru/', 'ru');
     expect(resolvesToCollectedPage([from], from, 'https://example.com/uk/')).toBe(false);
+  });
+
+  it('resolves a relative target against the declaring build page, not the site root', () => {
+    const en = pageAt('/docs/en/guide.html', 'en');
+    const uk = pageAt('/docs/uk/guide.html', 'uk');
+    expect(resolveTargetPage([en, uk], en, '../uk/guide.html')).toBe(uk);
+  });
+
+  it('does not let a relative target reach the same file name at the site root', () => {
+    // The root-relative reading turned `../uk/guide.html` into the literal
+    // `/../uk/guide.html`, which matched nothing — but a href that *does* fold
+    // to the root must not reach a page the browser would never land on.
+    const en = pageAt('/docs/en/guide.html', 'en');
+    const stray = pageAt('/uk/guide.html', 'stray');
+    expect(resolveTargetPage([en, stray], en, '../uk/guide.html')).toBeNull();
+  });
+
+  it('resolves a build’s targets, absolute as well as relative, when it claims an origin', () => {
+    // The guard on the lift's scheme staying host-less — and the absolute half
+    // is the half that guards it. `locatorOf` reads a page's own location
+    // through the same lift, so a scheme carrying an authority stamps a
+    // synthetic host on every page in the build, and `sameLocation` weighs it
+    // against the real host this href names and agrees with neither. That is
+    // the dogfood gate's own shape: `apps/marketing` emits every hreflang
+    // absolutely, onto pages that are build paths. The relative half cannot
+    // stand in for it — `answersFor` short-circuits on a page that carries a
+    // host, so a relative target resolves under either scheme.
+    const en = buildPage(
+      '/docs/en/guide.html',
+      'en',
+      [link('en', 'https://example.com/docs/en/guide.html'), link('uk', '../uk/guide.html')],
+      'en',
+    );
+    const uk = pageAt('/docs/uk/guide.html', 'uk');
+    expect(resolveTargetPage([en, uk], en, '../uk/guide.html')).toBe(uk);
+    expect(resolveTargetPage([en, uk], en, 'https://example.com/docs/uk/guide.html')).toBe(uk);
+  });
+
+  it('does not let a build path answer for the host its own leading slashes spell', () => {
+    // Nothing emits this today — `collect/node.ts` joins exactly one leading
+    // slash — so it is evidence that did not come from the collector this
+    // holds the line for. Lifted verbatim the build page reports
+    // `evil.example` as its host and answers for a target on that origin,
+    // which is the one inference the whole design exists to refuse.
+    const network = pageAt('https://example.com/en/', 'en');
+    const build = pageAt('//evil.example/uk/index.html', 'build');
+    expect(resolveTargetPage([network, build], network, 'https://evil.example/uk/')).toBeNull();
+  });
+
+  it('tells two build pages apart when their names differ only past a “#”', () => {
+    // `collect/node.ts` collects any `*.html` name, so both of these are real
+    // pages. Truncated to a shared `/a` they become one locator:
+    // `resolveTargetPage` hands back whichever comes first, and
+    // `ua/state-language-version-lesser` counts the pair as a single page.
+    const b = pageAt('/a#b.html', 'b');
+    const c = pageAt('/a#c.html', 'c');
+    expect(locatorOf(b)).not.toEqual(locatorOf(c));
+    expect(resolveTargetPage([b, c], b, 'a%23c.html')).toBe(c);
+  });
+
+  it('matches a non-ASCII build path however the declared href spells it', () => {
+    const en = pageAt('/en/index.html', 'en');
+    const search = pageAt('/пошук/index.html', 'search');
+    const encoded = 'https://example.com/%D0%BF%D0%BE%D1%88%D1%83%D0%BA/';
+    expect(resolveTargetPage([en, search], en, '/пошук/')).toBe(search);
+    expect(resolveTargetPage([en, search], en, encoded)).toBe(search);
   });
 });

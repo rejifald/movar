@@ -17,8 +17,9 @@
  * Three deliberate shapes:
  *
  * - **`core/switch-bounces` reads the chain, and only as far as it goes.** A
- *   chain the collector abandoned at its hop ceiling
- *   (`redirectChainTruncated`) is published as a `warn` naming the hops it
+ *   chain the collector abandoned at a ceiling of its own — its hop cap, or
+ *   its request budget (`redirectChainTruncated`, one flag for both) — is
+ *   published as a `warn` naming the hops it
  *   did see, never as a bounce and never as a `pass`: the last hop's
  *   `Location` names a URL nobody fetched, so "lands on" would be a claim
  *   about an end the collector never reached, and passing would be the same
@@ -50,7 +51,14 @@ import type {
 import type { EvidenceRef, FindingDraft, FindingSubject, GroundedFindingDraft } from '../finding';
 import { nodeRef, pageRef } from '../finding';
 import type { Locator } from '../locator';
-import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
+import {
+  declaredLocator,
+  locatorOf,
+  parseLocator,
+  resolveTargetPage,
+  sameLocation,
+  tryUrl,
+} from '../locator';
 import type { Determination } from '../served-language';
 import { servedLanguage } from '../served-language';
 import type { CoreRule, RuleContext, RuleFamily, RuleOutcome } from '../rule';
@@ -351,7 +359,7 @@ function probeForTarget(
   from: PageEvidence,
   href: string,
 ): ProbeEvidence | null {
-  const target = parseLocator(href, from.url);
+  const target = declaredLocator(from, href);
   if (target === null) return null;
   return (
     probes.find((probe) => {
@@ -397,7 +405,10 @@ function chainEvidence(
 }
 
 /**
- * A chain the collector abandoned at its own hop ceiling.
+ * A chain the collector abandoned at a ceiling of its own — its hop cap, or
+ * its request budget running out mid-walk. One flag marks both, and this
+ * finding serves both: the summary names the hops it did see and never counts
+ * them against a ceiling, so it reads the same whichever one stopped the walk.
  *
  * Reported rather than passed over, and reported as what it is. The hops are
  * observed fact — a declared alternate that answers eleven redirects and no

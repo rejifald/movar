@@ -38,6 +38,10 @@ const BROKEN_PAGE =
   '<link rel="alternate" hreflang="en" href="/"></head><body><p>english body</p></body></html>';
 
 const UNRESOLVABLE = 'core/hreflang-target-unresolvable';
+/** Ran against this build and found nothing — the run is authoritative about it. */
+const RAN_CLEAN = 'core/hreflang-duplicate';
+/** Needs the response matrix, which no `--dist` build carries. Never reaches a judgement. */
+const NEVER_RAN = 'core/serving-header-ignored';
 const REASON = 'The Ukrainian twin ships from a different build, on purpose.';
 
 async function buildSite(): Promise<string> {
@@ -64,15 +68,26 @@ describe('parseArgs', () => {
   });
 
   it('defaults every switch to off', () => {
-    expect(parsed([])).toEqual({ follow: false, ignoreRobots: false, ua: false });
+    expect(parsed([])).toEqual({ follow: false, ignoreRobots: false, warm: false, ua: false });
   });
 
   it('reads the switches and the numeric budget', () => {
-    const args = parsed(['--follow', '--ignore-robots', '--ua', '--budget', '7']);
+    const args = parsed(['--follow', '--ignore-robots', '--warm', '--ua', '--budget', '7']);
     expect(args.follow).toBe(true);
     expect(args.ignoreRobots).toBe(true);
+    expect(args.warm).toBe(true);
     expect(args.ua).toBe(true);
     expect(args.budget).toBe(7);
+  });
+
+  /**
+   * The opt-in `core/serving-cookie-overrides-header` was waiting on. Off is
+   * the ADR §4 default and has to stay the shape of a run nobody asked twice
+   * about — a warm session is a difference the response matrix has no room for.
+   */
+  it('reads --warm, and leaves the run cold when it is absent', () => {
+    expect(parsed(['--url', 'https://example.com/', '--warm']).warm).toBe(true);
+    expect(parsed(['--url', 'https://example.com/']).warm).toBe(false);
   });
 
   it('reads the suppression policy path', () => {
@@ -197,6 +212,7 @@ describe('parseArgs — an argument it does not recognise', () => {
         'https://example.com/',
         '--follow',
         '--ignore-robots',
+        '--warm',
         '--ua',
         '--budget',
         '7',
@@ -212,6 +228,7 @@ describe('parseArgs — an argument it does not recognise', () => {
       suppress: 'audit.json',
       follow: true,
       ignoreRobots: true,
+      warm: true,
       ua: true,
     });
   });
@@ -223,6 +240,7 @@ describe('parseArgs — an argument it does not recognise', () => {
       suppress: 'audit-suppressions.json',
       follow: false,
       ignoreRobots: false,
+      warm: false,
       ua: false,
     });
   });
@@ -324,7 +342,7 @@ describe('formatReport — why a rule did not run', () => {
   });
 });
 
-const OFF = { follow: false, ignoreRobots: false, ua: false } as const;
+const OFF = { follow: false, ignoreRobots: false, warm: false, ua: false } as const;
 
 describe('runCli', () => {
   /** `2`, not `1`: the audit did not run at all, which is not the same as red. */
@@ -521,6 +539,47 @@ describe('runCli --suppress', () => {
     const { code, out } = await run(['--dist', root, '--suppress', policy]);
     expect(code).toBe(1);
     expect(out).toContain('stale suppressions');
+  });
+
+  /**
+   * Doctrine 5's two cases say opposite things, and only one of them is a
+   * deletion. `core/hreflang-duplicate` ran and found nothing, so this run is
+   * authoritative and the line may say so.
+   */
+  it('tells the operator to delete a stale entry whose rule ran and found nothing', async () => {
+    const { root, policy } = await buildBrokenSite({
+      budget: 2,
+      suppressions: [
+        { rule: UNRESOLVABLE, subject: '/index.html', reason: REASON },
+        { rule: RAN_CLEAN, subject: '/index.html', reason: REASON },
+      ],
+    });
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+
+    expect(code).toBe(1);
+    expect(out).toContain(`${RAN_CLEAN} silenced nothing in this run — delete it`);
+  });
+
+  /**
+   * The other case, which used to get the same advice. `core/serving-header-ignored`
+   * needs the response matrix and a build directory carries none, so the entry
+   * silenced nothing for a reason that says nothing about the entry — and
+   * deleting it would un-silence a real finding in the job that does collect.
+   */
+  it('says a stale entry’s rule never ran, rather than telling anyone to delete it', async () => {
+    const { root, policy } = await buildBrokenSite({
+      budget: 2,
+      suppressions: [
+        { rule: UNRESOLVABLE, subject: '/index.html', reason: REASON },
+        { rule: NEVER_RAN, subject: 'https://example.com.ua/a/', reason: REASON },
+      ],
+    });
+    const { code, out } = await run(['--dist', root, '--suppress', policy]);
+
+    expect(code).toBe(1);
+    expect(out).toContain(`${NEVER_RAN} never ran here (not-collected — needs matrix)`);
+    expect(out).toContain("do not delete it on this run's word");
+    expect(out).not.toContain(`${NEVER_RAN} silenced nothing`);
   });
 
   it('fails on a policy that breaks the doctrine, and silences nothing', async () => {

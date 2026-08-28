@@ -97,19 +97,26 @@ struct SettingsView: View {
             aboutSection
         }
         .movarListStyle()
+        .movarColumnMeasure()
         .movarEditToolbar()
         .movarNavigationContainer(HostStrings.tabSettings)
         .sheet(isPresented: $addingLanguage) {
             AddLanguageSheet(options: store.settings.addableLanguages) { code in
                 store.update { $0.priority.append(code) }
             }
+            .movarTint()
         }
         .sheet(isPresented: $addingSite) {
             AddSiteSheet(existing: store.settings.allowlist) { domain in
                 store.update { $0.allowlist.append(domain) }
             }
+            .movarTint()
         }
-        .movarDetailSheet(isPresented: $showingAbout, title: HostStrings.tabAbout) {
+        .movarDetailSheet(
+            isPresented: $showingAbout,
+            title: HostStrings.tabAbout,
+            measure: .reference
+        ) {
             AboutView(host: host)
         }
     }
@@ -155,6 +162,7 @@ struct SettingsView: View {
             Text(HostStrings.priorityTitle)
         } footer: {
             movarUnhyphenated(HostStrings.asideHowPriorityWorks)
+                .movarWrapping()
         }
     }
 
@@ -299,6 +307,7 @@ struct SettingsView: View {
             Text(HostStrings.allowlistTitle)
         } footer: {
             movarUnhyphenated(HostStrings.asideBlockedVsExempt)
+                .movarWrapping()
         }
     }
 
@@ -322,7 +331,12 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
 #if os(iOS)
-            NavigationLink(destination: AboutView(host: host)) {
+            // The measure is applied to the DESTINATION, not inside `AboutView`,
+            // because it is a fact about where the screen is being shown rather
+            // than about the screen: pushed here it owns a whole iPad, while the
+            // macOS branch below hands the same view to a sheet that is already
+            // sized.
+            NavigationLink(destination: AboutView(host: host).movarColumnMeasure()) {
                 Label(HostStrings.settingsAbout, systemImage: "info.circle")
             }
 #else
@@ -379,7 +393,7 @@ struct AddLanguageSheet: View {
     @Environment(\.presentationMode) private var presentationMode
 
     var body: some View {
-        MovarSheetContainer(title: HostStrings.priorityAddLabel) {
+        MovarSheetContainer(title: HostStrings.priorityAddLabel, measure: .form) {
             List(options, id: \.self) { code in
                 Button {
                     onAdd(code)
@@ -439,7 +453,7 @@ struct AddSiteSheet: View {
     var body: some View {
         // Cancel lives in the pinned pair below, not in the navigation bar —
         // see `MovarSheetContainer.closeLabel`.
-        MovarSheetContainer(title: HostStrings.allowlistInputLabel) {
+        MovarSheetContainer(title: HostStrings.allowlistInputLabel, measure: .form) {
             List {
                 Section {
                     TextField("example.com", text: $draft)
@@ -451,7 +465,9 @@ struct AddSiteSheet: View {
                         // The error takes the accent rather than a red: this is a
                         // "that is not a domain" correction, not a destructive
                         // outcome, and the web form styles it the same way.
-                        Text(error).foregroundColor(.accentColor)
+                        Text(error)
+                            .foregroundColor(.accentColor)
+                            .movarWrapping()
                     }
                 }
 

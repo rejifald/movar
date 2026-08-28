@@ -30,7 +30,12 @@
  */
 import { EVIDENCE_SCHEMA_VERSION } from '@movar/audit/evidence';
 import type { Evidence, ProbeEvidence, RedirectHop } from '@movar/audit/evidence';
-import { createPageSet, finalUrlOf, LOCAL_VANTAGE } from '@movar/audit/collect/assemble';
+import {
+  createPageSet,
+  documentHeadersOf,
+  finalUrlOf,
+  LOCAL_VANTAGE,
+} from '@movar/audit/collect/assemble';
 import type { PageSet } from '@movar/audit/collect/assemble';
 import { digestFromDocument } from '@movar/audit/collect/digest-dom';
 import type { ProbeReply, ProbeTransport } from './protocol';
@@ -260,6 +265,22 @@ function probeFrom(
   // `Evidence`.
   if (observation.outcome !== 'ok' || typeof reply.body !== 'string') return observation;
 
+  // The whole header bag, and the bag belonging to the response that served
+  // THIS body: `Link` and `Content-Language` are head declarations the digest
+  // folds in, and `responseHeaders` is the FIRST response's by contract. The
+  // native probers record only that one today, so `documentHeadersOf` answers
+  // `undefined` for a leg that redirected and the destination is digested with
+  // no header declarations rather than the redirect's — an uncollected
+  // alternate is a gap, one taken off another resource is an accusation.
+  //
+  // Closing that gap is a two-part change and neither part is here yet: a
+  // `finalResponseHeaders` field on `ProbeReply` (`./protocol.ts`), and a line
+  // in `observationFrom` that narrows it onto the observation the way
+  // `responseHeaders` and `bodyHash` are narrowed. A host that starts sending
+  // the field today is silently dropped — `observationFrom` builds
+  // `ProbeEvidence` from a fixed list and never looks at it — so a native
+  // prober must not be taught to send it before both parts land.
+  const headers = documentHeadersOf(observation);
   const pageId = pages.add({
     url: landingUrlOf(reply, observation),
     body: reply.body,
@@ -268,9 +289,7 @@ function probeFrom(
     // reads `0` for a reply that states none, which is refused too — a body
     // whose status this side cannot read is a body it cannot call a page.
     status: observation.status,
-    // The whole header bag: `Link` and `Content-Language` are both head
-    // declarations the digest folds in, and the Node collector passes the same.
-    headers: observation.responseHeaders,
+    ...(headers === undefined ? {} : { headers }),
     // The host hashes the decoded text with the same rule `probe.ts` uses, so
     // page identity matches across runtimes. Falling back to the body itself
     // keeps the dedupe correct (if verbose) when a host sends no hash.

@@ -57,9 +57,34 @@ const ALTERNATES: readonly AlternateLink[] = [
   { hreflang: 'ru', href: 'https://example.com.ua/ru/', source: 'link' },
 ];
 
+/**
+ * Two passages that clear the shared gates in `text-samples.ts` — over the
+ * 40-character floor, not runs of proper nouns, not inside `<code>`. The
+ * served-language seam classifies nothing else, so a fixture below the floor
+ * would make every hybrid case here vacuous rather than assert anything.
+ */
 const SAMPLES: readonly TextNodeSample[] = [
-  { nodePath: 'main > p:nth-child(1)', text: 'Кошик порожній', inheritedLang: null },
-  { nodePath: 'main > p:nth-child(2)', text: 'Доставка по Україні', inheritedLang: null },
+  {
+    nodePath: 'main > p:nth-child(1)',
+    text: 'Кошик порожній — додайте товари, щоб оформити замовлення',
+    inheritedLang: null,
+  },
+  {
+    nodePath: 'main > p:nth-child(2)',
+    text: 'Доставка по Україні за два робочі дні, оплата при отриманні',
+    inheritedLang: null,
+  },
+];
+
+/** Passages the shared gates exclude: below the floor, and inside `<code>`. */
+const UNCLASSIFIABLE_SAMPLES: readonly TextNodeSample[] = [
+  { nodePath: 'main > p:nth-child(1)', text: 'Ні', inheritedLang: null },
+  { nodePath: 'main > p:nth-child(2)', text: 'Це', inheritedLang: null },
+  {
+    nodePath: 'main > pre > code',
+    text: 'Доставка по Україні за два робочі дні, оплата при отриманні',
+    inheritedLang: null,
+  },
 ];
 
 /** One response, digested as the page a probe produced. */
@@ -538,6 +563,26 @@ describe('core/serving-declared-never-served', () => {
     expect(result.notApplicableReason).toMatch(/never served/);
   });
 
+  /**
+   * The same silence, one gate earlier and for a different reason: here the
+   * classifier is perfectly confident, and never gets asked. Family C used to
+   * hand it raw `sample.text`, so two two-character words and a `<code>` block
+   * produced a served-language determination and this rule published an
+   * observation naming a site over text `text-samples.ts` refuses to classify
+   * (#435). A confident stub is the point of the case — `neverClassifies`
+   * above cannot tell "asked and abstained" from "never asked".
+   */
+  it('is not applicable when every sampled passage is excluded by the shared gates', () => {
+    const result = resultFor(
+      RULE,
+      partiallyHonoured(null, UNCLASSIFIABLE_SAMPLES),
+      rulesetWith(alwaysClassifies('uk')),
+    );
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toMatch(/never served/);
+    expect(result.findings).toEqual([]);
+  });
+
   it('excludes an unrequested response and an uncollected one from the never-served comparison', () => {
     const evidence = networkEvidence(
       [response('page-uk', 'uk')],
@@ -752,6 +797,20 @@ describe('core/serving-cookie-overrides-header', () => {
     const result = resultFor(RULE, networkEvidence(COLD_PAGES, COLD_MATRIX));
     expect(result.verdict).toBe('not-applicable');
     expect(result.notApplicableReason).toMatch(/every probe in this run was cold/);
+  });
+
+  /**
+   * A run that asked for a warm leg and kept no warm probe is not a cold run,
+   * and must not be described as one: the leg met a challenge interstitial,
+   * failed in transport, or ran out of budget. Every probe the bundle *holds*
+   * is cold either way, so `NetworkSource.cookies` is the only thing that can
+   * tell the two apart — and calling this one cold hands the collector's
+   * shortfall to the operator as their own choice.
+   */
+  it('says the warm leg produced nothing, rather than calling a warm run cold', () => {
+    const result = resultFor(RULE, networkEvidence(COLD_PAGES, COLD_MATRIX, 'warm'));
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toMatch(/asked for a warm cookie leg/);
   });
 
   it('warns when the warm leg drops a header the cold leg honoured', () => {

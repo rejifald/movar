@@ -135,10 +135,13 @@ function unsuppressableReason(result: RuleResult): string | null {
  * of the entry. `core/serving-header-ignored` needs `matrix`, so the entry
  * naming the one offending URL was legal on a network run and a doctrine
  * violation on a `--dist` run of the same committed policy, for a rule that was
- * simply not collected; no wording of that entry satisfied both. Doctrine 5 is
- * what speaks instead: a valid entry that silenced nothing is reported stale,
- * matched by subject or not, which is the honest reading of "this rule did not
- * fire". So nothing is quietly permitted here — only said accurately.
+ * simply not collected; no wording of that entry satisfied both. The `--dist`
+ * job stays red either way — a family C rule cannot collect `matrix` off a
+ * build directory — so what this removes is the state-dependence and the
+ * accusation, never the exit code. Doctrine 5 is what speaks instead: a valid
+ * entry that silenced nothing is reported stale, matched by subject or not,
+ * which is the honest reading of "this rule did not fire". So nothing is
+ * quietly permitted here — only said accurately.
  *
  * The two tests below partition the space only because a rule's findings all
  * carry **one** scope. That is a property of the catalogue, not of this

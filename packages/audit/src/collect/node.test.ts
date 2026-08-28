@@ -882,6 +882,18 @@ describe('collectNetwork', () => {
       });
     }
 
+    /** The same site under `--warm --follow`, against one stated ceiling. */
+    async function collectWarmAndFollow(budget: number): Promise<Evidence> {
+      return collectNetwork({
+        url: HOME,
+        headers: [null, 'uk'],
+        warm: true,
+        followDeclaredTargets: true,
+        budget,
+        fetchImpl: cookieDecidedSite([]),
+      });
+    }
+
     /** A leg is `(url, vantage, cookieState)`, so the warm one is a second leg. */
     it('collects a warm matrix beside the cold one, each stamped as its own leg', async () => {
       const evidence = await collectWarm();
@@ -960,6 +972,34 @@ describe('collectNetwork', () => {
 
       expect(probes.map((probe) => probe.cookieState)).toEqual(['warm', 'warm']);
       expect(cookies).toBe('warm');
+    });
+
+    /**
+     * The warm leg runs **before** declared-target expansion, so one ceiling
+     * too low for both costs the run its `traversal` capability and the whole
+     * family of rules that reads it.
+     *
+     * That order is a decision rather than where the call landed: `--warm` is
+     * an opt-in naming one rule nothing else in the bundle can answer, and
+     * expansion reads the page set the matrices built — this leg's pages
+     * included — so running it first would spend the budget on targets
+     * discovered from half the pages. Pinned so a future reordering is
+     * deliberate; what the run loses, it loses visibly, as `not-collected`
+     * under an absent capability rather than as a pass.
+     */
+    it('spends a tight budget on the warm leg before expanding to declared targets', async () => {
+      const starved = await collectWarmAndFollow(4);
+      expect(networkSource(starved).probes.map((probe) => probe.cookieState)).toEqual([
+        'cold',
+        'cold',
+        'warm',
+        'warm',
+      ]);
+      expect(deriveCapabilities(starved).has('traversal')).toBe(false);
+
+      // …and it is the ceiling doing that, not the fixture: given room for
+      // both, the expansion still happens.
+      expect(deriveCapabilities(await collectWarmAndFollow(8)).has('traversal')).toBe(true);
     });
 
     it('lets core/serving-cookie-overrides-header reach a verdict at last', async () => {

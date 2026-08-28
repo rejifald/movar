@@ -101,6 +101,8 @@ export async function collectNetwork(options: NetworkCollectOptions): Promise<Ev
     probes.push(pageId === null ? probe : { ...probe, pageId });
   }
 
+  // Before declared-target expansion, deliberately: see {@link collectWarmLeg}
+  // for what a budget too small for both buys, and why this way round.
   if (options.warm === true) {
     await collectWarmLeg(prober, pages, probes, options);
   }
@@ -218,6 +220,19 @@ function warmOrderOf(headers: readonly (string | null)[]): readonly (string | nu
  * cold matrix, which is the right way round: it is the leg the other six rules
  * need, and a run that could not afford the warm one says so — the posture is
  * on the evidence and the probes are not there.
+ *
+ * **This leg runs before declared-target expansion**, so the same ceiling can
+ * cost a `--warm --follow` run its `traversal` capability and the whole family
+ * of rules that reads it. That order is a decision, not where the call landed.
+ * `--warm` is an opt-in naming one rule that nothing else in the bundle can
+ * answer, while expansion widens a capability the run may simply have less of;
+ * and expansion reads the page set the matrices built — including this leg's
+ * own pages, whose markup contributes declared targets — so going first would
+ * spend the budget on targets discovered from half the pages and then find
+ * nothing left for the leg that was asked for by name. What the run loses
+ * either way it loses visibly: a withheld target is `not-collected` under an
+ * absent `traversal`, never a pass. `node.test.ts` pins the order so changing
+ * it stays a decision somebody makes on purpose.
  */
 async function collectWarmLeg(
   prober: Prober,

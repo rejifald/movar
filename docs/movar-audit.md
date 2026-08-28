@@ -287,7 +287,13 @@ Wording it as an absolute today would mean retracting it later in front of
   _(url × vantage × cookie state)_, so the two are different legs, and
   `core/serving-cookie-overrides-header` is the rule that reads the pair. Only the URL the
   user typed goes warm: `robots.txt` and declared targets stay cold, so no cookie the run
-  collected is ever presented to an origin nobody typed.
+  collected is ever presented to an origin nobody typed. **The order under one budget is
+  cold matrix, then warm leg, then `--follow`'s expansion**, so `--warm --follow` under a
+  tight `--budget` can spend the ceiling before the expansion and leave the run without
+  `traversal`. That is the intended order — `--warm` names a rule nothing else in the
+  bundle can answer, and expansion reads the pages both matrices built — and what the run
+  loses it loses visibly, as `not-collected` under an absent capability rather than as a
+  pass.
 - **A warm run's jar is scoped to the host that set each cookie**, and to `https` where the
   cookie said `Secure`. A jar that outlives one probe and answers every request from a
   single pile is a courier: a cookie a redirect collected from a consent or analytics

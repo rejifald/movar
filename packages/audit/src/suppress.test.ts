@@ -348,7 +348,35 @@ describe('parseSuppressionPolicy', () => {
       'a non-string subject',
       { budget: 1, suppressions: [{ rule: SITE_RULE, reason: REASON, subject: 7 }] },
     ],
+    [
+      'an empty subject',
+      { budget: 1, suppressions: [{ rule: PAGE_RULE, reason: REASON, subject: '' }] },
+    ],
+    [
+      'a whitespace-only subject',
+      { budget: 1, suppressions: [{ rule: PAGE_RULE, reason: REASON, subject: ' \t ' }] },
+    ],
   ])('rejects %s', (_label, value) => {
     expect(parseSuppressionPolicy(value)).toBeInstanceOf(Error);
+  });
+
+  /**
+   * The message has to name the real defect. `{ subject: '' }` used to parse,
+   * answer `subjectScopeProblem`'s `subject === undefined` test as though it
+   * were the site-wide form, and then match nothing — so the run went red as a
+   * *stale* entry and told the operator to delete a line whose whole problem
+   * was one missing string. It also collided with the subject-less entry for
+   * the same rule in `keyOf`, and the pair reported as a duplicate.
+   */
+  it('names the missing page for an empty subject, rather than letting it go stale', () => {
+    const refused = parseSuppressionPolicy({
+      budget: 1,
+      suppressions: [{ rule: PAGE_RULE, reason: REASON, subject: '' }],
+    });
+
+    expect(refused).toBeInstanceOf(Error);
+    expect((refused as Error).message).toBe(
+      'suppressions[0].subject must name a page — an empty subject matches nothing, and an absent one is the site-wide form',
+    );
   });
 });

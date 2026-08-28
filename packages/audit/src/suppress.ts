@@ -47,10 +47,12 @@ export interface Suppression {
   readonly rule: string;
   /**
    * The finding's `path` (filesystem evidence) or `url` (network evidence),
-   * matched exactly. Required when the rule's findings are page-scoped,
-   * forbidden when they are site-scoped — a page finding silenced site-wide is
-   * the blanket ignore doctrine bans. The **finding's** scope decides, not the
-   * rule's; the two are different claims. See {@link subjectScopeProblem}.
+   * matched exactly, and never empty — absent is the site-wide form, and an
+   * empty string is neither that nor a page. Required when the rule's findings
+   * are page-scoped, forbidden when they are site-scoped — a page finding
+   * silenced site-wide is the blanket ignore doctrine bans. The **finding's**
+   * scope decides, not the rule's; the two are different claims. See
+   * {@link subjectScopeProblem}.
    */
   readonly subject?: string;
   readonly reason: string;
@@ -262,7 +264,20 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value !== '';
 }
 
-/** One entry, or the reason it is not one. Errors name the index, so a file with a typo says where. */
+/**
+ * One entry, or the reason it is not one. Errors name the index, so a file with
+ * a typo says where.
+ *
+ * **An empty subject is not an absent one.** `{ subject: '' }` used to parse,
+ * and then answered the `subject === undefined` test in
+ * {@link subjectScopeProblem} as though it were a site-wide entry while
+ * {@link matches} could never match it — so a page-scoped rule accepted the
+ * entry and reported it stale, and the operator was told to *delete* a line
+ * whose real defect was one missing string. It also collided in {@link keyOf},
+ * which joins rule and subject, so `{rule}` and `{rule, subject: ''}` reported
+ * as duplicates of each other. Refusing it here says the true thing once, at
+ * the edge, and leaves nothing downstream to defend against.
+ */
 function parseEntry(entry: unknown, index: number): Suppression | Error {
   const at = `suppressions[${index}]`;
   if (typeof entry !== 'object' || entry === null) return new Error(`${at} is not an object`);
@@ -272,6 +287,11 @@ function parseEntry(entry: unknown, index: number): Suppression | Error {
   if (typeof reason !== 'string') return new Error(`${at}.reason must be a string`);
   if (subject !== undefined && typeof subject !== 'string') {
     return new Error(`${at}.subject must be a string when present`);
+  }
+  if (subject?.trim() === '') {
+    return new Error(
+      `${at}.subject must name a page — an empty subject matches nothing, and an absent one is the site-wide form`,
+    );
   }
   // `exactOptionalPropertyTypes` is on: an absent subject is an absent key,
   // never a key set to `undefined`.

@@ -40,6 +40,7 @@ const t = blogStrings;
   description={post.data.description}
   localeAlternates={false}
   ogType="article"
+  noindex={post.data.draft}
 >
   <Fragment slot="head">
     <link rel="alternate" type="application/rss+xml" title={t.feed.title} href={BLOG_FEED_HREF} />

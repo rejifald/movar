@@ -1,23 +1,43 @@
-import type { CSSProperties, JSX } from 'react';
+import type { JSX } from 'react';
 
-import { colorLight, fontFamily, letterSpacing } from '@movar/theme';
+import {
+  CONTENT_TOP,
+  CONTENT_WIDTH,
+  CONTENT_X,
+  ChartFrame,
+  FONT,
+  Label,
+  WEIGHT_BOLD,
+  WEIGHT_MEDIUM,
+  chartColor,
+  chartType,
+} from './chartKit';
 
 /**
- * Signal-ladder diagram — an illustration for the DOU article
- * `docs/articles/dou-tykha-kapitulyatsiya.md`. Rendered at a fixed
- * 1200×920 and screenshotted by
- * `apps/marketing/scripts/capture-article-assets.mts` into
- * `docs/articles/assets/signal-ladder.png`.
+ * Signal-ladder diagram — the scene for
+ * `src/content/blog/tykha-kapitulyatsiya.md`, written to
+ * `src/content/blog/assets/signal-ladder.svg`.
  *
  * The six steps mirror `packages/page-language`'s detection order
- * (picker → html lang → subdomain → path segment → self-hreflang → text)
- * and the article's «Як Мовар визначає мову» section. If that order ever
- * changes, update both the article and this diagram together.
+ * (picker → html lang → subdomain → path segment → self-hreflang → text) and
+ * the article's «Як Мовар визначає мову» section. If that order ever changes,
+ * update the package, the article and this diagram together — nothing checks
+ * the three against each other.
+ *
+ * Unlike its siblings this scene carries no figures, so it has no entry in
+ * `src/lib/article-figures.ts`: its content *is* the detection order, and
+ * moving the list to another module would add indirection without removing a
+ * duplicate.
+ *
+ * The inline code fragments (`<html lang>`, `/uk/`) used to sit in tinted
+ * chips. A chip needs the text's width, and nothing here measures text — so
+ * they are now distinguished by colour and weight instead, which consecutive
+ * `<tspan>`s can do without any measurement at all.
  */
 
 interface LadderStep {
   title: string;
-  /** Optional inline-code fragment appended to the title. */
+  /** Optional code fragment, rendered inline after the title. */
   code?: string;
   annotation: string;
 }
@@ -52,149 +72,135 @@ const STEPS: readonly LadderStep[] = [
   },
 ];
 
+/* Geometry, in frame coordinates. */
+const RAIL_BASELINE_DROP = 10;
+const RAIL_TO_CARDS = 18;
+const RAIL_TOP_BASELINE = CONTENT_TOP + RAIL_BASELINE_DROP;
+const CARDS_TOP = RAIL_TOP_BASELINE + RAIL_TO_CARDS;
+const CARD_HEIGHT = 84;
+const CARD_PITCH = 96;
+const CARD_RADIUS = 12;
+const CARD_PAD_X = 24;
+const CHIP_RADIUS = 20;
+const CHIP_GAP = 20;
+const TITLE_BASELINE = 34;
+const ANNOTATION_BASELINE = 60;
+const CHIP_TEXT_NUDGE = 7;
+const CODE_GAP = 10;
+
+const CARDS_BOTTOM = CARDS_TOP + STEPS.length * CARD_PITCH - (CARD_PITCH - CARD_HEIGHT);
+const CARDS_TO_RAIL = 30;
+const RAIL_TO_FOOTER = 46;
+const FOOTER_TO_EDGE = 44;
+const RAIL_BOTTOM_BASELINE = CARDS_BOTTOM + CARDS_TO_RAIL;
+const FOOTER_BASELINE = RAIL_BOTTOM_BASELINE + RAIL_TO_FOOTER;
+
+const CHIP_CX = CONTENT_X + CARD_PAD_X + CHIP_RADIUS;
+const BODY_X = CHIP_CX + CHIP_RADIUS + CHIP_GAP;
+
 export function SignalLadder(): JSX.Element {
   return (
-    <div style={frameStyle}>
-      <p style={titleStyle}>Як Мовар визначає мову сторінки</p>
-      <p style={subtitleStyle}>
-        Шість сигналів, від найнадійнішого до найслабшого. Перший, що дав відповідь, вирішує.
-      </p>
+    <ChartFrame
+      height={FOOTER_BASELINE + FOOTER_TO_EDGE}
+      title="Як Мовар визначає мову сторінки"
+      subtitle="Шість сигналів, від найнадійнішого до найслабшого. Перший, що дав відповідь, вирішує."
+      label="Драбина з шести сигналів визначення мови сторінки, від найнадійнішого до найслабшого: активний пункт перемикача мов, атрибут html lang, піддомен, сегмент шляху, self-hreflang і текст сторінки"
+      source={[]}
+    >
+      <Label
+        x={CONTENT_X}
+        y={RAIL_TOP_BASELINE}
+        size={13}
+        weight={WEIGHT_MEDIUM}
+        fill={chartColor.inkFaint}
+      >
+        НАДІЙНІШЕ
+      </Label>
 
-      <div style={railLabelStyle}>надійніше</div>
-      <div style={stepsStyle}>
-        {STEPS.map((step, index) => (
-          <div key={step.title} style={cardStyle}>
-            <span style={chipStyle}>{index + 1}</span>
-            <span style={cardBodyStyle}>
-              <span style={cardTitleStyle}>
-                {step.title}
-                {step.code === undefined ? null : <code style={codeStyle}>{step.code}</code>}
-              </span>
-              <span style={annotationStyle}>{step.annotation}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-      <div style={{ ...railLabelStyle, marginTop: 14 }}>слабше</div>
+      {STEPS.map((step, index) => {
+        const top = CARDS_TOP + index * CARD_PITCH;
+        return (
+          <g key={step.title}>
+            <rect
+              x={CONTENT_X}
+              y={top}
+              width={CONTENT_WIDTH}
+              height={CARD_HEIGHT}
+              rx={CARD_RADIUS}
+              fill={chartColor.bg}
+              stroke={chartColor.grid}
+              strokeWidth={1}
+            />
+            <circle
+              cx={CHIP_CX}
+              cy={top + CARD_HEIGHT / 2}
+              r={CHIP_RADIUS}
+              fill={chartColor.ua}
+              fillOpacity={0.12}
+            />
+            <Label
+              x={CHIP_CX}
+              y={top + CARD_HEIGHT / 2 + CHIP_TEXT_NUDGE}
+              anchor="middle"
+              size={20}
+              weight={WEIGHT_MEDIUM}
+              fill={chartColor.uaLabel}
+              numeric
+            >
+              {index + 1}
+            </Label>
 
-      <p style={footerStyle}>
-        Доказів бракує чи сигнали суперечать один одному? Вердикт — «невідомо», і{' '}
-        <strong style={{ color: ACCENT_DEEP }}>Мовар не чіпає нічого</strong>.
-      </p>
-    </div>
+            {/* Consecutive tspans flow inline, so the code needs no measured x. */}
+            <text
+              x={BODY_X}
+              y={top + TITLE_BASELINE}
+              fontFamily={FONT}
+              fontSize={chartType.blockHeading}
+              fontWeight={WEIGHT_BOLD}
+              fill={chartColor.inkStrong}
+            >
+              <tspan>{step.title}</tspan>
+              {step.code === undefined ? null : (
+                <tspan dx={CODE_GAP} fontWeight={WEIGHT_MEDIUM} fill={chartColor.uaLabel}>
+                  {step.code}
+                </tspan>
+              )}
+            </text>
+            <Label
+              x={BODY_X}
+              y={top + ANNOTATION_BASELINE}
+              size={chartType.blockCaption}
+              fill={chartColor.inkSoft}
+            >
+              {step.annotation}
+            </Label>
+          </g>
+        );
+      })}
+
+      <Label
+        x={CONTENT_X}
+        y={RAIL_BOTTOM_BASELINE}
+        size={13}
+        weight={WEIGHT_MEDIUM}
+        fill={chartColor.inkFaint}
+      >
+        СЛАБШЕ
+      </Label>
+
+      <text
+        x={CONTENT_X}
+        y={FOOTER_BASELINE}
+        fontFamily={FONT}
+        fontSize={chartType.barLabel}
+        fill={chartColor.ink}
+      >
+        <tspan>Доказів бракує чи сигнали суперечать один одному? Вердикт — «невідомо», і </tspan>
+        <tspan fontWeight={WEIGHT_BOLD} fill={chartColor.uaLabel}>
+          Мовар не чіпає нічого
+        </tspan>
+        <tspan>.</tspan>
+      </text>
+    </ChartFrame>
   );
 }
-
-const BG = colorLight.bg;
-const SURFACE = colorLight.surface;
-const SURFACE_3 = colorLight['surface-3'];
-const INK = colorLight.ink;
-const INK_STRONG = colorLight['ink-strong'];
-const INK_SOFT = colorLight['ink-soft'];
-const INK_FAINT = colorLight['ink-faint'];
-const ACCENT_DEEP = colorLight['accent-deep'];
-const ACCENT_SOFT = colorLight['accent-soft'];
-
-const frameStyle: CSSProperties = {
-  width: 1200,
-  height: 920,
-  boxSizing: 'border-box',
-  padding: '56px 64px',
-  background: BG,
-  color: INK,
-  fontFamily: fontFamily.sans,
-  colorScheme: 'light',
-  overflow: 'hidden',
-};
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  fontWeight: 800,
-  fontSize: 34,
-  lineHeight: 1.15,
-  letterSpacing: letterSpacing.display,
-  color: INK_STRONG,
-};
-
-const subtitleStyle: CSSProperties = {
-  margin: '10px 0 0',
-  fontSize: 20,
-  color: INK_SOFT,
-};
-
-const railLabelStyle: CSSProperties = {
-  marginTop: 32,
-  fontFamily: fontFamily.mono,
-  fontSize: 13,
-  fontWeight: 500,
-  letterSpacing: letterSpacing.label,
-  textTransform: 'uppercase',
-  color: INK_FAINT,
-};
-
-const stepsStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 12,
-  marginTop: 14,
-};
-
-const cardStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 20,
-  padding: '16px 24px',
-  background: SURFACE,
-  border: `1px solid ${SURFACE_3}`,
-  borderRadius: 12,
-};
-
-const chipStyle: CSSProperties = {
-  flex: 'none',
-  width: 40,
-  height: 40,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: '50%',
-  background: ACCENT_SOFT,
-  color: ACCENT_DEEP,
-  fontFamily: fontFamily.mono,
-  fontSize: 20,
-  fontWeight: 600,
-};
-
-const cardBodyStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-};
-
-const cardTitleStyle: CSSProperties = {
-  fontSize: 21,
-  fontWeight: 700,
-  lineHeight: 1.2,
-  color: INK_STRONG,
-};
-
-const codeStyle: CSSProperties = {
-  marginLeft: 10,
-  padding: '2px 8px',
-  borderRadius: 6,
-  background: colorLight['surface-2'],
-  fontFamily: fontFamily.mono,
-  fontSize: 18,
-  fontWeight: 500,
-};
-
-const annotationStyle: CSSProperties = {
-  fontSize: 17,
-  lineHeight: 1.35,
-  color: INK_SOFT,
-};
-
-const footerStyle: CSSProperties = {
-  margin: '30px 0 0',
-  fontSize: 18,
-  color: INK,
-};

@@ -84,8 +84,10 @@ would say nothing to anyone. That single decision drives four things, all docume
 - Body styling is the `.article-prose` element sheet in `styles/global.css`, because
   generated Markdown cannot carry utility classes.
 
-Post illustrations live in `src/content/blog/assets/` — also where `scripts/capture-article-assets.mts`
-writes its Storybook-rendered scenes, so there is no second copy to drift. `docs/articles/*.md`
+Post illustrations live in `src/content/blog/assets/` — also where `pnpm gen:charts`
+(`scripts/gen-article-charts.mts`) writes the SVG scenes it renders from `src/lib/article-figures.ts`,
+so there is no second copy to drift, and `pnpm check:charts` re-renders and byte-compares them on
+every PR so a figure cannot move without its charts moving with it. `docs/articles/*.md`
 is the registry of every article: its plan, its research, and its status. An article that went
 to a third-party outlet keeps its submitted text there verbatim
 (`dou-tykha-kapitulyatsiya.md`); one that only ever shipped here keeps a pointer instead

@@ -205,6 +205,62 @@ describe('collectMatrix', () => {
     expect(probes[0]?.redirectChain).toHaveLength(1);
   });
 
+  /**
+   * The same defect as in the Node collector, in the runtime the Safari host
+   * app is built on — and the one this side can regress on its own, since
+   * `documentHeadersOf` is a single call that still reads plausibly if
+   * replaced by `observation.responseHeaders`.
+   *
+   * `responseHeaders` is the FIRST response's by contract: on a
+   * locale-autodetect `302` that is the redirect's bag, and its
+   * `Link: …; rel="alternate"` and `Content-Language` are the redirect's own
+   * declarations. Folding them into the digest of the document at the END of
+   * the chain merges two resources into one `DocumentEvidence`, which
+   * `core/inventory-sources-disagree` then publishes as a defect of a named
+   * site. The native probers record only the first response's today, so the
+   * honest answer here is no header declarations at all: an alternate the
+   * collector did not collect is a gap, one taken off another resource is an
+   * accusation.
+   */
+  it('never digests a redirect’s own declarations into the page it points at', async () => {
+    const LINK = '<https://example.com/de/>; rel="alternate"; hreflang="de"';
+    const redirected = ok(HTML, {
+      finalUrl: 'https://example.com/uk/',
+      responseHeaders: { 'content-type': 'text/html', link: LINK, 'content-language': 'de' },
+      redirectChain: [{ url: 'https://example.com/', status: 302, location: '/uk/' }],
+    });
+    const evidence = await collectMatrix({ ...BASE, probe: always(redirected).impl });
+    const page = evidence.pages[0];
+
+    expect(page?.url).toBe('https://example.com/uk/');
+    // The body declares no alternates, so anything here came off the redirect.
+    expect(page?.document.alternates).toEqual([]);
+    expect(page?.document.head?.declarations.map((entry) => entry.kind)).not.toContain(
+      'content-language',
+    );
+    // The probe keeps that bag, and `core/serving-vary-missing` still reads it:
+    // the fix is "each caller names which resource it means", never "drop the
+    // redirect's headers".
+    const probes = evidence.source.kind === 'network' ? evidence.source.probes : [];
+    expect(probes[0]?.responseHeaders['link']).toBe(LINK);
+  });
+
+  /** The other direction: a leg that never redirected still folds its own in. */
+  it('folds in the serving response’s declarations when nothing redirected', async () => {
+    const direct = ok(HTML, {
+      responseHeaders: {
+        'content-type': 'text/html',
+        link: '<https://example.com/de/>; rel="alternate"; hreflang="de"',
+      },
+      redirectChain: [],
+    });
+    const evidence = await collectMatrix({ ...BASE, probe: always(direct).impl });
+    const alternates = evidence.pages[0]?.document.alternates ?? [];
+
+    expect(alternates.map((entry) => entry.hreflang)).toEqual(['de']);
+    expect(alternates[0]?.source).toBe('header');
+  });
+
   it('produces evidence the pure kernel can adjudicate', async () => {
     // The point of the whole split: this collector shares nothing with the
     // kernel but `Evidence`, so `evaluate()` must accept it untouched.

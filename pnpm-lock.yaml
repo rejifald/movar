@@ -328,6 +328,9 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.4
         version: 0.9.9(prettier@3.8.3)(typescript@6.0.3)
+      '@astrojs/markdown-remark':
+        specifier: ^6.3.11
+        version: 6.3.11
       '@astrojs/sitemap':
         specifier: ^3.7.3
         version: 3.7.3
@@ -364,6 +367,9 @@ importers:
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.6.1)
+      github-slugger:
+        specifier: ^2.0.0
+        version: 2.0.0
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.6)

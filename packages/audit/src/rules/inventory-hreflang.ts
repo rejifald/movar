@@ -23,15 +23,26 @@ import { declaredLanguageOf, isWellFormedBCP47, presentLang } from '../bcp47';
 import { STATIC_ONLY, SITE_ONLY, TRAVERSAL_ONLY } from '../capability';
 import type { Classifier } from '../classifier';
 import type { AlternateLink, PageEvidence, ProbeEvidence } from '../evidence';
-import type { Denominator, EvidenceRef, FindingSubject, GroundedFindingDraft } from '../finding';
+import type { EvidenceRef, FindingSubject, GroundedFindingDraft } from '../finding';
 import { nodeRef, pageRef, subjectOf } from '../finding';
 import { alternateLanguage, X_DEFAULT } from '../inventory';
 import type { Locator } from '../locator';
-import { locatorOf, parseLocator, resolveTargetPage, sameLocation, tryUrl } from '../locator';
+import {
+  declaredLocator,
+  locatorOf,
+  parseLocator,
+  resolveTargetPage,
+  sameLocation,
+  tryUrl,
+} from '../locator';
 import type { CoreRule, Rule } from '../rule';
 import { findings, notApplicable, pass } from '../rule';
-import { classifiablePageLanguage, classifySamples, textNodeDenominator } from '../text-samples';
-import type { LanguageCode } from '@movar/lang-detect';
+import type { DominantLanguage } from '../text-samples';
+import {
+  classifiablePageLanguage,
+  CLASSIFIER_CANDIDATES,
+  dominantSampleLanguage,
+} from '../text-samples';
 
 const DECLARED = 'declared' as const;
 const PAGE = 'page' as const;
@@ -40,6 +51,9 @@ const FAIL = 'fail' as const;
 const WARN = 'warn' as const;
 
 const NO_ALTERNATES = 'the page declares no hreflang alternates';
+const CHAIN_NEVER_FINISHED =
+  'a declared target answered redirects the collector stopped following at a ceiling of its own, ' +
+  'so whether it resolves was never observed';
 const HTTP_STATUS_NOT_FOUND = 404;
 
 /**
@@ -47,6 +61,12 @@ const HTTP_STATUS_NOT_FOUND = 404;
  * families follow declared targets and all four must agree on what "the same
  * page" means. A local copy here missed directory-index normalization, so
  * `/uk/index.html` did not match a declared `/uk/` on filesystem evidence.
+ *
+ * The **base** a declared href resolves against is the kernel's for the same
+ * reason (`declaredLocator`): a wrapper here passed `page.url`, which a page
+ * read off disk does not have, so every relative alternate on a build fell
+ * back to the site-root reading this file already had fixed for network
+ * evidence.
  *
  * These wrappers only tolerate `null` — a fragment-only or empty href declares
  * no target — so the call sites below stay readable.
@@ -57,20 +77,6 @@ function sameLocator(one: Locator | null, other: Locator | null): boolean {
 
 function ownLocator(page: PageEvidence): Locator | null {
   return locatorOf(page);
-}
-
-/**
- * A declared href as a comparable locator, resolved **relative to the page
- * that declared it** — which is the only way a user agent reads it, and what
- * {@link resolveTargetPage} does for the families that already route through
- * the kernel. Parsing with no base resolved every relative href against the
- * site root instead: `../uk/guide.html` on `/docs/en/guide.html` became the
- * literal path `/../uk/guide.html`, matching no collected page, and a bare
- * `./` self-reference became `/.`. `core/hreflang-target-relative` only warns
- * about relative hrefs, so the catalogue expects them — they must resolve.
- */
-function declaredLocator(page: PageEvidence, href: string): Locator | null {
-  return parseLocator(href, page.url);
 }
 
 function locatorLabel(page: PageEvidence): string {
@@ -342,6 +348,26 @@ function unresolvableDraft(
   };
 }
 
+/**
+ * A target the collector followed but never saw the end of.
+ *
+ * `redirectChainTruncated` marks a walk that stopped at a ceiling of the
+ * collector's own — the hop cap, or the request budget running out mid-chain.
+ * **One check covers both**, deliberately: the two ceilings share the one flag
+ * precisely so a reader asks once, and a reader that asked about only one of
+ * them would still accuse on the other. The target produced no page for the
+ * same reason either way — nobody fetched the URL the last hop pointed at — so
+ * "absent from the collected page set" would be a `declared` **fail** naming a
+ * site for the operator's `--budget` or the collector's `maxHops`.
+ *
+ * `core/switch-bounces` already publishes that chain as an `observed` `warn`
+ * naming the hops it did see, which is the honest statement; a `fail` beside it
+ * is the same report contradicting itself, with the accusing half winning.
+ */
+function chainNeverFinished(probe: ProbeEvidence | null): boolean {
+  return probe?.redirectChainTruncated === true;
+}
+
 const hreflangTargetUnresolvable: CoreRule<'page'> = {
   id: 'core/hreflang-target-unresolvable',
   title: 'An hreflang target is absent from the collected page set',
@@ -353,43 +379,28 @@ const hreflangTargetUnresolvable: CoreRule<'page'> = {
     if (alternates.length === 0) return notApplicable(NO_ALTERNATES);
     const own = ownLocator(ctx.page);
     const drafts: GroundedFindingDraft[] = [];
+    let withheld = false;
     for (const alt of alternates) {
       const locator = declaredLocator(ctx.page, alt.href);
       if (own !== null && sameLocator(locator, own)) continue;
       if (resolveTargetPage(ctx.pages, ctx.page, alt.href) !== null) continue;
-      drafts.push(unresolvableDraft(ctx.page, alt, matchingProbe(ctx.probes, locator)));
+      const probe = matchingProbe(ctx.probes, locator);
+      if (chainNeverFinished(probe)) {
+        withheld = true;
+        continue;
+      }
+      drafts.push(unresolvableDraft(ctx.page, alt, probe));
     }
-    return drafts.length === 0 ? pass() : findings(...drafts);
+    if (drafts.length > 0) return findings(...drafts);
+    // Withholding must not become `pass`: that would say every declared target
+    // resolves, of a page where one of them was never followed to its end.
+    // `not-collected` is the kernel's word and no rule may speak it (see
+    // `../rule.ts`), so the page reports what is true of it — there was nothing
+    // here this rule could adjudicate — and the kernel folds that into
+    // `pagesNotApplicable` rather than into a verdict about the site.
+    return withheld ? notApplicable(CHAIN_NEVER_FINISHED) : pass();
   },
 };
-
-/** The hybrid: prefers the target's own declaration, asks the classifier only when that is absent. */
-interface DominantLanguage {
-  readonly language: LanguageCode;
-  readonly denominator: Denominator;
-}
-
-/** The majority classified language among a target page's sampled text, or `null` with nothing to classify. */
-function dominantClassifiedLanguage(
-  classify: Classifier,
-  target: PageEvidence,
-): DominantLanguage | null {
-  const classified = classifySamples(classify, target.document.textNodes);
-  const counts = new Map<LanguageCode, number>();
-  let language: LanguageCode | null = null;
-  let best = 0;
-  for (const sample of classified) {
-    const count = (counts.get(sample.verdict.language) ?? 0) + 1;
-    counts.set(sample.verdict.language, count);
-    if (count > best) {
-      best = count;
-      language = sample.verdict.language;
-    }
-  }
-  return language === null
-    ? null
-    : { language, denominator: textNodeDenominator(target, classified.length) };
-}
 
 function declaredMismatchDraft(
   page: PageEvidence,
@@ -428,6 +439,9 @@ function classifiedMismatchDraft(
 }
 
 /**
+ * The hybrid: prefers the target's own declaration, asks the classifier only
+ * when that is absent.
+ *
  * `declared` (via {@link alternateLanguage}) is only for comparing against the
  * target's own declaration. The classifier branch recomputes its own
  * {@link classifiablePageLanguage} instead of reusing it — never compare a
@@ -448,7 +462,7 @@ function wrongLanguageDraft(
   }
   const declaredCode = classifiablePageLanguage(alt.hreflang);
   if (declaredCode === null) return null; // Movar ships no profile for this language — no evidence either way
-  const dominant = dominantClassifiedLanguage(classify, target);
+  const dominant = dominantSampleLanguage(classify, target, CLASSIFIER_CANDIDATES);
   if (dominant === null || dominant.language === declaredCode) return null;
   return classifiedMismatchDraft(page, alt, target, declaredCode, dominant);
 }

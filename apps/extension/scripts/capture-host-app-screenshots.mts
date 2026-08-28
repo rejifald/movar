@@ -1,181 +1,247 @@
 /*
- * Capture the REAL Movar host-app UI (the Detector / Settings / About screens the
- * Safari wrapper's WKWebView shows) as App Store screenshots for the iOS + iPadOS
- * listings.
+ * Capture the REAL Movar host-app UI as App Store screenshots for the iOS +
+ * iPadOS listings — from the NATIVE app running in a simulator.
  *
- * Why this is a SEPARATE script from `capture-storybook-assets.mts`:
- *   The marketplace scenes there are extension-in-Safari mockups rendered from the
- *   EXTENSION's Storybook — the popup composed over fictitious sites, before/after
- *   diptychs. The host app is a different thing: a viewport-owning React app
- *   (`@movar/safari-host-app`) that owns `html`/`body` with `position: fixed` bars
- *   and `100dvh`, so it can't be scaled inside a Storybook frame without breaking
- *   its layout. Instead we load its REAL built bundle (`dist/index.html`) at each
- *   device's logical size × scale factor and screenshot it FULL-BLEED — the most
- *   faithful "actual app UI" shot, with the real iOS Dynamic-Type CSS in play.
+ * WHY THIS DRIVES A SIMULATOR AND NOT A HEADLESS BROWSER. It used to load
+ * `@movar/safari-host-app`'s built bundle in Chromium at the device's logical
+ * size and screenshot the About tab. That stopped being a picture of the app the
+ * moment the Swift shell finished going native (`docs/native-shells.md`): all
+ * three tabs are SwiftUI now, About is a screen behind Settings rather than a
+ * tab, and the enable path moved onto the Settings setup banner. The React
+ * bundle still BUILDS — `ViewController` loads it for the `readSettings` /
+ * `writeSettings` bridge — but nothing displays it, so a screenshot of it was a
+ * picture of a screen no reviewer and no user can reach. App Store screenshots
+ * have to depict the app as it ships (Guideline 2.3.3), which makes "render the
+ * retired page" not a shortcut but a wrong answer.
  *
- * Recipe mirrors the e2e host fixture (`apps/e2e/src/fixtures/host.ts`): same
- * `webkit` bridge mock + `show()` drive + `navigator.language` pin, installed in an
- * init script BEFORE the bundle evals (the timing `bridge.ts` documents). The only
- * differences are the device viewport + scale factor and that we write to
- * `store-assets/screenshots/{ios,ipad}/` instead of a test baseline.
+ * WHAT IS AUTOMATED AND WHAT IS NOT. `simctl` can boot, install, launch (with a
+ * locale) and screenshot, and all of that is `--prepare` / `--capture` below. It
+ * cannot TAP: there is no gesture primitive in `simctl`, and the two scenes here
+ * live two and three taps inside the app. So navigation is the operator's step —
+ * put the app on the screen you want, then run `--capture`. The durable fix is a
+ * UI-test target driving `XCUIScreen.main.screenshot()`; that is a project-file
+ * change this script deliberately does not make.
  *
- * Requires the host-app bundle built first (its `dist/` is gitignored):
- *   pnpm --filter @movar/safari-host-app build:bundle
+ * WHAT THE SCRIPT STILL GUARANTEES, which is the part worth having: the output
+ * is written at Apple's exact device pixel size or not at all (a shot from the
+ * wrong simulator is rejected here rather than by App Store Connect), and the
+ * alpha channel is flattened to match the rest of the committed set.
  *
- * On-demand only; not wired into `verify:release`.
+ * Typical run, one scene:
+ *   # build the simulator app once (see store-assets/README.md for the full
+ *   # bootstrap — theme, extension, host bundle, audit engine):
+ *   xcodebuild build -project "safari/Movar/Movar.xcodeproj" -scheme "Movar (iOS)" \
+ *     -configuration Debug -destination "id=<udid>" \
+ *     -derivedDataPath "safari/Movar/DerivedData" CODE_SIGNING_ALLOWED=NO
+ *
+ *   pnpm --filter @movar/extension capture:host-app-screenshots --prepare --device=ios --locale=uk
+ *   # …navigate to the scene in the simulator…
+ *   pnpm --filter @movar/extension capture:host-app-screenshots --device=ios --locale=uk --scene=09-host-app-setup
  */
-import { mkdir, stat } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium, type Browser, type BrowserContext } from 'playwright';
 import sharp from 'sharp';
-import { defaultSettings, type MovarSettings } from '@movar/settings';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const extensionRoot = path.resolve(here, '..');
-/** The built single-file bundle the WKWebView loads; `safari-host-app:build`
- *  (or `build:bundle`) emits it. Loaded over `file://` with the sibling
- *  `./host-app.{js,css}` resolved via `--allow-file-access-from-files`. */
-const HOST_APP_INDEX = path.resolve(extensionRoot, '..', 'safari-host-app', 'dist', 'index.html');
 const SCREENSHOTS_DIR = path.resolve(extensionRoot, 'store-assets', 'screenshots');
 
+/** The built simulator app `--prepare` installs. Gitignored build output. */
+const SIMULATOR_APP = path.resolve(
+  extensionRoot,
+  'safari',
+  'Movar',
+  'DerivedData',
+  'Build',
+  'Products',
+  'Debug-iphonesimulator',
+  'Movar.app',
+);
+
+const BUNDLE_ID = 'fyi.movar.safari';
+
 /**
- * App Store portrait device pixels = logical size × scale factor. Both the iOS
- * and iPadOS listings run the SAME universal iOS binary, so both drive
- * `show('ios')` (the About tab shows the iOS "Settings ▸ Apps ▸ Safari ▸
- * Extensions ▸ Movar" enable path — the iOS 18+ default — on iPad too).
- *   - iPhone 6.9″: 440×956 logical @3× → 1320×2868
- *   - iPad 13″:   1024×1366 logical @2× → 2048×2732
+ * The two App Store device classes, and the simulators that render at their
+ * exact pixel size.
+ *
+ * `sizes` is a LIST because Apple accepts more than one raster for the 13″ iPad
+ * slot: 2048×2732 is the old 12.9″ iPad Pro and 2064×2752 the current 13″ one,
+ * and which you get depends on which simulator Xcode ships. Both are valid; a
+ * third size is a wrong device, and the point of checking is to catch that
+ * before App Store Connect does.
  */
-const DEVICES = [
-  { dir: 'ios', width: 440, height: 956, dsf: 3 },
-  { dir: 'ipad', width: 1024, height: 1366, dsf: 2 },
-] as const;
+const DEVICES = {
+  ios: {
+    /** Any simulator whose screen is this size — 440×956 @3×. */
+    sizes: [[1320, 2868]],
+    simulator: 'iPhone 17 Pro Max',
+  },
+  ipad: {
+    /** 1024×1366 @2× (12.9″) or 1032×1376 @2× (13″). */
+    sizes: [
+      [2048, 2732],
+      [2064, 2752],
+    ],
+    simulator: 'iPad Pro 13-inch (M5)',
+  },
+} as const;
 
-const LOCALES = [
-  { tag: 'en-US', dir: 'en' },
-  { tag: 'uk-UA', dir: 'uk' },
-] as const;
+type DeviceKey = keyof typeof DEVICES;
 
-/** The screen the shot shows + its numbered filename. About = brand lede +
- *  "What Movar does" + the Settings ▸ Apps ▸ Safari ▸ Extensions ▸ Movar enable
- *  path — the richest single "this is the app" screen, and the visible 4.2
- *  evidence. */
-const SCENE = { tab: 'about', index: 8, slug: 'host-app-about' } as const;
+/**
+ * The locales the listing ships, and the `AppleLanguages` each one launches
+ * with.
+ *
+ * Ukrainian leads because the listing does — see the bilingual store-copy rule
+ * in `store-assets/README.md`. The tag is passed to the APP rather than set on
+ * the device on purpose: it is one launch instead of a device reboot. The
+ * trade-off shows on iPad, whose status bar carries a date — a device left in
+ * Ukrainian stamps «Чт 27 серп.» across an English screenshot — so for the iPad
+ * `en` shots set the DEVICE language too:
+ *
+ *   xcrun simctl spawn <udid> defaults write ".GlobalPreferences" AppleLanguages -array en-US
+ *   xcrun simctl shutdown <udid> && xcrun simctl boot <udid>
+ */
+const LOCALES = {
+  uk: '("uk")',
+  en: '("en-US")',
+} as const;
 
-/** The `MovarSettings` the bridge mock returns for `readSettings` — only the
- *  Settings tab reads it; About/Detector don't, but we supply a realistic record
- *  so a future Settings scene needs no change here. Mirrors the e2e fixture. */
-const HOST_SETTINGS: MovarSettings = {
-  ...defaultSettings,
-  enabled: true,
-  priority: ['uk', 'en', 'pl'],
-  blocked: ['ru'],
-  allowlist: ['example.com'],
-  contentModification: true,
-  concealMode: 'curtain',
-  uiLanguage: 'auto',
-};
+type LocaleKey = keyof typeof LOCALES;
 
-/** `file://` URL for the bundle, each segment encoded so a space / unicode char
- *  in the repo path (the `.claude/worktrees/…` tree) stays valid. */
-function hostAppUrl(): string {
-  return `file://${HOST_APP_INDEX.split(path.sep).map(encodeURIComponent).join('/')}`;
+/**
+ * The scenes this script writes, and what each is evidence OF.
+ *
+ * Both were one scene when About was a React tab that carried the brand lede AND
+ * the enable path. Going native split them: About kept the lede, the licence and
+ * the support links, while "One last step" — the Settings ▸ Apps ▸ Safari ▸
+ * Extensions ▸ Movar route, which is the visible Guideline 4.2 evidence — became
+ * the setup banner at the top of Settings. One screenshot can no longer show
+ * both, so there are two.
+ *
+ * The setup banner is only on screen while the reader has NOT tapped "I've done
+ * this" (`about.setupCardDismissed` in the app's own `UserDefaults`), so capture
+ * it against a fresh install — `--prepare` reinstalls for exactly this reason.
+ */
+const SCENES = ['08-host-app-about', '09-host-app-setup'] as const;
+
+function simctl(args: string[]): string {
+  return execFileSync('xcrun', ['simctl', ...args], { encoding: 'utf8' });
 }
 
-async function captureOne(
-  context: BrowserContext,
-  device: (typeof DEVICES)[number],
-  locale: (typeof LOCALES)[number],
-): Promise<void> {
-  const page = await context.newPage();
+/** The udid of a booted simulator with this name, booting one if needed. */
+function resolveDevice(name: string): string {
+  const listing = JSON.parse(simctl(['list', 'devices', 'available', '--json'])) as {
+    devices: Record<string, { udid: string; name: string; state: string }[]>;
+  };
+  const match = Object.values(listing.devices)
+    .flat()
+    .find((device) => device.name === name);
+  if (!match) {
+    throw new Error(
+      `No available simulator named "${name}". Install it in Xcode ▸ Settings ▸ Components, ` +
+        'or capture on another device of the same class and check the size the shot comes out at.',
+    );
+  }
+  if (match.state !== 'Booted') {
+    console.log(`  ⏳ booting ${name}…`);
+    simctl(['boot', match.udid]);
+    simctl(['bootstatus', match.udid, '-b']);
+  }
+  return match.udid;
+}
 
-  // Init script (runs before the bundle's module eval): pin the device language
-  // and install the mocked native bridge, so `resolveLocale` sees the locale and
-  // `window.show` / `window.__movarReply` are installed against a present
-  // `globalThis.webkit`.
-  await page.addInitScript(
-    ({ settings, locale: lang }: { settings: MovarSettings; locale: string }) => {
-      Object.defineProperty(navigator, 'language', { value: lang, configurable: true });
-      (globalThis as { webkit?: unknown }).webkit = {
-        messageHandlers: {
-          controller: {
-            postMessage: (message: { type: string; id: number }) => {
-              const reply = message.type === 'readSettings' ? JSON.stringify({ settings }) : null;
-              setTimeout(() => {
-                (
-                  globalThis as { __movarReply?: (id: number, json: string | null) => void }
-                ).__movarReply?.(message.id, reply);
-              }, 0);
-            },
-          },
-        },
-      };
-    },
-    { settings: HOST_SETTINGS, locale: locale.tag },
-  );
+/**
+ * Boot the device, reinstall the app, and launch it in one locale.
+ *
+ * REINSTALL rather than launch: it drops the app's container, which is what
+ * resets `about.setupCardDismissed` so the setup banner is on screen again. A
+ * device that has run Movar before otherwise shows a Settings screen with no
+ * banner and the scene silently cannot be shot.
+ */
+function prepare(device: DeviceKey, locale: LocaleKey): void {
+  const udid = resolveDevice(DEVICES[device].simulator);
+  console.log(`▶ Preparing ${device}/${locale} on ${DEVICES[device].simulator} (${udid})`);
+  try {
+    simctl(['uninstall', udid, BUNDLE_ID]);
+  } catch {
+    // Not installed — the state this is trying to reach anyway.
+  }
+  simctl(['install', udid, SIMULATOR_APP]);
+  simctl(['launch', udid, BUNDLE_ID, '-AppleLanguages', LOCALES[locale]]);
+  console.log(`✓ Launched. Navigate to the scene, then re-run with --scene=<${SCENES.join('|')}>.`);
+}
 
-  await page.goto(hostAppUrl());
-  await page.waitForSelector('.tabs', { state: 'attached' });
-  // Drive the native state the way Swift does after `didFinish` — `show('ios')`
-  // sets the platform (About enablement banner + `html/body.platform-ios`, which
-  // is also what anchors the iOS Dynamic-Type root).
-  await page.evaluate(() => {
-    (globalThis as { show?: (platform: string) => void }).show?.('ios');
-  });
-  await page.locator(`.tab[data-tab="${SCENE.tab}"]`).click();
-  await page.addStyleTag({
-    content: `*,*::before,*::after{animation-duration:0s!important;animation-delay:0s!important;transition-duration:0s!important;transition-delay:0s!important;caret-color:transparent!important}`,
-  });
-  await page.evaluate(async () => document.fonts.ready);
-
-  // `scale: 'device'` → the PNG is viewport × deviceScaleFactor (the exact App
-  // Store device px). Flatten alpha so the file is 24-bit no-alpha, matching the
-  // rest of the store set (Apple rejects screenshots with an alpha channel).
-  const raw = await page.screenshot({ type: 'png', scale: 'device' });
-  const outDir = path.resolve(SCREENSHOTS_DIR, device.dir, locale.dir);
+/**
+ * Screenshot whatever the device is showing, size-check it, and write it.
+ *
+ * `simctl io screenshot` is a native device-pixel grab, so the raster is the
+ * App Store size with no scaling step to get wrong — which is also why an
+ * unexpected size means the wrong simulator rather than a bad crop, and is
+ * refused instead of resized.
+ */
+async function capture(device: DeviceKey, locale: LocaleKey, scene: string): Promise<void> {
+  const udid = resolveDevice(DEVICES[device].simulator);
+  const outDir = path.resolve(SCREENSHOTS_DIR, device, locale);
   await mkdir(outDir, { recursive: true });
-  const outPath = path.resolve(outDir, `${String(SCENE.index).padStart(2, '0')}-${SCENE.slug}.png`);
+  const outPath = path.resolve(outDir, `${scene}.png`);
+
+  // stderr piped rather than inherited: `simctl io … -` reports "Wrote
+  // screenshot to: -" on success, which is noise here — but it is also where a
+  // real failure explains itself, and `execFileSync` hands it back on throw.
+  const raw = execFileSync('xcrun', ['simctl', 'io', udid, 'screenshot', '--type=png', '-'], {
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const { width, height } = await sharp(raw).metadata();
+  const accepted = DEVICES[device].sizes;
+  if (!accepted.some(([w, h]) => w === width && h === height)) {
+    throw new Error(
+      `${DEVICES[device].simulator} produced ${width}×${height}, which is not an App Store ` +
+        `${device} size (${accepted.map(([w, h]) => `${w}×${h}`).join(' or ')}). Wrong simulator.`,
+    );
+  }
+
+  // Flatten so the file is 24-bit no-alpha, matching the rest of the store set
+  // (App Store Connect rejects screenshots with an alpha channel).
   await sharp(raw).flatten({ background: '#ffffff' }).png().toFile(outPath);
   console.log(
-    `  📸 ${device.dir}/${locale.dir} (${device.width * device.dsf}×${device.height * device.dsf}) → ${path.relative(extensionRoot, outPath)}`,
+    `  📸 ${device}/${locale} (${width}×${height}) → ${path.relative(extensionRoot, outPath)}`,
   );
-  await page.close();
+}
+
+function flag(name: string): string | undefined {
+  return process.argv.find((arg) => arg.startsWith(`--${name}=`))?.split('=')[1];
 }
 
 async function main(): Promise<void> {
-  await stat(HOST_APP_INDEX).catch(() => {
-    throw new Error(
-      `Host-app bundle not found at ${HOST_APP_INDEX}. ` +
-        'Build it first: pnpm --filter @movar/safari-host-app build:bundle',
-    );
-  });
+  const device = flag('device') as DeviceKey | undefined;
+  const locale = flag('locale') as LocaleKey | undefined;
+  const scene = flag('scene');
 
-  console.log('▶ Capturing host-app App Store screenshots (iOS + iPadOS)…');
-  let browser: Browser | undefined;
-  try {
-    // Plain bundled Chromium (same binary the other store screenshots use), with
-    // file-access so the bundle's sibling `./host-app.{js,css}` resolve.
-    browser = await chromium.launch({
-      args: ['--allow-file-access-from-files', '--no-sandbox', '--disable-dev-shm-usage'],
-    });
-    for (const device of DEVICES) {
-      const context = await browser.newContext({
-        viewport: { width: device.width, height: device.height },
-        deviceScaleFactor: device.dsf,
-        colorScheme: 'light',
-        reducedMotion: 'reduce',
-      });
-      try {
-        for (const locale of LOCALES) await captureOne(context, device, locale);
-      } finally {
-        await context.close();
-      }
-    }
-  } finally {
-    if (browser) await browser.close();
+  if (!device || !(device in DEVICES)) {
+    throw new Error(`--device is required, one of: ${Object.keys(DEVICES).join(', ')}`);
   }
-  console.log('✓ Done.');
+  if (!locale || !(locale in LOCALES)) {
+    throw new Error(`--locale is required, one of: ${Object.keys(LOCALES).join(', ')}`);
+  }
+
+  if (process.argv.includes('--prepare')) {
+    prepare(device, locale);
+    return;
+  }
+
+  if (!scene) {
+    throw new Error(
+      `--scene is required, one of: ${SCENES.join(', ')} (or --prepare to boot + install first)`,
+    );
+  }
+  if (!(SCENES as readonly string[]).includes(scene)) {
+    console.warn(`⚠ "${scene}" is not one of the known scenes (${SCENES.join(', ')}).`);
+  }
+  await capture(device, locale, scene);
 }
 
 await main();

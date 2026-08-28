@@ -17,7 +17,53 @@
 /** Index of the blog. Ukrainian-only, so the `/uk` prefix is unconditional. */
 export const BLOG_INDEX_HREF = '/uk/blog';
 
-/** Permalink for one post, keyed by its content-collection id (the filename). */
+/**
+ * Whether a post is announced.
+ *
+ * Every surface that lists posts filters through this — the index, the feed,
+ * and (via frontmatter) the sitemap. A draft is still built and served at its
+ * own URL; what `draft` withholds is the announcement, not the page. Keeping
+ * one predicate means a new listing surface cannot quietly become the one that
+ * leaks an unfinished post.
+ */
+export function isPublished(post: { data: { draft: boolean } }): boolean {
+  return !post.data.draft;
+}
+
+/**
+ * Newest first, and deterministic when two posts share a date.
+ *
+ * `pubDate` is a real Date (coerced by the collection schema), so the primary
+ * key is a plain numeric comparison rather than string comparison on ISO text.
+ * The tie-break is the part worth explaining. Two posts published the same day
+ * compare equal, `toSorted` is stable, and what stability then preserves is
+ * the content store's insertion order — a build artefact rather than an
+ * editorial decision, and one a cold CI build can arrive at differently from a
+ * warm local one. The index has a pixel baseline, so «whichever order this
+ * build happened to produce» is a flake waiting for its second same-day post.
+ * Ids compare by code unit on purpose: a collator would trade that flake for a
+ * dependency on which ICU the builder shipped.
+ *
+ * Lives here rather than in the index and the feed because those two have to
+ * agree, and a comparator pasted into both is one that eventually will not.
+ */
+/** Code-unit order, spelled out because a nested ternary is harder to read than three lines. */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+export function sortPostsByDate<T extends { id: string; data: { pubDate: Date } }>(
+  posts: readonly T[],
+): T[] {
+  return posts.toSorted(
+    (a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime() || byCodeUnit(a.id, b.id),
+  );
+}
+
+/** Permalink for one post, keyed by its content-collection id (its slugified
+ *  path under `src/content/blog`, extension dropped). */
 export function blogPostHref(id: string): string {
   return `${BLOG_INDEX_HREF}/${id}`;
 }

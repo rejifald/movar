@@ -799,6 +799,20 @@ describe('core/serving-cookie-overrides-header', () => {
     expect(result.notApplicableReason).toMatch(/every probe in this run was cold/);
   });
 
+  /**
+   * A run that asked for a warm leg and kept no warm probe is not a cold run,
+   * and must not be described as one: the leg met a challenge interstitial,
+   * failed in transport, or ran out of budget. Every probe the bundle *holds*
+   * is cold either way, so `NetworkSource.cookies` is the only thing that can
+   * tell the two apart — and calling this one cold hands the collector's
+   * shortfall to the operator as their own choice.
+   */
+  it('says the warm leg produced nothing, rather than calling a warm run cold', () => {
+    const result = resultFor(RULE, networkEvidence(COLD_PAGES, COLD_MATRIX, 'warm'));
+    expect(result.verdict).toBe('not-applicable');
+    expect(result.notApplicableReason).toMatch(/asked for a warm cookie leg/);
+  });
+
   it('warns when the warm leg drops a header the cold leg honoured', () => {
     const evidence = networkEvidence(
       [...COLD_PAGES, response('page-warm', 'ru')],

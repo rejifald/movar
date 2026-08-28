@@ -267,30 +267,226 @@ interface Hop {
 }
 
 /**
+ * One stored cookie: its value, plus the three attributes this jar acts on.
+ * See {@link CookieJar} for what is deliberately not stored here, and why.
+ */
+interface StoredCookie {
+  readonly value: string;
+  /** `Secure` was set: this cookie never goes out over plain `http`. */
+  readonly secure: boolean;
+  /** The path prefix it is scoped to — declared, or RFC 6265 §5.1.4's default. */
+  readonly path: string;
+  /** When it stops being sent, or `null` for a cookie that lasts the run. */
+  readonly expiresAt: number | null;
+}
+
+/** A parsed `Set-Cookie`, ready to be filed under a host. */
+interface NamedCookie extends StoredCookie {
+  readonly name: string;
+}
+
+/**
  * A cookie jar for warm runs only. Cold runs never construct one, which is what
  * makes "everything else identical" true of a matrix by default.
+ *
+ * One jar serves every warm probe a prober makes, because a warm run is a
+ * *session* and a per-request jar is not one: it is handed to the walk empty,
+ * absorbs whatever the landing response sets, and is then thrown away, so every
+ * request still goes out cold and only a redirect chain ever sees a `Cookie`
+ * header. `core/serving-cookie-overrides-header` asks whether a **stored**
+ * language cookie outranks an explicit `Accept-Language`, and there is no such
+ * cookie until one request's `Set-Cookie` reaches the next request.
+ *
+ * That lifetime is exactly why the jar is **filed by host** rather than kept as
+ * one flat `name → value` map. A jar that outlives a probe and answers every
+ * request from one pile is a courier: a cookie a redirect happened to collect
+ * from a consent or analytics origin goes back out to the site the operator
+ * typed, and the typed site's own session goes out to strangers — neither of
+ * which any browser would do, and this tool fetches third-party sites that
+ * never agreed to be audited. Under-sending costs a `not-collected` on one
+ * rule; over-sending is somebody's data on the wire, so every judgement below
+ * is resolved toward sending **less**.
+ *
+ * What is honoured, and how:
+ *
+ * - **Host.** Storage and retrieval both key on the **exact** host, so a cookie
+ *   goes back only to the host that set it. Registrable-domain matching would
+ *   be closer to a browser — `Domain=.example.com` set by `www` reaching
+ *   `shop` — but doing it correctly needs a public-suffix list, and a
+ *   hand-rolled "strip one label" guess treats `example.co.uk` and `co.uk` the
+ *   same, which fails open across every unrelated site under a registry
+ *   suffix. Exact matching only ever withholds a cookie a browser would have
+ *   sent, so it is the safe default and the one taken here.
+ * - **`Domain`.** Read as a *rejection* test and never as a widening: a value
+ *   that does not domain-match the responding host (RFC 6265 §5.1.3) is a
+ *   cookie the site is not entitled to set, and the whole `Set-Cookie` is
+ *   dropped. One that does match is still filed under the exact host above.
+ * - **`Path`.** Honoured, defaulting per RFC 6265 §5.1.4 — a cookie set on
+ *   `/uk/page` with no `Path` is scoped to `/uk`, not to the whole site.
+ * - **`Secure`.** Honoured. Such a cookie is never sent over `http:`, which is
+ *   reachable here because a downgrade redirect is an ordinary thing to meet.
+ * - **`Expires` / `Max-Age`.** Honoured only as an upper bound: a cookie
+ *   already expired when it arrives — `Max-Age=0`, a past `Expires`, which is
+ *   how a site *deletes* one — is dropped rather than replayed, and one that
+ *   expires mid-run stops being sent. Nothing is persisted past the run, so a
+ *   future expiry is otherwise indistinguishable from a session cookie.
+ *
+ * What is not, and why it costs nothing:
+ *
+ * - **`HttpOnly`** withholds a cookie from page scripts, not from HTTP. Every
+ *   request here *is* HTTP, so honouring it would change nothing that goes out.
+ * - **`SameSite`** describes a cookie's behaviour on a request some *other*
+ *   site's page initiated. Every request here is initiated by this module, at a
+ *   URL it was handed, so there is no cross-site initiator to compare against.
+ * - **Ordering, `__Host-`/`__Secure-` prefixes, and cookie-size limits** are
+ *   browser-compatibility concerns. This is a prober, not a browser, and none
+ *   of them can make it send a cookie it would otherwise withhold.
+ *
+ * Deliberately in-house rather than a cookie library: this is one file's worth
+ * of judgement about what an auditing prober may put on the wire, and reading
+ * it has to be enough to know.
  */
 class CookieJar {
-  private readonly pairs = new Map<string, string>();
+  /** Cookies by exact host, then by name. */
+  private readonly byHost = new Map<string, Map<string, StoredCookie>>();
 
   /**
-   * Take the cookies from one response. Each entry is a whole `Set-Cookie`
-   * value; only its leading `name=value` pair matters here, so attributes
-   * (`Expires`, which itself contains a comma) are never re-parsed.
+   * Take the cookies one response set, filed under the host that answered.
+   *
+   * `from` is the URL this response answered, which is the only host we can
+   * attribute a `Set-Cookie` to: a redirect's `Location` names the *next* host,
+   * and crediting it there is precisely the leak.
    */
-  absorb(values: readonly string[]): void {
+  absorb(from: string, values: readonly string[]): void {
+    const url = parsedUrl(from);
+    if (url === null) return;
     for (const value of values) {
-      const [pair] = value.split(';');
-      const eq = pair === undefined ? -1 : pair.indexOf('=');
-      if (pair === undefined || eq <= 0) continue;
-      this.pairs.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+      const cookie = parseSetCookie(value, url);
+      if (cookie === null) continue;
+      const { name, ...stored } = cookie;
+      const jar = this.byHost.get(url.hostname) ?? new Map<string, StoredCookie>();
+      jar.set(name, stored);
+      this.byHost.set(url.hostname, jar);
     }
   }
 
-  header(): string | null {
-    if (this.pairs.size === 0) return null;
-    return [...this.pairs].map(([name, value]) => `${name}=${value}`).join('; ');
+  /** The `Cookie` header for one request, or `null` when it carries none. */
+  header(to: string): string | null {
+    const url = parsedUrl(to);
+    if (url === null) return null;
+    const jar = this.byHost.get(url.hostname);
+    if (jar === undefined) return null;
+    const now = Date.now();
+    const sending = [...jar]
+      .filter(([, cookie]) => sendable(cookie, url, now))
+      .map(([name, cookie]) => `${name}=${cookie.value}`);
+    return sending.length === 0 ? null : sending.join('; ');
   }
+}
+
+/** `Max-Age` is stated in seconds; every clock in this module is in milliseconds. */
+const MS_PER_SECOND = 1000;
+
+/** A URL we can reason about, or `null` — in which case the jar does nothing. */
+function parsedUrl(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Does this stored cookie belong on this request? Every clause withholds.
+ */
+function sendable(cookie: StoredCookie, to: URL, now: number): boolean {
+  if (cookie.secure && to.protocol !== 'https:') return false;
+  if (cookie.expiresAt !== null && cookie.expiresAt <= now) return false;
+  return pathMatches(to.pathname, cookie.path);
+}
+
+/**
+ * One `Set-Cookie`, or `null` when it is unusable or the host is not entitled
+ * to set it.
+ *
+ * Attributes are read off the `;`-separated parts after the pair. Where the
+ * runtime cannot split `Set-Cookie` into separate values, `setCookiesOf` hands
+ * over a comma-joined string and a later cookie's attributes are read as this
+ * one's — which can only tighten `Path`, `Secure` and the expiry on the pair we
+ * keep, never loosen them, so the joined case degrades toward silence.
+ */
+function parseSetCookie(raw: string, from: URL): NamedCookie | null {
+  const parts = raw.split(';');
+  const pair = parts[0];
+  const eq = pair === undefined ? -1 : pair.indexOf('=');
+  if (pair === undefined || eq <= 0) return null;
+  const attributes = attributesOf(parts.slice(1));
+  const domain = attributes.get('domain');
+  if (domain !== undefined && !domainMatches(from.hostname, domain)) return null;
+  return {
+    name: pair.slice(0, eq).trim(),
+    value: pair.slice(eq + 1).trim(),
+    secure: attributes.has('secure'),
+    path: pathOf(attributes.get('path'), from.pathname),
+    expiresAt: expiryOf(attributes),
+  };
+}
+
+/** The `; name=value` attributes after the pair, lower-cased by name. */
+function attributesOf(parts: readonly string[]): ReadonlyMap<string, string> {
+  const attributes = new Map<string, string>();
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    const name = (eq === -1 ? part : part.slice(0, eq)).trim().toLowerCase();
+    if (name === '') continue;
+    attributes.set(name, eq === -1 ? '' : part.slice(eq + 1).trim());
+  }
+  return attributes;
+}
+
+/**
+ * RFC 6265 §5.1.3, used only to refuse: may a response from `host` claim to
+ * speak for `domain` at all? A cookie that passes is still filed under `host`.
+ */
+function domainMatches(host: string, domain: string): boolean {
+  const declared = domain.replace(/^\./u, '').trim().toLowerCase();
+  if (declared === '') return false;
+  return host === declared || host.endsWith(`.${declared}`);
+}
+
+/** The declared `Path`, or RFC 6265 §5.1.4's default-path for the request. */
+function pathOf(declared: string | undefined, requestPath: string): string {
+  if (declared?.startsWith('/') === true) return declared;
+  const lastSlash = requestPath.lastIndexOf('/');
+  return lastSlash <= 0 ? '/' : requestPath.slice(0, lastSlash);
+}
+
+/** RFC 6265 §5.1.4: is the request's path inside the cookie's? */
+function pathMatches(requestPath: string, cookiePath: string): boolean {
+  if (requestPath === cookiePath) return true;
+  if (!requestPath.startsWith(cookiePath)) return false;
+  return cookiePath.endsWith('/') || requestPath.charAt(cookiePath.length) === '/';
+}
+
+/**
+ * When this cookie stops being sent, or `null` for one that lasts the run.
+ * `Max-Age` outranks `Expires` per RFC 6265 §5.2.2, and an unreadable value of
+ * either is ignored — the jar is dropped at the end of the run regardless.
+ */
+function expiryOf(attributes: ReadonlyMap<string, string>): number | null {
+  const maxAge = attributes.get('max-age');
+  if (maxAge !== undefined) {
+    const seconds = Number(maxAge);
+    if (maxAge.trim() !== '' && Number.isFinite(seconds)) {
+      return Date.now() + seconds * MS_PER_SECOND;
+    }
+  }
+  const expires = attributes.get('expires');
+  if (expires !== undefined) {
+    const at = Date.parse(expires);
+    if (!Number.isNaN(at)) return at;
+  }
+  return null;
 }
 
 /** The platform `fetch`, narrowed to the slice this module uses. */
@@ -342,6 +538,17 @@ export function createProber(options: ProberOptions): Prober {
   const runCookieState = options.cookieState ?? 'cold';
   let spent = 0;
   let sequence = 0;
+  /**
+   * The run's one jar, built on the first warm probe and never before it: a
+   * cold prober must not so much as own the thing whose absence is what makes
+   * its legs comparable.
+   */
+  let warmJar: CookieJar | null = null;
+  const jarFor = (state: CookieState): CookieJar | null => {
+    if (state === 'cold') return null;
+    warmJar ??= new CookieJar();
+    return warmJar;
+  };
 
   const spend = (): void => {
     if (spent >= budget) throw new RequestBudgetExhaustedError(budget);
@@ -363,10 +570,10 @@ export function createProber(options: ProberOptions): Prober {
       const response = await doFetch(url, {
         method: 'GET',
         redirect: 'manual',
-        headers: requestHeaders(acceptLanguage, jar?.header() ?? null),
+        headers: requestHeaders(acceptLanguage, jar?.header(url) ?? null),
         signal: controller.signal,
       });
-      jar?.absorb(setCookiesOf(response));
+      jar?.absorb(url, setCookiesOf(response));
       const redirecting =
         REDIRECT_STATUSES.has(response.status) && response.headers.get('location') !== null;
       // A redirect's body is never the site's content; don't spend memory on it.
@@ -503,7 +710,7 @@ export function createProber(options: ProberOptions): Prober {
 
     async probe(request: ProbeRequest): Promise<ProbeResult> {
       const cookieState = request.cookieState ?? runCookieState;
-      const jar = cookieState === 'warm' ? new CookieJar() : null;
+      const jar = jarFor(cookieState);
       sequence += 1;
       const walked = await walk(request.url, request.acceptLanguage, jar);
       const { response, body } = walked;

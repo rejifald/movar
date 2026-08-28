@@ -56,6 +56,12 @@
  *   destination's. In that second case a destination document's own header
  *   declarations are simply not collected, which is the honest degradation —
  *   before this field they were collected from the wrong resource.
+ * - **v6** added {@link NetworkSource.cookies}, the run's cookie posture.
+ *   Optional, and absent means "this collector declared none" rather than
+ *   "cold": every probe has always carried its own {@link CookieState}, so a
+ *   pre-v6 bundle still says what each request was — what it cannot say is what
+ *   the run *asked for*, which is the difference between a cold run and a warm
+ *   one whose warm leg came back blocked.
  *
  *   Note the rules that read these fields fork on the field being `undefined`,
  *   not on this number — nothing in the package branches on `schemaVersion`.
@@ -130,6 +136,26 @@ export interface VantageCountry {
 /** How `robots.txt` was treated for this run. */
 export type RobotsPosture = 'honoured' | 'ignored' | 'not-applicable';
 
+/**
+ * What this run *asked* of cookies — the run-level twin of {@link RobotsPosture},
+ * and not a summary of {@link ProbeEvidence.cookieState}.
+ *
+ * `'cold'` is the posture ADR §4 requires by default: no jar anywhere in the
+ * run, so "everything else identical" is true of the response matrix by
+ * construction rather than by inspection. `'warm'` says the operator opted in,
+ * and the run therefore carries a warm leg **alongside** its cold one — a leg
+ * is `(url, vantage, cookieState)`, so the two are different legs and a warm
+ * run never replaces the cold observations it is read against.
+ *
+ * It says what was asked for, never what came back, exactly as
+ * `robots: 'honoured'` does not claim every target was permitted. That is the
+ * whole reason it is not derived from the probes: a warm leg that met a
+ * challenge interstitial, or ran out of budget, leaves a bundle whose probes
+ * are all cold — and reading "this was a cold run" off that would attribute the
+ * collector's bad luck to an operator who asked for the opposite.
+ */
+export type CookiePosture = 'cold' | 'warm';
+
 /** A collected page fetched over the network. */
 export interface NetworkSource {
   readonly kind: 'network';
@@ -141,6 +167,12 @@ export interface NetworkSource {
    */
   readonly probes: readonly ProbeEvidence[];
   readonly robots: RobotsPosture;
+  /**
+   * The cookie posture the run was launched with. Optional: absent on a bundle
+   * written before `schemaVersion` 6, where it means "this collector declared
+   * none" and never "cold". See {@link CookiePosture}.
+   */
+  readonly cookies?: CookiePosture;
 }
 
 /** A built `dist/` read off disk. A filesystem has no network location. */

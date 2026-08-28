@@ -9,6 +9,7 @@
 
 import { EVIDENCE_SCHEMA_VERSION } from '../src/evidence';
 import type {
+  CookiePosture,
   DocumentEvidence,
   Evidence,
   HeadEvidence,
@@ -105,13 +106,25 @@ export function makeProbe(overrides: Partial<ProbeEvidence> = {}): ProbeEvidence
   };
 }
 
+/**
+ * `cookies` is omitted rather than defaulted, because absent is a real state on
+ * the wire: a bundle written before `schemaVersion` 6 declares no posture at
+ * all, which is what most of these fixtures should look like.
+ */
 export function networkEvidence(
   pages: readonly PageEvidence[],
   probes: readonly ProbeEvidence[] = [],
+  cookies?: CookiePosture,
 ): Evidence {
   return {
     schemaVersion: EVIDENCE_SCHEMA_VERSION,
-    source: { kind: 'network', vantage: LOCAL_VANTAGE, probes, robots: 'honoured' },
+    source: {
+      kind: 'network',
+      vantage: LOCAL_VANTAGE,
+      probes,
+      robots: 'honoured',
+      ...(cookies === undefined ? {} : { cookies }),
+    },
     collectedAt: '2026-08-13T09:00:00.000Z',
     collector: { id: 'test-collector', version: '0.0.0' },
     pages,

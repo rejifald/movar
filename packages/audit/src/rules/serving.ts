@@ -35,7 +35,7 @@ import type { Determination } from '../served-language';
 import { mergedDenominator, servedLanguage, weakestVia } from '../served-language';
 import { matrixLegKey, NO_PREFERENCE_KEY } from '../capability';
 import type { Classifier } from '../classifier';
-import type { PageEvidence, ProbeEvidence, Vantage } from '../evidence';
+import type { Evidence, PageEvidence, ProbeEvidence, Vantage } from '../evidence';
 import { siteInventory } from '../inventory';
 import type { EvidenceRef, FindingDraft, GroundedFindingDraft, Via } from '../finding';
 import { pageRef } from '../finding';
@@ -734,6 +734,29 @@ function cookieOverrideDraft(
   return cookieOverrideFinding(cold, warm, requested);
 }
 
+/**
+ * Why this run held no warm reading — and the two answers describe two
+ * different runs.
+ *
+ * A cold run never asked for one, which is the ADR §4 default and says nothing
+ * whatever about the site. A run whose posture is `warm` did ask, and the leg
+ * produced no adjudicable probe anyway: it met a challenge interstitial, failed
+ * in transport, or ran out of budget behind the cold matrix. Reporting that one
+ * as "every probe in this run was cold" would hand the collector's own luck to
+ * the operator as their choice, and quietly retire a rule they opted into.
+ *
+ * `NetworkSource.cookies` is the only place that difference survives, which is
+ * the whole reason the posture is recorded rather than derived: every probe the
+ * run *kept* is cold either way.
+ */
+function noWarmLegReason(evidence: Evidence): string {
+  const { source } = evidence;
+  if (source.kind === 'network' && source.cookies === 'warm') {
+    return 'this run asked for a warm cookie leg, and no warm probe survived to be adjudicated';
+  }
+  return 'every probe in this run was cold, and a warm cookie leg is an opt-in this run did not carry';
+}
+
 const servingCookieOverridesHeader: CoreRule<'site'> = {
   id: 'core/serving-cookie-overrides-header',
   title: 'A warm language cookie overrides an explicit header preference',
@@ -745,11 +768,7 @@ const servingCookieOverridesHeader: CoreRule<'site'> = {
     // evidence. Without one there is no cookie to observe — `not-applicable`,
     // never a pass and never a fail.
     const warm = ctx.probes.filter((probe) => probe.cookieState === 'warm');
-    if (warm.length === 0) {
-      return notApplicable(
-        'every probe in this run was cold, and a warm cookie leg is an opt-in this run did not carry',
-      );
-    }
+    if (warm.length === 0) return notApplicable(noWarmLegReason(ctx.evidence));
 
     const explicit = ctx.probes.filter((probe) => probe.acceptLanguage !== null);
     const drafts = groupProbes(explicit, cookiePairKey).flatMap((group) => {

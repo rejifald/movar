@@ -272,8 +272,18 @@ first-class. It requires ≥2 vantages, so on the free `local`-only path it repo
 [declared vantage country](./glossary.md#vantage) as an observed fact.
 
 **Cold by default.** Every matrix probe runs with no cookies unless the operator opts into
-a warm run, which is stamped in the evidence. `core/serving-cookie-overrides-header`
-deliberately requires a warm leg and is `not-collected` otherwise.
+a warm run with `--warm`, which is stamped in the evidence — on every probe's
+`cookieState`, and on the run itself as `source.cookies`.
+`core/serving-cookie-overrides-header` deliberately requires a warm leg and never passes
+without one. The warm leg is a **second** matrix collected beside the cold one, because a
+leg is _(url × vantage × cookie state)_ and this rule reads the cold and warm halves of one
+`Accept-Language` against each other; warming the single leg in place would delete the
+reading it compares against. Its warm-up request states no preference on purpose — a jar
+filled by `Accept-Language: uk` holds only the cookie our own header induced, and the
+question is whether the language the site chose _on its own_ outranks a preference stated
+afterwards. Without a warm leg the rule says which run it was looking at: a cold run never
+asked, while a warm run whose leg was blocked or priced out of the budget says so instead
+of reading as cold.
 
 ---
 

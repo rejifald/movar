@@ -11,7 +11,7 @@ description: |
   README must follow. Also use when manually auditing README.md for drift from
   the product or marketing site. Do NOT use for before/after screenshot use
   cases (that's add-before-after-case) or for editing marketing copy itself —
-  the README mirrors the marketing app, not the other way around.
+  the README mirrors the marketing app, not the other way around — see movar-copy.
 ---
 
 # Keep README.md in sync with marketing + the workspace

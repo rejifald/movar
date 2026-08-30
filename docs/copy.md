@@ -2,7 +2,7 @@
 
 Source of truth for Movar's user-facing language. Sibling spec to [`docs/styleguide.md`](styleguide.md) — where the styleguide governs colour, type, surface geometry, and motion, this doc governs _what the product says_: voice, register, terminology, length, and the things Movar never says.
 
-The voice was carved into the popup and the marketing site first; this doc codifies what's already there so the next writer doesn't drift it. Examples are pulled from the working corpus — `apps/extension/src/lib/i18n/messages-{uk,en}.ts` and `apps/marketing/src/i18n.ts` — not invented.
+The voice was carved into the popup and the marketing site first; this doc codifies what's already there so the next writer doesn't drift it. Examples are pulled from the working corpus — `packages/i18n/src/messages-{uk,en}.ts` (extension UI), `apps/marketing/src/i18n.ts` (marketing site) and `apps/safari-host-app/src/i18n/messages-{uk,en}.ts` (Safari host app) — not invented.
 
 **Scope.** Governs the extension popup, options page, content-script curtains, error boundary, marketing site (home, OG card, `/privacy`, `/why-this-happens`, `/how-movar-works`), and store listings. Does not govern: `README.md`, commit messages, JSDoc, dev-only console messages — those follow general engineering conventions.
 
@@ -176,9 +176,9 @@ Not the enemy losing, not the nation winning. _"Correction applied"_, never _"Ru
 
 ---
 
-## 4. Ukrainian mechanics
+## 4. Ukrainian mechanics and language hygiene
 
-Nine rules. All descriptive of the current corpus; enforcement points called out where they exist.
+Fourteen rules. 4.1–4.9 are mechanics — typography and orthography, all descriptive of the current corpus. 4.10–4.14 are hygiene: they lock out the failure modes Ukrainian drifts into when a string is translated from its English sibling or machine-drafted rather than written. Enforcement points called out where they exist.
 
 ### 4.1 Formal address: ви, lowercase mid-sentence
 
@@ -190,7 +190,7 @@ Nine rules. All descriptive of the current corpus; enforcement points called out
 
 ### 4.3 Apostrophe: U+02BC ʼ (MODIFIER LETTER APOSTROPHE)
 
-Standard Ukrainian orthography. «інтервʼю», «зв'язок» (with ʼ), «п'ять» (with ʼ). ASCII `'` (U+0027) is reserved for JS delimiters and EN possessives. U+2019 right-quote is forbidden inside UA. **Enforcement:** ESLint rule on string literals flagging non-ʼ apostrophes adjacent to Cyrillic.
+Standard Ukrainian orthography. «інтервʼю», «зв'язок» (with ʼ), «п'ять» (with ʼ). ASCII `'` (U+0027) is reserved for JS delimiters and EN possessives. U+2019 right-quote is forbidden inside UA. **Not enforced.** There is no lint rule for this today — it is caught in review. A rule flagging non-ʼ apostrophes adjacent to Cyrillic would be the obvious guard if this keeps drifting.
 
 ### 4.4 Em-dash with spaces
 
@@ -204,9 +204,11 @@ Standard Ukrainian orthography. «інтервʼю», «зв'язок» (with ʼ
 
 «слово». Period after the closing «, not inside. Same for `?` and `,` — UA convention, mirrors French/German practice.
 
-### 4.7 Latin-form proper nouns preserved
+### 4.7 Latin-form proper nouns preserved — the brand excepted
 
-_Movar_, _Google_, _YouTube_, _Chrome_, _Firefox_, _Edge_, _Safari_, _CLD2_, _CLD3_, _fastText_, _Wikipedia_, _Wikidata_ stay in Latin inside UA strings. No transliteration to «Мовар» etc. Tech tokens (_Accept-Language_, _hl=_, _cr=_, locale codes _ru_, _uk_, _be_, _pl_) in mono.
+_Google_, _YouTube_, _Chrome_, _Firefox_, _Edge_, _Safari_, _CLD2_, _CLD3_, _fastText_, _Wikipedia_, _Wikidata_ stay in Latin inside UA strings. Tech tokens (_Accept-Language_, _hl=_, _cr=_, locale codes _ru_, _uk_, _be_, _pl_) in mono.
+
+**The brand is the exception, and it declines.** «Мовар», «Мовара» («Після Мовара»). UA copy uses the transliteration exclusively — 160 occurrences in `apps/marketing/src/i18n.ts` against zero Latin _Movar_ in Ukrainian prose. The Latin form survives only in identifiers (`withMovar:`), EN strings, and the wordmark, which is a glyph rather than text.
 
 ### 4.8 Lowercase nationality / language adjectives
 
@@ -215,6 +217,64 @@ _Movar_, _Google_, _YouTube_, _Chrome_, _Firefox_, _Edge_, _Safari_, _CLD2_, _CL
 ### 4.9 Numerals as digits in UI
 
 «1 година», «24 години», «7 днів». In prose, digits also preferred — UA convention is more digit-friendly than EN, and tabular figures are already baked into the typography system. Cardinal numbers must agree with plural noun forms via the `ukPlural()` helper in `messages-uk.ts`.
+
+### 4.10 No active participles on -учий / -ючий / -ачий / -ячий
+
+«наявний», not «існуючий». «робочий» or «який працює», not «працюючий». «довколишній», not «оточуючий». These forms are a Russian-shaped borrowing; standard Ukrainian replaces them with an adjective, a relative clause, or a different noun altogether.
+
+The trap is domain-specific here. A writer reaching for _filtering_, _blocking_, _switching_ as adjectives produces «фільтруючий», «блокуючий», «перемикаючий» — write «фільтр», «який блокує», «перемикач» instead.
+
+Passive participles and impersonal -но/-то forms are correct and already in the corpus: «приховано», «розмито», «вимкнено».
+
+### 4.11 No калька from Russian
+
+Word-for-word borrowings that parse as Ukrainian but are not. None of these appear in the corpus today — the table is a lock, not a repair.
+
+| Калька                             | Use instead          |
+| ---------------------------------- | -------------------- |
+| на протязі                         | протягом             |
+| відноситься до                     | стосується           |
+| у якості (_as_)                    | як                   |
+| в залежності від                   | залежно від          |
+| співпадати                         | збігатися            |
+| виключення (_exception_)           | виняток              |
+| наступний (_the following_)        | такий                |
+| мати місце                         | бути, траплятися     |
+| рахувати (_to consider_)           | вважати              |
+| приймати участь                    | брати участь         |
+| на даний момент                    | зараз                |
+| даний (_this_)                     | цей                  |
+| включити / виключити (_a setting_) | увімкнути / вимкнути |
+| поскільки                          | оскільки             |
+
+«за замовчуванням» (never «по замовчуванню») is the corpus form and is correct.
+
+### 4.12 Verbs, not verbal nouns
+
+Канцелярит is the register a machine drafts in by default, and the one this brand never uses. «перевіряти», not «здійснювати перевірку». «налаштувати», not «проводити налаштування». «щоб», not «з метою». «бо», not «у звʼязку з тим, що». «є», not «являється».
+
+Genitive chains are the tell: «процес покращення якості визначення мови» is four nouns doing one verb's work. Rewrite around the verb.
+
+### 4.13 UA is drafted, not translated
+
+The preamble requires UA and EN to be written in parallel. These are the tests that catch a UA string that was in fact translated from its EN sibling:
+
+- **Token-for-token alignment.** If the UA sentence maps onto the EN one word for word, it is translationese. Compare the shipped pair — _"Got it." — then shows Russian anyway_ / «Прийнято.» — і показує російською. The UA drops _anyway_ because the dash already carries it.
+- **«дозволяє вам», «допомагає вам», «забезпечує».** Direct renderings of _allows you to_, _helps you_, _provides_. Ukrainian states what happens: «ви можете», or just the verb.
+- **Possessive spam.** English needs _your browser_, _your language_ in every clause. Ukrainian drops the pronoun once the subject is established.
+- **Passive voice.** _"The page was changed by Movar"_ → «Мовар змінив сторінку». Ukrainian prefers the active verb, and the impersonal -но/-то form where English reaches for a passive.
+- **Connective tics.** Sentence-initial «Крім того», «Однак», «Таким чином» in sequence is a generated cadence. «А», «Тому», «Тож» take the same turns at half the weight.
+- **«це означає, що».** Usually deletable — the next sentence is the meaning.
+
+### 4.14 AI register tells
+
+Grammatical, idiomatic, and still wrong for this brand:
+
+- **Triads.** «швидко, просто й надійно» — three adjectives where one claim belongs. §1.2 forbids the padding; this is the shape it arrives in.
+- **Antithesis as the default sentence.** «Це не про X — це про Y», «не просто X, а Y». Movar uses the construction deliberately and rarely («Мова браузера — лише підказка»). As a habit it reads generated.
+- **Framing openers.** «У світі, де…», «Варто зазначити, що…», «Важливо розуміти…». Cut to the claim (§1.2).
+- **Empty intensifiers.** «справді», «дійсно», «насправді» used for emphasis rather than for contrast.
+- **Perfect parallelism.** A bullet list whose every item has the same length and the same grammatical shape reads machine-made. Real lists have uneven members.
 
 ---
 

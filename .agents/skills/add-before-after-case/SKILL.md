@@ -22,9 +22,10 @@ deliver them in different shapes:
   in `apps/extension/store-assets/screenshots/{en,uk}/NN-<slug>.png`.
 - **Marketing** ships two single-half PNGs per pair — each captured
   light **and** `-dark`, at natural content height — and the Astro
-  layer at `apps/marketing/src/components/Examples.astro` composes them
-  at runtime, full-width and stacked, swapping light↔dark with
-  `<picture>` + `prefers-color-scheme`.
+  layer at `apps/marketing/src/components/ExampleDrum.astro` composes
+  them at runtime inside the homepage hero's tabbed drum, one pair
+  visible at a time, swapping light↔dark with `<picture>` +
+  `prefers-color-scheme`.
 
 Both share backdrop components and the same Playwright capture script
 at `apps/extension/scripts/capture-storybook-assets.mts`. Story title
@@ -104,20 +105,26 @@ caption width (~540px @ 18px body).
 ### 4. Marketing site integration
 
 The marketing pairs render in
-`apps/marketing/src/components/Examples.astro`, keyed by the index of
-the matching entry in `strings.examples.entries` (`apps/marketing/src/i18n.ts`):
+`apps/marketing/src/components/ExampleDrum.astro` — the homepage hero's
+tabbed drum — keyed by the index of the matching entry in
+`strings.examples.entries` (`apps/marketing/src/i18n.ts`):
 
 - Add (or confirm) the `examples.entries` entry for the scene in both
-  `en` and `uk` — each has `site`, `scenario`, `without`, `withMovar`.
-- Add an `imagePairs[<index>]` record in `Examples.astro` with the
-  `without`/`with` light `src` + `alt`. The `-dark` siblings and the
-  `existsSync` gate are handled automatically: a pair renders only when
-  both light PNGs are on disk, and the dark `<picture>` source is added
-  when the `-dark` PNG exists. Missing pairs degrade to text-only.
-
-If `Examples.stories.tsx` mocks the section, keep its layout in step —
-it renders the text-only fallback, since the Storybook canvas has no
-built `public/` dir.
+  `en` and `uk` — each has `site`, `scenario`, `without`, `withMovar`,
+  and `alt` (`{ without, withMovar }`). **`alt` is required**: the drum
+  drops a slide's images without it, so a pair whose PNGs are on disk
+  but whose `alt` is missing silently renders as caption-only.
+- Add the matching `examples.captions` line in both locales. The drum
+  shows it under the card and falls back to `scenario` when absent.
+- Add an `imagePairs[<index>]` record in `ExampleDrum.astro` with the
+  `without`/`with` light `src`. The `-dark` siblings and the `existsSync`
+  gate are handled automatically: a slide shows images only when both
+  light PNGs are on disk, and the dark `<picture>` source is added when
+  the `-dark` PNG exists. A slide with missing PNGs still renders its tab
+  and its caption.
+- The drum builds exactly four slides from a hardcoded `[0, 1, 2, 3]`.
+  A fifth scene needs that list widened too — adding a pair alone will
+  not surface it.
 
 ### 5. Docs
 

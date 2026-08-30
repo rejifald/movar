@@ -27,10 +27,18 @@
  * accepted — but anything else FAILS THE TEST rather than writing a file App
  * Store Connect would reject weeks later.
  *
- * WHAT IS STILL MANUAL. The Audit tab is captured before a run, so its detail
- * pane is empty. Filling it means actually fetching a site, and a screenshot
- * test that needs the network is a screenshot test that fails on a plane. Run
- * that scene by hand if the listing wants it.
+ * THE AUDIT SCENE IS PRE-RUN, and cannot be otherwise. Its report needs the
+ * network; the consent sheet the app raises first never enters the accessibility
+ * tree, so no test can click it; its confirm is a tinted row rather than a default
+ * button, so Return does not fire it; and `AuditModel` keeps runs in memory only,
+ * so one cannot be performed once and photographed later. Each of those is a
+ * deliberate decision in the app and none should be changed for a screenshot. A
+ * populated report has to be photographed by hand.
+ *
+ * APPEARANCE. The test refuses to run when the system appearance does not match
+ * the set being captured — macOS goes dark in the evening, and the first run after
+ * sunset produced a half-light, half-dark listing. Switch appearance in System
+ * Settings, or set MOVAR_SHOT_APPEARANCE=Dark.
  *
  * Uploading is manual too — `scripts/apple-submit.mjs` handles versions, notes,
  * compliance and submission, and no screenshots at all.
@@ -157,7 +165,11 @@ for (const locale of locales) {
   }
 
   if (written === 0) {
-    console.error(`✗ ${locale}: the run produced no attachments — did the test actually execute?`);
+    console.error(
+      `✗ ${locale}: the run produced no attachments. The usual cause is the appearance ` +
+        `guard skipping the test because the system is in the other mode — check the ` +
+        `xcodebuild output above for a skip, and see APPEARANCE in this file's header.`,
+    );
     process.exit(1);
   }
 }

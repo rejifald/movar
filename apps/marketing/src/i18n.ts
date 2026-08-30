@@ -33,7 +33,10 @@ interface NavStrings {
 }
 
 interface HeroStrings {
-  /** Three trust claims for the hero eyebrow chip. Each renders with its
+  /** Small label above the headline — names what Movar is before the
+   *  headline says what it does. */
+  eyebrow: string;
+  /** Three trust claims for the hero badge row. Each renders with its
    *  own icon (free → Tag, openSource → CodeXml, privacy → ShieldCheck).
    *  Keep the privacy line in step with the Privacy section's "nothing
    *  leaves your browser" claim. */
@@ -45,6 +48,31 @@ interface HeroStrings {
   headlineLine1: string;
   headlineLine2: string;
   subhead: string;
+}
+
+interface CoverageCard {
+  /** Card heading, e.g. "Search". */
+  title: string;
+  /** What Movar does for this surface. */
+  body: string;
+  /** Footnote below the divider at the bottom of the card. */
+  note: string;
+  /** Brand-mark row naming the sites this card covers. Omitted on the
+   *  switcher card, which names no specific sites. */
+  sites?: string[];
+}
+
+interface CoverageStrings {
+  /** Small eyebrow above the lead — e.g. "Where this works". */
+  sectionTitle: string;
+  /** The section's lead sentence. */
+  sectionLead: string;
+  /** The query-time language hint that covers search engines. */
+  search: CoverageCard;
+  /** The site's own language switcher, remembered on the visitor's behalf. */
+  switcher: CoverageCard;
+  /** Per-element filtering — the opt-in step from HowItWorks' step 2, surfaced here as coverage. */
+  perElement: CoverageCard;
 }
 
 interface ProblemFact {
@@ -70,6 +98,29 @@ interface StakesFact {
   body: string;
 }
 
+interface StakesDiagramNode {
+  /** Two-line heading set inside the box. */
+  heading: readonly [string, string];
+  /** Small line under the heading. */
+  detail: string;
+}
+
+/** Copy for the closed-loop diagram (Fig. 1): the four box labels, the
+ *  return-path pill, and the figure's own aria-label for screen readers.
+ *  Field names match Stakes.astro's local `StakesDiagramCopy` type
+ *  exactly, so wiring this in there is a straight swap for its
+ *  `DIAGRAM_COPY[lang]` placeholder. */
+interface StakesDiagramCopy {
+  /** "Fig. 1" caption beside the section heading. */
+  figureLabel: string;
+  /** The whole argument in one sentence, for anyone who can't see the figure. */
+  ariaLabel: string;
+  /** The four boxes, in flow order. */
+  nodes: readonly [StakesDiagramNode, StakesDiagramNode, StakesDiagramNode, StakesDiagramNode];
+  /** Label on the pill sitting on the return path. */
+  loopLabel: string;
+}
+
 interface StakesStrings {
   /** Small eyebrow — e.g. "Why this matters". Sits between Problem and HowItWorks. */
   sectionTitle: string;
@@ -78,24 +129,89 @@ interface StakesStrings {
   facts: StakesFact[]; // exactly 4
   /** Transition line at the bottom, hands off to HowItWorks. */
   closeLine: string;
+  diagram: StakesDiagramCopy;
 }
 
-interface HowItWorksStep {
+interface HowItWorksDialogueLine {
+  /** Small caption naming who's "speaking" this line — e.g. "Browser". */
+  label: string;
+  /** The line itself, phrased as a short quote. */
+  text: string;
+}
+
+/** Step 1 — Movar declares your language before search or sites get a
+ *  chance to guess wrong. Its own shape, not a variant of step 2's: the two
+ *  panels are structurally different mockups, not a repeatable card. */
+interface HowItWorksDeclareStep {
   title: string;
   body: string;
-  /** Optional status pill shown next to the title — e.g. "Beta". */
-  badge?: string;
-  /** Optional footnote shown under the body, rendered with a leading "*". */
-  note?: string;
+  /** Status line next to the always-on toggle mockup. */
+  status: string;
+  /** The three-line browser/site/search exchange showing why the browser's
+   *  language signal doesn't survive contact with sites and search engines. */
+  dialogue: HowItWorksDialogueLine[];
+  /** Footnote under the exchange above, explaining why it plays out that way. */
+  dialogueNote: string;
+  /** Small chip label between the exchange and the query mockup, naming
+   *  what Movar just did. */
+  claim: string;
+  /** Label above the "before" query-bar mockup. */
+  queryLabel: string;
+  /** The example query term itself (e.g. "новини") — the only localized
+   *  part of the query-bar mockup. The URL scaffolding around it (domain,
+   *  `?q=`, the `&hl=uk`-shaped suffix) is fixed syntax, not copy, so it
+   *  lives in the component instead of here. */
+  query: string;
+  /** Label above the "after" query-bar mockup, once the language hint is added. */
+  sentLabel: string;
+  /** Callout under the query-bar mockup, spelling out what the added hint means. */
+  callout: string;
+}
+
+interface HowItWorksFilterExample {
+  /** Example result text shown in the mocked-up list. Ignored when `hidden`
+   *  is true — that row shows `hiddenLabel` instead. */
+  text: string;
+  /** True for the one row rendered as redacted, so the mockup shows the
+   *  filter actually catching something rather than just describing it. */
+  hidden?: boolean;
+}
+
+/** Step 2 — the opt-in, item-by-item filter that catches what step 1 didn't. */
+interface HowItWorksFilterStep {
+  title: string;
+  body: string;
+  /** Status line next to the off-by-default toggle mockup. */
+  status: string;
+  /** Subline under `status`, naming what the toggle covers. */
+  scope: string;
+  /** Mocked-up list of item-by-item filtering results. */
+  examples: HowItWorksFilterExample[];
+  /** Label shown on the one redacted row in `examples`, in place of its text. */
+  hiddenLabel: string;
+  /** Footnote shown under the mocked-up list. */
+  note: string;
 }
 
 interface HowItWorksStrings {
   sectionTitle: string;
   sectionLead: string;
-  /** Two parallel mechanisms — one for search engines, one for bilingual sites. */
-  steps: HowItWorksStep[]; // exactly 2
+  /** Two structurally different panels, not a repeatable card — a
+   *  fixed-position tuple rather than a homogeneous array. */
+  steps: [HowItWorksDeclareStep, HowItWorksFilterStep];
   /** Label on the link to the `/how-movar-works` deep dive. */
   deepDiveLinkLabel: string;
+  /** What Movar deliberately does not do to the page. Kept separate from
+   *  `limitations` because these two are strictly about content handling,
+   *  and surface right where step 2 raises the "does it translate?"
+   *  question. */
+  refusals: {
+    /** Eyebrow above the two refusals. */
+    eyebrow: string;
+    items: string[]; // exactly 2
+    /** Label for the link to the source code, offered as the way to verify the refusals above. */
+    sourceLink: string;
+  };
 }
 
 interface LimitationsStrings {
@@ -110,6 +226,9 @@ interface LimitationsStrings {
 interface PrivacyStrings {
   sectionTitle: string;
   sectionLead: string;
+  /** Short, checkable trust claims rendered as pills under the lead —
+   *  each one a fact a visitor could go verify, not a vague reassurance. */
+  chips: string[];
   /** Link label that takes readers to the full /privacy policy page. */
   linkLabel: string;
   /** Second link, to `/transparency#cant-spy`. "Nothing leaves your browser"
@@ -119,6 +238,10 @@ interface PrivacyStrings {
 }
 
 interface CloseStrings {
+  /** Rendered by Close.astro as a standalone closing headline — the loop
+   *  it breaks, next to the install CTA — with no lead paragraph under it.
+   *  `sectionLead`/`emailLabel`/`discordLabel` below are pre-redesign copy,
+   *  read only by the not-yet-updated Close.stories.tsx mock. */
   sectionTitle: string;
   sectionLead: string;
   emailLabel: string;
@@ -142,6 +265,10 @@ interface ChangelogStrings {
 }
 
 interface FooterStrings {
+  /** Bug-report invite shown above the footer's link columns — the
+   *  footer's own version of the ask in `close`, phrased for one row
+   *  instead of a full section. */
+  invite: string;
   credits: string;
   privacy: string;
   transparency: string;
@@ -310,7 +437,7 @@ interface ExampleEntry {
   withMovar: string;
   /**
    * Alt text for this entry's before/after screenshot pair (see
-   * `imagePairs` in Examples.astro, keyed by the same entry index). Only
+   * `imagePairs` in ExampleDrum.astro, keyed by the same entry index). Only
    * entries with a captured screenshot pair need this — the rest render
    * text-only and never read it.
    */
@@ -326,6 +453,12 @@ interface ExamplesStrings {
   without: string;
   withMovar: string;
   entries: ExampleEntry[];
+  /**
+   * One-line summary per slide, shown under the hero's screenshot drum
+   * (ExampleDrum.astro) — same order as `entries`, index 0-3. Falls back to
+   * the matching entry's `scenario` where a locale is missing one.
+   */
+  captions: string[];
 }
 
 interface OgStrings {
@@ -608,6 +741,7 @@ export interface Strings {
   meta: MetaStrings;
   nav: NavStrings;
   hero: HeroStrings;
+  coverage: CoverageStrings;
   problem: ProblemStrings;
   stakes: StakesStrings;
   howItWorks: HowItWorksStrings;
@@ -707,7 +841,7 @@ const en: Strings = {
     htmlLang: 'en',
     defaultTitle: `Movar — ${titleTagline('en')}`,
     defaultDescription:
-      'Movar puts the right language in front of you on Google, YouTube, and bilingual sites — without translating a thing. Free, open source, stays in your browser.',
+      'Movar puts the right language in front of you on Google, YouTube, and multilingual sites — without translating a thing. Free, open source, stays in your browser.',
   },
   nav: {
     download: 'Install',
@@ -716,6 +850,7 @@ const en: Strings = {
     menu: 'Menu',
   },
   hero: {
+    eyebrow: 'Browser extension',
     badge: {
       free: 'Free',
       openSource: 'Open source',
@@ -725,6 +860,27 @@ const en: Strings = {
     headlineLine2: tagline.en.line2,
     subhead:
       "Sites keep handing you the wrong language even when you've asked clearly. Movar fixes that — quietly, without translating a thing.",
+  },
+  coverage: {
+    sectionTitle: 'Where this works',
+    sectionLead: "Movar looks for the site's own language switcher and switches it to yours.",
+    search: {
+      title: 'Search',
+      body: 'Movar writes your language into the query itself, so results come back right the first time — not after you filter them yourself.',
+      note: 'Google — on any country domain, not just .com.',
+      sites: ['Google', 'YouTube', 'Bing', 'DuckDuckGo'],
+    },
+    switcher: {
+      title: 'Any multilingual site',
+      body: "Switching once isn't enough — sites forget your choice. Movar remembers it for you.",
+      note: 'Works even on a site Movar has never seen before.',
+    },
+    perElement: {
+      title: 'Element by element',
+      body: 'Movar reads the structure of the page and hides individual elements — results in the wrong language, videos, posts.',
+      note: 'Just these two structures for now — each new one is its own rule. Turned on separately, see step 2.',
+      sites: ['Google', 'YouTube'],
+    },
   },
   problem: {
     sectionTitle: 'Why Movar was created',
@@ -744,7 +900,7 @@ const en: Strings = {
         body: 'A site serves Russian text and marks the page up as Ukrainian. Search trusts the markup over the text, so a Russian page enters the index as a Ukrainian one. You filter results to Ukrainian and get Russian pages wearing a Ukrainian label.',
       },
       {
-        heading: "Bilingual sites pick for you — and don't hold the choice.",
+        heading: "Multilingual sites pick for you — and don't hold the choice.",
         body: "Ukrainian shops, news sites, and platforms often have a full Ukrainian version sitting behind their Russian one. And once you find the switch, the choice doesn't stick: the cookie is scoped to one subdomain, the menu links back to the Russian root, and a broken hreflang quietly bounces you back.",
       },
     ],
@@ -773,6 +929,21 @@ const en: Strings = {
       },
     ],
     closeLine: 'None of it has to keep happening. The fix is small.',
+    diagram: {
+      figureLabel: 'Fig. 1',
+      ariaLabel:
+        'Diagram of a closed loop: a site defaults to Russian, analytics reads that as reader choice, Ukrainian content shrinks, and sites choose Russian for you more and more often.',
+      nodes: [
+        { heading: ['A site defaults', 'to Russian'], detail: 'though you chose Ukrainian' },
+        {
+          heading: ['In analytics, this', 'looks like a choice'],
+          detail: "of readers, not the site's",
+        },
+        { heading: ['Less Ukrainian', 'content gets made'], detail: 'less audience last year' },
+        { heading: ['The site chooses', 'for you more often'], detail: 'and the signal repeats' },
+      ],
+      loopLabel: 'and the loop closes',
+    },
   },
   howItWorks: {
     sectionTitle: 'How it works',
@@ -781,20 +952,50 @@ const en: Strings = {
     steps: [
       {
         title: 'Step 1. Declare your language up front',
-        body: 'Search engines guess your language from your letters — and Cyrillic reads as Russian. Movar attaches your real language to the query itself, so Google, YouTube, Bing, and DuckDuckGo answer in the right one. And when a bilingual site hides the Ukrainian version behind the Russian one, Movar takes you straight to yours.',
+        body: 'Search engines guess your language from your letters — and Cyrillic reads as Russian. Movar attaches your real language to the query itself, so Google, YouTube, Bing, and DuckDuckGo answer in the right one. And when a multilingual site hides the Ukrainian version behind the Russian one, Movar takes you straight to yours.',
+        status: 'Works right after install',
+        dialogue: [
+          { label: 'Browser', text: '"This person reads Ukrainian."' },
+          { label: 'Site', text: '"Got it." — then shows Russian anyway' },
+          { label: 'Search', text: '"Cyrillic? Must be Russian."' },
+        ],
+        dialogueNote:
+          "Browser language is only a hint, and sites ignore it. Search doesn't even ask — it guesses from your letters, and there are more Russian pages on the web.",
+        claim: 'Movar tunes it to your language',
+        queryLabel: 'What you search for',
+        query: 'новини',
+        sentLabel: 'What reaches search',
+        callout:
+          'That green tail means exactly one thing: "answer in Ukrainian." Your language now rides inside the query itself, where search can\'t help but see it.',
       },
       {
         title: 'Step 2. Filter out what slips through',
         body: 'Some sites serve Russian whatever you set. On a marketplace there is nothing to switch: the interface is Ukrainian, the listings and reviews are Russian. So Movar goes item by item — Russian posts, videos, and results get blurred or hidden, Ukrainian ones stay. Nothing translated.',
+        status: 'Turned on in settings',
+        scope: 'Individual page elements — results in the wrong language, videos, posts',
+        examples: [
+          { text: 'Review: great headphones, battery lasts…' },
+          { text: '', hidden: true },
+          { text: 'Feedback: worth it, best value for the money…' },
+        ],
+        hiddenLabel: 'hidden',
         note: 'This step is off by default — turn it on in the extension settings. The curtain lifts in one click.',
       },
     ],
     deepDiveLinkLabel: 'How Movar detects language',
+    refusals: {
+      eyebrow: "What Movar won't do to the page",
+      items: [
+        "Never translates content. That option doesn't exist.",
+        "Doesn't read language inside images, video, or audio.",
+      ],
+      sourceLink: 'Source code — check for yourself',
+    },
   },
   examples: {
     sectionTitle: 'Examples',
     sectionLead:
-      'The same idea applies to every country version of Google and to a list of bilingual sites we keep adding to.',
+      "The same applies to every country version of Google. And on multilingual sites Movar finds the site's own language switcher and uses it — so it works on a site it has never seen.",
     without: 'Before Movar',
     withMovar: 'After Movar',
     entries: [
@@ -850,6 +1051,12 @@ const en: Strings = {
         },
       },
     ],
+    captions: [
+      'A Cyrillic search for "war news." Screenshots from a real build — not a mockup.',
+      "Searching by name — Google's instant answer doesn't follow your browser language.",
+      'The same Cyrillic search on YouTube — results and recommendations both.',
+      'This shop opened in Russian. Movar takes you to the Ukrainian version — the whole page.',
+    ],
   },
   beforeAfter: {
     sectionTitle: 'See it in action',
@@ -886,11 +1093,18 @@ const en: Strings = {
     sectionTitle: 'Stays in your browser',
     sectionLead:
       'Movar has no servers, no accounts, no analytics. Everything it does — detecting your language, rewriting URLs, switching sites — happens right in your browser. Nothing about your browsing, your queries, or your preferences ever leaves it.',
+    chips: [
+      'No servers',
+      'No accounts',
+      'No analytics',
+      "Doesn't slow pages down",
+      'Every promise checked against the code, every build',
+    ],
     linkLabel: 'Read the full privacy policy',
     safeguardsLabel: "Why a future version can't change that quietly",
   },
   close: {
-    sectionTitle: 'Have feedback?',
+    sectionTitle: 'Movar breaks this loop. Installing takes a minute.',
     sectionLead:
       'Have a question, an idea, or a site where Movar missed? Join the Discord or drop a note. Movar is non-commercial — reviews and bug reports help most.',
     emailLabel: 'Email support@movar.fyi',
@@ -909,6 +1123,8 @@ const en: Strings = {
     technicalLinkLabel: 'Technical changelog on GitHub',
   },
   footer: {
+    invite:
+      "Found a site where Movar didn't work? Tell us. Movar is non-commercial — bug reports and store reviews help the most.",
     credits: 'Movar community · non-commercial · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
@@ -1009,11 +1225,11 @@ const en: Strings = {
   whyThisHappens: {
     pageTitle: 'Why this keeps happening — Movar',
     pageDescription:
-      'A walk through the moving parts that put Russian in front of visitors asking for Ukrainian: language detection, page markup, server behaviour, search-engine quirks, the AI answers built on top of them, bilingual-site patterns, and the feedback loop they create.',
+      'A walk through the moving parts that put Russian in front of visitors asking for Ukrainian: language detection, page markup, server behaviour, search-engine quirks, the AI answers built on top of them, multilingual-site patterns, and the feedback loop they create.',
     hero: {
       eyebrow: 'Deep dive',
       title: 'Why this keeps happening',
-      lead: "The home page covers the short version: sites default to Russian even when you've asked for Ukrainian. The longer version is a stack of small failures, each defensible on its own, that pile up into the same outcome. This page walks the stack — what your browser asks for, what the page declares, what the detector guesses, what the search engine surfaces, what the AI answer layer writes on top of that, what bilingual sites do with the choice, and how site owners read the result back into next year's investment.",
+      lead: "The home page covers the short version: sites default to Russian even when you've asked for Ukrainian. The longer version is a stack of small failures, each defensible on its own, that pile up into the same outcome. This page walks the stack — what your browser asks for, what the page declares, what the detector guesses, what the search engine surfaces, what the AI answer layer writes on top of that, what multilingual sites do with the choice, and how site owners read the result back into next year's investment.",
     },
     tocHeading: 'On this page',
     sections: [
@@ -1089,7 +1305,7 @@ const en: Strings = {
       },
       {
         id: 'bilingual-sites',
-        heading: 'Bilingual sites default to the bigger market',
+        heading: 'Multilingual sites default to the bigger market',
         lead: 'Sites that maintain both a Ukrainian and a Russian version still ship the Russian one by default, and the path to the Ukrainian one is rarely obvious.',
         points: [
           'The Russian variant sits on the root URL. The Ukrainian variant lives behind /uk/, /ua/, or a separate subdomain. Click a search result, land on Russian.',
@@ -1538,7 +1754,7 @@ const uk: Strings = {
     htmlLang: 'uk',
     defaultTitle: `Мовар — ${titleTagline('uk')}`,
     defaultDescription:
-      'Мовар відкриває пошук Google, YouTube і двомовні сайти вашою мовою — без перекладу. Безкоштовно, відкритий код, лише у вашому браузері.',
+      'Мовар відкриває пошук Google, YouTube і багатомовні сайти вашою мовою — без перекладу. Безкоштовно, відкритий код, лише у вашому браузері.',
   },
   nav: {
     download: 'Встановити',
@@ -1547,6 +1763,7 @@ const uk: Strings = {
     menu: 'Меню',
   },
   hero: {
+    eyebrow: 'Розширення для браузера',
     badge: {
       free: 'Безкоштовно',
       openSource: 'Відкритий код',
@@ -1556,6 +1773,27 @@ const uk: Strings = {
     headlineLine2: tagline.uk.line2,
     subhead:
       'Ви налаштували браузер на українську, а сайти все одно навʼязують російську. Мовар невтомно повертає вашу мову — на кожній сторінці, без жодного перекладу.',
+  },
+  coverage: {
+    sectionTitle: 'Де це працює',
+    sectionLead: 'Мовар шукає перемикач сайту й перемикає на вашу мову.',
+    search: {
+      title: 'Пошук',
+      body: 'Мовар вписує вашу мову в сам запит, тож видача приходить правильною одразу — а не після того, як ви її перефільтруєте.',
+      note: 'Google — у будь-якому національному домені, не лише .com.',
+      sites: ['Google', 'YouTube', 'Bing', 'DuckDuckGo'],
+    },
+    switcher: {
+      title: 'Будь-який багатомовний сайт',
+      body: 'Одного перемикання мало — сайти забувають ваш вибір. Мовар його запамʼятовує.',
+      note: 'Працює й на сайті, якого Мовар ніколи не бачив.',
+    },
+    perElement: {
+      title: 'Поелементно',
+      body: 'Мовар розбирає структуру сторінки й ховає окремі елементи: результати не тією мовою, відео, дописи.',
+      note: 'Поки лише ці дві структури — кожна нова це окреме правило. Вмикається окремо, див. крок 2.',
+      sites: ['Google', 'YouTube'],
+    },
   },
   problem: {
     sectionTitle: 'Для чого створений Мовар',
@@ -1575,7 +1813,7 @@ const uk: Strings = {
         body: 'Сайт віддає російський текст, а в розмітці пише, що сторінка українська. Пошук вірить розмітці, а не тексту, тож російська сторінка потрапляє в індекс як українська. Ви фільтруєте видачу за українською — і отримуєте російські результати з українською биркою.',
       },
       {
-        heading: 'Двомовні сайти обирають за вас — і не тримають вибір.',
+        heading: 'Багатомовні сайти обирають за вас — і не тримають вибір.',
         body: 'Українські магазини, новинні сайти та платформи часто мають українську версію — просто заховану за російською. А коли ви таки знайшли перемикач, вибір не тримається: кука живе в межах одного піддомену, посилання в меню веде на кореневу російську, а поламаний hreflang мовчки кидає вас назад.',
       },
     ],
@@ -1604,6 +1842,18 @@ const uk: Strings = {
       },
     ],
     closeLine: 'Мовар розриває це коло.',
+    diagram: {
+      figureLabel: 'Рис. 1',
+      ariaLabel:
+        'Схема замкненого кола: сайт віддає російську, аналітика читає це як вибір читачів, українського контенту стає менше, і сайти дедалі частіше обирають за вас',
+      nodes: [
+        { heading: ['Сайт віддає', 'російську'], detail: 'хоч ви обрали українську' },
+        { heading: ['В аналітиці це', 'виглядає як вибір'], detail: 'читачів, а не сайту' },
+        { heading: ['Українського', 'контенту менше'], detail: 'менше аудиторії торік' },
+        { heading: ['Сайт дедалі частіше', 'обирає за вас'], detail: 'і сигнал повторюється' },
+      ],
+      loopLabel: 'і коло замикається',
+    },
   },
   howItWorks: {
     sectionTitle: 'Як це працює',
@@ -1612,20 +1862,50 @@ const uk: Strings = {
     steps: [
       {
         title: 'Крок 1. Заявляємо вашу мову наперед',
-        body: 'Пошуковики вгадують мову з ваших літер — і кирилицю читають як російську. Мовар додає вашу справжню мову прямо в запит, тож Google, YouTube, Bing і DuckDuckGo відповідають правильною. А коли двомовний сайт ховає українську за російською, Мовар одразу веде вас на вашу версію.',
+        body: 'Пошуковики вгадують мову з ваших літер — і кирилицю читають як російську. Мовар додає вашу справжню мову прямо в запит, тож Google, YouTube, Bing і DuckDuckGo відповідають правильною. А коли багатомовний сайт ховає українську за російською, Мовар одразу веде вас на вашу версію.',
+        status: 'Працює одразу після встановлення',
+        dialogue: [
+          { label: 'Браузер', text: '«Ця людина читає українською.»' },
+          { label: 'Сайт', text: '«Прийнято.» — і показує російською' },
+          { label: 'Пошук', text: '«Кирилиця? Тоді російською.»' },
+        ],
+        dialogueNote:
+          'Мова браузера — лише підказка, і сайти її ігнорують. А пошук про мову навіть не питає: вгадує з ваших літер, і російських сторінок у мережі більше.',
+        claim: 'Мовар налаштовує на вашу мову',
+        queryLabel: 'Що ви шукаєте',
+        query: 'новини',
+        sentLabel: 'Що йде в пошук',
+        callout:
+          'Цей зелений хвостик означає рівно одне: «відповідай українською». Мова тепер у самому запиті — там, де пошук її не може не побачити.',
       },
       {
         title: 'Крок 2. Відсіюємо те, що прослизнуло',
         body: 'Деякі сайти віддають російське, хоч що б ви налаштували. А на маркетплейсах перемикати взагалі нема на що: інтерфейс український, а картки товарів і відгуки — російські. Тому Мовар працює поелементно: російські дописи, відео й результати ховає за розмитою завісою або прибирає зовсім, а українські лишає. Без перекладу.',
+        status: 'Вмикається в налаштуваннях',
+        scope: 'Окремі елементи сторінки: результати не тією мовою, відео, дописи',
+        examples: [
+          { text: 'Огляд: чудові навушники, тримають заряд…' },
+          { text: '', hidden: true },
+          { text: 'Відгук: беріть, за ці гроші найкраще…' },
+        ],
+        hiddenLabel: 'приховано',
         note: 'Цей крок вимкнено за замовчуванням — увімкніть його в налаштуваннях розширення. Завісу можна підняти в один клік.',
       },
     ],
     deepDiveLinkLabel: 'Як Мовар визначає мову — докладніше',
+    refusals: {
+      eyebrow: 'Чого Мовар не робить зі сторінкою',
+      items: [
+        'Не перекладає вміст — ніколи. Такої опції просто немає.',
+        'Не читає мову всередині зображень, відео та звуку.',
+      ],
+      sourceLink: 'Вихідний код — перевірте самі',
+    },
   },
   examples: {
     sectionTitle: 'Приклади',
     sectionLead:
-      'Так само це працює для Google будь-якої країни і для двомовних сайтів, список яких ми постійно розширюємо.',
+      'Так само це працює для Google будь-якої країни. А на багатомовних сайтах Мовар знаходить власний перемикач мови сайту й користується ним — тож працює й там, де ніколи не був.',
     without: 'До Мовара',
     withMovar: 'Після Мовара',
     entries: [
@@ -1681,6 +1961,12 @@ const uk: Strings = {
         },
       },
     ],
+    captions: [
+      'Кириличний запит «новини війни». Знімки з реальної збірки — не макет.',
+      'Пошук за назвою: швидка відповідь Google не зважає на мову браузера.',
+      'Той самий кириличний запит на YouTube — пошук і рекомендації.',
+      'Магазин відкривався російською. Мовар веде на українську версію — цілою сторінкою.',
+    ],
   },
   beforeAfter: {
     sectionTitle: 'Подивіться, як це працює',
@@ -1717,11 +2003,18 @@ const uk: Strings = {
     sectionTitle: 'Залишається у вашому браузері',
     sectionLead:
       'У Мовара немає ні серверів, ні акаунтів, ні аналітики. Усе, що він робить, — визначає мову, переписує адреси, перемикає сайти — відбувається у вашому браузері. Ні ваші пошуки, ні відвідані сайти, ні налаштування не покидають ваш браузер.',
+    chips: [
+      'Без серверів',
+      'Без акаунтів',
+      'Без аналітики',
+      'Не сповільнює сторінки',
+      'Кожна обіцянка звіряється з кодом на кожній збірці',
+    ],
     linkLabel: 'Повна політика приватності',
     safeguardsLabel: 'Чому майбутня версія не змінить цього непомітно',
   },
   close: {
-    sectionTitle: 'Маєте відгук?',
+    sectionTitle: 'Мовар розриває це коло. Встановлення займає хвилину.',
     sectionLead:
       'Маєте запитання, ідею чи сайт, де Мовар не спрацював? Приєднуйтеся до Discord або напишіть. Мовар некомерційний — відгук у магазині та повідомлення про помилки допомагають найбільше.',
     emailLabel: 'Написати на support@movar.fyi',
@@ -1740,6 +2033,8 @@ const uk: Strings = {
     technicalLinkLabel: 'Технічний журнал змін на GitHub',
   },
   footer: {
+    invite:
+      'Знайшли сайт, де Мовар не спрацював? Розкажіть. Мовар некомерційний — повідомлення про помилки та відгук у магазині допомагають найбільше.',
     credits: 'Спільнота Мовар · некомерційний проєкт · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',
@@ -1840,11 +2135,11 @@ const uk: Strings = {
   whyThisHappens: {
     pageTitle: 'Чому так стається — Мовар',
     pageDescription:
-      'Розбір складових, через які читачам, що просять українську, видають російське: визначення мови, розмітка сторінки, поведінка серверів, особливості пошуковиків, ШІ-відповіді поверх них, звички двомовних сайтів і замкнене коло, яке з усього цього виростає.',
+      'Розбір складових, через які читачам, що просять українську, видають російське: визначення мови, розмітка сторінки, поведінка серверів, особливості пошуковиків, ШІ-відповіді поверх них, звички багатомовних сайтів і замкнене коло, яке з усього цього виростає.',
     hero: {
       eyebrow: 'Глибше',
       title: 'Чому так стається',
-      lead: 'На головній — коротка версія: сайти за замовчуванням віддають російську, навіть коли ви просили українську. Довша версія — це купа дрібних збоїв, де кожен сам по собі має пояснення, але разом вони складаються в той самий результат. Ця сторінка проходить увесь цей ланцюжок — що запитує ваш браузер, що декларує сторінка, що вгадує детектор, що показує пошуковик, що поверх цього пише ШІ, що з вашим вибором роблять двомовні сайти, і як власники сайтів переносять цей результат у бюджети наступного року.',
+      lead: 'На головній — коротка версія: сайти за замовчуванням віддають російську, навіть коли ви просили українську. Довша версія — це купа дрібних збоїв, де кожен сам по собі має пояснення, але разом вони складаються в той самий результат. Ця сторінка проходить увесь цей ланцюжок — що запитує ваш браузер, що декларує сторінка, що вгадує детектор, що показує пошуковик, що поверх цього пише ШІ, що з вашим вибором роблять багатомовні сайти, і як власники сайтів переносять цей результат у бюджети наступного року.',
     },
     tocHeading: 'На цій сторінці',
     sections: [
@@ -1920,7 +2215,7 @@ const uk: Strings = {
       },
       {
         id: 'bilingual-sites',
-        heading: 'Двомовні сайти за замовчуванням ведуть на більший ринок',
+        heading: 'Багатомовні сайти за замовчуванням ведуть на більший ринок',
         lead: 'Сайти, що мають і українську, і російську версію, все одно за замовчуванням видають російську — а шлях до української рідко буває очевидним.',
         points: [
           'Російська версія займає корінь сайту, українська живе за /uk/, /ua/ або на окремому піддомені. Клік по результату пошуку — і ви на російській.',

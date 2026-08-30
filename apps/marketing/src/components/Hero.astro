@@ -2,6 +2,7 @@
 import { Tag, CodeXml, ShieldCheck } from 'lucide-astro';
 
 import DownloadButtons from './DownloadButtons.astro';
+import ExampleDrum from './ExampleDrum.astro';
 import { localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
@@ -13,9 +14,9 @@ const t = strings[lang].hero;
 const installHref = localeInstallHref(lang);
 const installLabel = strings[lang].installGuide.linkLabel;
 
-// Each trust claim carries its own icon so every mark means something
-// (the old single dot read like a status indicator). ShieldCheck echoes
-// the Privacy section's shield; Tag = free, CodeXml = open source.
+// Same three trust claims the old centred hero showed as a pill row —
+// now a vertical checklist under the CTA. ShieldCheck echoes the Privacy
+// section's shield; Tag = free, CodeXml = open source.
 const claims = [
   { label: t.badge.free, Icon: Tag },
   { label: t.badge.openSource, Icon: CodeXml },
@@ -23,45 +24,62 @@ const claims = [
 ];
 ---
 
-<section class="relative overflow-hidden px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
-  <div class="hero-backdrop" aria-hidden="true">
-    <span class="hero-backdrop__aurora hero-backdrop__aurora--1"></span>
-    <span class="hero-backdrop__aurora hero-backdrop__aurora--2"></span>
-    <span class="hero-backdrop__glow"></span>
-    <span class="hero-backdrop__grid"></span>
-  </div>
+{/*
+ * Two-column split (text, then the ExampleDrum) at `md` and up; a single
+ * stacked column below that, text block first so the promise is read
+ * before the proof — the drum follows in source order, which is also the
+ * stacked visual order.
+ *
+ * The text column is a fixed width only from `md` up (380px, widening to
+ * the 540px design width at `lg`); below `md` it's just the full stacked
+ * width. Those fixed widths are why the h1 steps down by breakpoint rather
+ * than scaling fluidly: «Налаштуйте інтернет» measures 504px at 48px in
+ * Fixel Display (≈10.5px of width per 1px of font-size), so each step is
+ * sized against the column it actually sits in, with headroom left over
+ * for font-fallback variance —
+ *   - base (stacked, ~327px column at a 375px viewport): 26px → ~273px (17% headroom)
+ *   - md (380px column):                                  30px → ~315px (17% headroom)
+ *   - lg (540px column, the desktop design size):          48px → 504px (given, 7% headroom)
+ * — leaving the shorter second line ("in your language." / "на рідну
+ * мову.") no way to wrap into a third line at any of the three.
+ */}
+<section class="overflow-hidden bg-bg px-6 py-16 md:py-20">
+  <div class="mx-auto flex max-w-5xl flex-col gap-10 md:flex-row md:items-start md:gap-8 lg:gap-16">
+    <div class="md:w-[380px] md:shrink-0 lg:w-[540px]">
+      <p class="text-xs font-medium uppercase tracking-label text-ink-faint">{t.eyebrow}</p>
 
-  <div class="relative z-10 mx-auto max-w-3xl text-center">
-    <div
-      class="mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-full border border-border bg-surface px-4 py-2 text-xs font-medium text-ink-soft shadow-sm"
-    >
-      {
-        claims.map(({ label, Icon }) => (
-          <span class="inline-flex items-center gap-2 whitespace-nowrap">
-            <Icon class="size-4 shrink-0 text-accent" aria-hidden="true" />
-            {label}
-          </span>
-        ))
-      }
+      <h1
+        class="mt-6 font-display text-[26px] font-extrabold leading-[1.1] tracking-display text-ink-strong md:text-3xl lg:text-5xl"
+      >
+        {t.headlineLine1}
+        <span class="block text-accent">{t.headlineLine2}</span>
+      </h1>
+
+      <p class="mt-6 text-base leading-relaxed text-ink-soft md:text-lg">
+        {t.subhead}
+      </p>
+
+      <div class="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3">
+        <DownloadButtons lang={lang} align="start" />
+        <a href={installHref} class="text-sm font-medium text-accent hover:underline">
+          {installLabel} →
+        </a>
+      </div>
+
+      <ul class="mt-11 flex flex-col gap-3 border-t border-border pt-7">
+        {
+          claims.map(({ label, Icon }) => (
+            <li class="flex items-center gap-2.5 text-sm text-ink-soft">
+              <Icon class="size-4 shrink-0 text-accent" aria-hidden="true" />
+              {label}
+            </li>
+          ))
+        }
+      </ul>
     </div>
 
-    <h1
-      class="font-display text-5xl font-extrabold tracking-display text-ink-strong sm:text-6xl"
-    >
-      {t.headlineLine1}
-      <span class="block text-accent">{t.headlineLine2}</span>
-    </h1>
-
-    <p class="mx-auto mt-6 max-w-2xl text-lg text-ink-soft sm:text-xl">
-      {t.subhead}
-    </p>
-
-    <div class="mt-10">
-      <DownloadButtons lang={lang} />
+    <div class="min-w-0 md:flex-1">
+      <ExampleDrum lang={lang} />
     </div>
-
-    <p class="mt-4 text-sm text-ink-soft">
-      <a href={installHref} class="font-medium text-accent hover:underline">{installLabel} →</a>
-    </p>
   </div>
 </section>

@@ -1,8 +1,9 @@
 import type { JSX } from 'react';
 
 /**
- * Shared mock shell for the Problem + Stakes story files. The production
- * `Problem.astro` and `Stakes.astro` components are themselves
+ * Mock shell for the Stakes story file. It was shared with Problem until the
+ * homepage redesign folded that section into the hero and step 1; the production
+ * `Stakes.astro` component is
  * near-identical — same Tailwind shell, different i18n slice and
  * section id — and the React story mocks mirrored that duplication
  * before being extracted here. Underscored filename + non-`.stories.tsx`

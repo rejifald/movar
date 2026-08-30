@@ -174,13 +174,13 @@ const IMAGE_SETTLE_MS = 10_000;
  * yields, so the lazy-load/IntersectionObserver heuristics only ever see the
  * final scroll position and the offsets it swept past never trigger a fetch.
  *
- * The Examples section's 8 lazy screenshots (`Examples.astro`, in `<picture>`
+ * The hero drum's 8 lazy screenshots (`ExampleDrum.astro`, in `<picture>`
  * elements with `prefers-color-scheme` dark variants) therefore stayed unloaded
  * and collapsed to zero height — and *which* page happened to win the race
  * varied per run: one regeneration of the 24 baselines produced 23 pages without
  * the screenshots and exactly one with them, ~1800px taller than its siblings.
  * Every historically committed baseline lost that race, so the suite never
- * actually covered the Examples imagery.
+ * actually covered the drum imagery.
  *
  * Flipping `loading` to `eager` starts each fetch unconditionally, independent of
  * viewport position, and awaiting load/error settles the layout before the shot.

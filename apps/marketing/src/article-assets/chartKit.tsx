@@ -24,10 +24,11 @@ import type { JSX, ReactNode } from 'react';
  *    a column is a number and a wrapped caption is an explicit array of lines
  *    (`source`, `Lines`). Nothing re-flows if a label grows — look at the
  *    render.
- * 2. **Type is Manrope only.** The marketing site loads Manrope and no mono
- *    face (`styles/global.css`), and an inlined SVG can only use what the page
- *    already has. Numerals therefore use Manrope with `tabular-nums`, which
- *    keeps columns aligned without shipping a second family site-wide.
+ * 2. **Type is Fixel Text only.** An inlined SVG can only use what the page
+ *    already has, and while the site does now load IBM Plex Mono, that face is
+ *    scoped to inline code and URL strings — not chart furniture. Numerals
+ *    therefore use Fixel Text with `tabular-nums`, which keeps columns aligned
+ *    without pulling a second family into every figure.
  */
 
 /**
@@ -86,7 +87,7 @@ export const chartType = {
   source: 16,
 } as const;
 
-export const FONT = 'Manrope, ui-sans-serif, system-ui, sans-serif';
+export const FONT = "'Fixel Text', ui-sans-serif, system-ui, sans-serif";
 export const WEIGHT_REGULAR = 400;
 export const WEIGHT_BOLD = 700;
 const WEIGHT_DISPLAY = 800;

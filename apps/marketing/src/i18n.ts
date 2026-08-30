@@ -785,7 +785,6 @@ const en: Strings = {
       },
       {
         title: 'Step 2. Filter out what slips through',
-        badge: 'Beta',
         body: 'Some sites serve Russian whatever you set. On a marketplace there is nothing to switch: the interface is Ukrainian, the listings and reviews are Russian. So Movar goes item by item — Russian posts, videos, and results get blurred or hidden, Ukrainian ones stay. Nothing translated.',
         note: 'This step is off by default — turn it on in the extension settings. The curtain lifts in one click.',
       },
@@ -1617,7 +1616,6 @@ const uk: Strings = {
       },
       {
         title: 'Крок 2. Відсіюємо те, що прослизнуло',
-        badge: 'тестування',
         body: 'Деякі сайти віддають російське, хоч що б ви налаштували. А на маркетплейсах перемикати взагалі нема на що: інтерфейс український, а картки товарів і відгуки — російські. Тому Мовар працює поелементно: російські дописи, відео й результати ховає за розмитою завісою або прибирає зовсім, а українські лишає. Без перекладу.',
         note: 'Цей крок вимкнено за замовчуванням — увімкніть його в налаштуваннях розширення. Завісу можна підняти в один клік.',
       },

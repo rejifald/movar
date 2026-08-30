@@ -68,7 +68,7 @@ four machine-checkable mismatches:
 The guard can't catch prose drift. While you're in the README, confirm:
 
 - **Feature list matches reality.** Off-by-default capabilities (e.g.
-  `contentModification` in `packages/settings`) must say "Beta, off by default".
+  `contentModification` in `packages/settings`) must say "off by default".
   Don't list features that were removed (the old "usefulness dashboard" was).
 - **Tech stack lists only real deps.** If a library isn't in any
   `package.json` / lockfile (Tremor was a stale entry), drop it.

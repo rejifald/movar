@@ -59,7 +59,8 @@
     "changeset": "changeset",
     "version:packages": "changeset version && node scripts/scaffold-release-notes.mjs && pnpm format",
     "prepare": "lefthook install || true; tsx scripts/gen-theme-css.mts",
-    "check:charts": "pnpm --filter @movar/marketing check:charts"
+    "check:charts": "pnpm --filter @movar/marketing check:charts",
+    "check:links": "pnpm --filter @movar/marketing check:links"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

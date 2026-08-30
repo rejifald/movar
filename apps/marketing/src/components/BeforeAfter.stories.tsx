@@ -193,7 +193,7 @@ function HalfFigure({
         <div
           className={cn(
             'font-mono text-xs tracking-widest uppercase',
-            half.variant === 'with' ? 'text-accent' : 'text-ink-faint',
+            half.variant === 'with' ? 'text-accent-text' : 'text-ink-faint',
           )}
         >
           {half.variant === 'with' ? t.withMovar : t.without}

@@ -116,7 +116,7 @@ function AddDomainForm({ existing, onAdd }: Readonly<AddDomainFormProps>) {
         />
         <Button type="submit">{t.options.allowlist.addButton}</Button>
       </form>
-      {error == null ? null : <p className="text-accent text-ui-base mt-2">{error}</p>}
+      {error == null ? null : <p className="text-accent-text text-ui-base mt-2">{error}</p>}
     </>
   );
 }

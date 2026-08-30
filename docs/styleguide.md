@@ -51,26 +51,36 @@ Slightly warm slate. Reads modern but not sterile. Works against both light and 
 
 The product references semantic names, not raw stone steps. Light values from `:root`, dark from `[data-theme="dark"]` (or `prefers-color-scheme: dark`).
 
-| Token              | Light   | Dark    | Use                                         |
-| ------------------ | ------- | ------- | ------------------------------------------- |
-| `--bg`             | #FAFAF9 | #0C0A09 | Page background                             |
-| `--surface`        | #FFFFFF | #1C1917 | Popup body, options card                    |
-| `--surface-2`      | #F5F5F4 | #292524 | Inset surface, secondary chip               |
-| `--surface-3`      | #EDEAE6 | #322E2B | Tertiary surface, disabled glyph background |
-| `--border`         | #E7E5E4 | #2E2A27 | Hairlines, dividers                         |
-| `--border-strong`  | #D6D3D1 | #44403C | Stronger border, toggle track               |
-| `--ink-faint`      | #A8A29E | #57534E | Captions, mono meta, faint hairline labels  |
-| `--ink-soft`       | #78716C | #A8A29E | Secondary copy, sub-labels                  |
-| `--ink-medium`     | #676159 | #B3ADA7 | Dim label/body on tinted surfaces (AA-safe) |
-| `--ink`            | #44403C | #D6D3D1 | Body copy                                   |
-| `--ink-strong`     | #1C1917 | #FAFAF9 | Display type, wordmark, headings            |
-| `--accent`         | #15803D | #15803D | Correction applied, primary CTA             |
-| `--accent-deep`    | #14532D | #14532D | Hover, text on accent-surface               |
-| `--accent-soft`    | #DCFCE7 | #DCFCE7 | Subtle badge, row highlight                 |
-| `--accent-surface` | #F0FDF4 | #F0FDF4 | "Applied" zone wash                         |
-| `--accent-on`      | #FFFFFF | #FFFFFF | Foreground over solid accent                |
+| Token              | Light   | Dark    | Use                                          |
+| ------------------ | ------- | ------- | -------------------------------------------- |
+| `--bg`             | #FAFAF9 | #0C0A09 | Page background                              |
+| `--surface`        | #FFFFFF | #1C1917 | Popup body, options card                     |
+| `--surface-2`      | #F5F5F4 | #292524 | Inset surface, secondary chip                |
+| `--surface-3`      | #EDEAE6 | #322E2B | Tertiary surface, disabled glyph background  |
+| `--border`         | #E7E5E4 | #2E2A27 | Hairlines, dividers                          |
+| `--border-strong`  | #D6D3D1 | #44403C | Stronger border, toggle track                |
+| `--ink-faint`      | #737373 | #A3A3A3 | Captions, mono meta, faint hairline labels   |
+| `--ink-soft`       | #78716C | #A8A29E | Secondary copy, sub-labels                   |
+| `--ink-medium`     | #676159 | #B3ADA7 | Dim label/body on tinted surfaces (AA-safe)  |
+| `--ink`            | #44403C | #D6D3D1 | Body copy                                    |
+| `--ink-strong`     | #1C1917 | #FAFAF9 | Display type, wordmark, headings             |
+| `--accent`         | #15803D | #15803D | Correction applied, primary CTA — **a fill** |
+| `--accent-text`    | #15803D | #86EFAC | Accent-coloured **text** on ordinary chrome  |
+| `--accent-deep`    | #14532D | #86EFAC | Hover, text on accent-tinted surfaces        |
+| `--accent-soft`    | #DCFCE7 | #14532D | Subtle badge, row highlight                  |
+| `--accent-surface` | #F0FDF4 | #122A1D | "Applied" zone wash                          |
+| `--accent-on`      | #FFFFFF | #FFFFFF | Foreground over solid accent                 |
 
-The accent scale does not shift between themes — the forest reads correctly on both light and dark backgrounds.
+**Only `--accent` and `--accent-on` hold still between themes.** They are the _fill_ pair —
+a solid forest button with white on it reads correctly on light and dark chrome alike.
+Everything else in the family flips: the two surfaces invert from pale pastels to dark
+tints, and `--accent-deep` becomes the _brighter_ emphasis green.
+
+The forest at #15803D is a fill, **not a text colour on dark**: as text it scores 3.0–3.9:1
+on every dark surface, below the 4.5:1 floor. That is what `--accent-text` is for — use it
+for accent-coloured text, `--accent-deep` for text sitting on an accent-tinted surface, and
+reserve `--accent` for fills. `apps/e2e/src/marketing/marketing.contrast.spec.ts` enforces
+this on every page in both themes.
 
 ### 1.4 Applied moment
 

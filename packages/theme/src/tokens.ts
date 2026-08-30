@@ -49,6 +49,13 @@ export const colorLight = {
   /* Forest accent — the single confident hue; reserved for moments Movar acted
    * on the user's behalf. */
   accent: '#15803d',
+  /* Accent as TEXT. Split from `accent` because that one is a *fill* (paired
+   * with `--accent-on`) and must stay theme-stable for `bg-accent` CTAs — which
+   * left accent-coloured text at 3.0-3.9:1 on every dark surface. This token
+   * flips instead, the way the danger family already does. Use `text-accent-text`
+   * for any accent-coloured text on ordinary chrome; `accent-deep` remains the
+   * emphasis colour for text sitting on accent-tinted surfaces. */
+  'accent-text': '#15803d' /* 4.8:1 on --bg, 4.6:1 on --accent-soft, AA pass */,
   'accent-deep': '#14532d',
   'accent-soft': '#dcfce7',
   'accent-surface': '#f0fdf4',
@@ -73,9 +80,12 @@ export type ColorToken = keyof typeof colorLight;
 /**
  * Dark-theme overrides. Only the tokens that actually change between themes are
  * listed — `accent`, `accent-on`, and `danger-on` are intentionally
- * theme-stable (the forest reads correctly on both light and dark chrome). The
- * generator emits exactly these keys into the `prefers-color-scheme: dark`
- * block, so the CSS stays as small as the design intends.
+ * theme-stable: `accent` is a *fill*, and the forest reads correctly as a fill
+ * on both light and dark chrome. Accent-coloured *text* is a different job with
+ * a different contrast floor, so it has its own token — `accent-text` — which
+ * does flip. The generator emits exactly these keys into the
+ * `prefers-color-scheme: dark` block, so the CSS stays as small as the design
+ * intends.
  *
  * Two families role-flip in dark: `--accent-deep`/`--danger-deep` become the
  * *brighter* emphasis text, and the two accent/danger *surfaces* flip from pale
@@ -95,6 +105,8 @@ export const colorDarkOverrides = {
     light-only) */,
   ink: '#d6d3d1',
   'ink-strong': '#fafaf9',
+  'accent-text': '#86efac' /* 14.1:1 on --bg, 10.9:1 on --accent-surface; the
+    light-mode #15803d scores 3.9:1 and 3.1:1 there, hence the flip */,
   'accent-deep': '#86efac' /* light green for text on dark accent surfaces */,
   'accent-soft': '#14532d' /* deep forest tint, used as solid backgrounds */,
   'accent-surface': '#122a1d' /* dark green-tinted panel bg */,
@@ -143,6 +155,7 @@ export const colorDark = {
   ink: '#d6d3d1',
   'ink-strong': '#fafaf9',
   accent: '#15803d',
+  'accent-text': '#86efac',
   'accent-deep': '#86efac',
   'accent-soft': '#14532d',
   'accent-surface': '#122a1d',
@@ -257,7 +270,7 @@ export const lineHeight = {
  * (`--font-*`, `--text-ui-*`, `--tracking-*`, `--leading-*` from
  * `typography.css`), so a role flips with the theme and can never disagree with
  * the scale. **Color is deliberately NOT a role property** — it stays semantic
- * and explicit at the call site (`text-ink-strong`, `text-accent`, …), which is
+ * and explicit at the call site (`text-ink-strong`, `text-accent-text`, …), which is
  * where it already lived and where it legitimately varies per instance.
  *
  * `render.ts` emits each role as a Tailwind v4 `@utility type-<role>` into

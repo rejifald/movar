@@ -40,7 +40,7 @@ const whatWeUseItems = t.whatWeUse.items.map((text, index) => ({
 
 <main class="flex-1 px-6 py-16">
   <article class="mx-auto max-w-3xl">
-    <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
+    <p class="font-display text-xs font-bold uppercase tracking-label text-accent-text">
       {t.hero.eyebrow}
     </p>
     <h1
@@ -59,7 +59,7 @@ const whatWeUseItems = t.whatWeUse.items.map((text, index) => ({
         {
           t.sections.map((section, index) => (
             <li>
-              <a href={`#${section.id}`} class="transition hover:text-accent">
+              <a href={`#${section.id}`} class="transition hover:text-accent-text">
                 <span class="mr-2 font-mono text-xs tabular-nums text-ink-faint">
                   {String(index + 1).padStart(2, '0')}
                 </span>
@@ -73,15 +73,15 @@ const whatWeUseItems = t.whatWeUse.items.map((text, index) => ({
 
     <section id="what-we-use" class="mt-12 scroll-mt-24 rounded-2xl border border-border bg-surface-2 p-6">
       <h2 class="font-display text-xl font-bold text-ink-strong">{t.whatWeUse.heading}</h2>
-      <p class="mt-3 leading-relaxed text-ink-soft">{t.whatWeUse.body}</p>
+      <p class="mt-3 leading-relaxed text-ink-medium">{t.whatWeUse.body}</p>
       <ul class="mt-5 space-y-4">
         {
           whatWeUseItems.map((item) => (
             <li class="flex items-start gap-3">
               {item.Icon && (
-                <item.Icon class="mt-0.5 size-5 shrink-0 text-accent" aria-hidden="true" />
+                <item.Icon class="mt-0.5 size-5 shrink-0 text-accent-text" aria-hidden="true" />
               )}
-              <span class="leading-relaxed text-ink-soft">{item.text}</span>
+              <span class="leading-relaxed text-ink-medium">{item.text}</span>
             </li>
           ))
         }
@@ -110,7 +110,7 @@ const whatWeUseItems = t.whatWeUse.items.map((text, index) => ({
                       href={point.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="font-medium text-accent underline underline-offset-4 transition hover:text-ink-strong"
+                      class="font-medium text-accent-text underline underline-offset-4 transition hover:text-ink-strong"
                       >{point.linkLabel}</a
                     >{point.after}
                   </>
@@ -137,9 +137,9 @@ const whatWeUseItems = t.whatWeUse.items.map((text, index) => ({
           href={adrHref}
           target="_blank"
           rel="noopener noreferrer"
-          class="font-medium text-accent hover:underline">{t.closing.adrLinkLabel} →</a
+          class="font-medium text-accent-text hover:underline">{t.closing.adrLinkLabel} →</a
         >
-        <a href={privacyHref} class="font-medium text-accent hover:underline"
+        <a href={privacyHref} class="font-medium text-accent-text hover:underline"
           >{t.closing.privacyLinkLabel} →</a
         >
       </p>

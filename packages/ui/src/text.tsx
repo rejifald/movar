@@ -58,7 +58,7 @@ const TONE_CLASS: Record<TextTone, string> = {
   default: 'text-ink',
   soft: 'text-ink-soft',
   faint: 'text-ink-faint',
-  accent: 'text-accent',
+  accent: 'text-accent-text',
   danger: 'text-danger',
 };
 

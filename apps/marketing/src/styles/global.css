@@ -393,7 +393,9 @@ body {
 
 .article-prose a {
   font-weight: 500;
-  color: var(--accent);
+  /* --accent-text, not --accent: the latter is a fill token and is deliberately
+     theme-stable, which left prose links at 3.9:1 on the dark theme. */
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 4px;
   transition: color 150ms;

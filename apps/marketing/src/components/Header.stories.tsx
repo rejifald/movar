@@ -52,7 +52,7 @@ function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): J
         <a href={home} className="font-display text-ink-strong flex items-center gap-3 font-bold">
           <img src="/icon.svg" alt="" width={28} height={28} className="rounded-md" />
           <span className="text-lg tracking-tight">
-            movar<span className="text-accent">.fyi</span>
+            movar<span className="text-accent-text">.fyi</span>
           </span>
         </a>
         <nav className="text-ink-soft hidden items-center gap-x-5 text-sm sm:flex">

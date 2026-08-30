@@ -145,7 +145,7 @@ function group(note: string): Group[] {
                         <li class="flex items-start gap-3">
                           <span
                             aria-hidden="true"
-                            class="mt-0.5 shrink-0 select-none font-display font-bold text-accent">
+                            class="mt-0.5 shrink-0 select-none font-display font-bold text-accent-text">
                             •
                           </span>
                           <span class="leading-relaxed text-ink-soft">{line}</span>
@@ -168,7 +168,7 @@ function group(note: string): Group[] {
         href={`${SOURCE_URL}/blob/main/apps/extension/CHANGELOG.md`}
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex items-center gap-2 font-medium text-accent hover:underline">
+        class="inline-flex items-center gap-2 font-medium text-accent-text hover:underline">
         <FileText aria-hidden="true" size={16} />
         {t.technicalLinkLabel}
       </a>

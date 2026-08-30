@@ -52,7 +52,7 @@ const claims = [
         class="mt-6 font-display text-[26px] font-extrabold leading-[1.1] tracking-display text-ink-strong md:text-3xl lg:text-5xl"
       >
         {t.headlineLine1}
-        <span class="block text-accent">{t.headlineLine2}</span>
+        <span class="block text-accent-text">{t.headlineLine2}</span>
       </h1>
 
       <p class="mt-6 text-base leading-relaxed text-ink-soft md:text-lg">
@@ -61,7 +61,7 @@ const claims = [
 
       <div class="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3">
         <DownloadButtons lang={lang} align="start" />
-        <a href={installHref} class="text-sm font-medium text-accent hover:underline">
+        <a href={installHref} class="text-sm font-medium text-accent-text hover:underline">
           {installLabel} →
         </a>
       </div>
@@ -70,7 +70,7 @@ const claims = [
         {
           claims.map(({ label, Icon }) => (
             <li class="flex items-center gap-2.5 text-sm text-ink-soft">
-              <Icon class="size-4 shrink-0 text-accent" aria-hidden="true" />
+              <Icon class="size-4 shrink-0 text-accent-text" aria-hidden="true" />
               {label}
             </li>
           ))

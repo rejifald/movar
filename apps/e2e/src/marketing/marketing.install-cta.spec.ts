@@ -84,9 +84,15 @@ async function expectStoreRequested(attempted: string[], store: RegExp): Promise
 /** The hero/guide CTA, after its inline script has resolved the browser. The
  *  SSR href is the GitHub fallback, so waiting for a resolved store href is what
  *  proves detection ran — otherwise every assertion below could pass against the
- *  pre-script markup. */
+ *  pre-script markup.
+ *
+ *  `.first()` is load-bearing: the redesigned homepage carries a SECOND
+ *  `[data-cta]` in the closing install section (`#close`) as well as the hero's
+ *  (`#download`), so a bare `[data-cta]` is a strict-mode violation there. Both
+ *  are rendered by the same `DownloadButtons` component from the same data, so
+ *  the hero's — first in DOM order — is the representative one these tests mean. */
 async function resolvedCta(page: Page, store: RegExp) {
-  const cta = page.locator('[data-cta]');
+  const cta = page.locator('[data-cta]').first();
   await expect(cta).toHaveAttribute('href', store);
   return cta;
 }
@@ -303,7 +309,7 @@ test.describe('install CTA — Android on Chromium', () => {
 
     // Without this the button is a non-sequitur: a green "Add to Firefox for
     // Android" in Chrome, with nothing saying why.
-    await expect(page.locator('[data-android-note]')).toBeVisible();
+    await expect(page.locator('[data-android-note]').first()).toBeVisible();
 
     // AMO is a plain same-tab link like Firefox desktop — `needsInstallGuide`
     // doesn't flag Firefox, and the guide's steps are all desktop flows.
@@ -334,7 +340,7 @@ test.describe('install CTA — Android on Chromium', () => {
 
     // And the guide really does carry the explanation it just promised.
     await page.goto('/install', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('[data-android-note]')).toBeVisible();
+    await expect(page.locator('[data-android-note]').first()).toBeVisible();
 
     // Opened on the flow the CTA is sending them to, not on the Chrome steps
     // their UA would otherwise select — which they could follow to the end and
@@ -359,7 +365,7 @@ test.describe('install CTA — Firefox on Android', () => {
     // The regression guard for the fix above: a capability check keyed off
     // "android" rather than off the engine would have swallowed the one mobile
     // browser Movar actually installs into, and told it extensions don't work.
-    await expect(page.locator('[data-android-note]')).toBeHidden();
+    await expect(page.locator('[data-android-note]').first()).toBeHidden();
 
     await cta.click();
     await expectStoreRequested(attempted, AMO);

@@ -35,7 +35,7 @@ const eyebrow = strings[lang].nav.privacy;
 <section id="privacy-callout" class="border-t border-accent-soft bg-accent-surface px-6 py-20">
   <div class="mx-auto flex max-w-5xl flex-col gap-8 md:flex-row md:items-start md:gap-10">
     <div class="md:w-72 md:shrink-0">
-      <p class="font-mono text-xs font-semibold uppercase tracking-label text-accent">
+      <p class="font-mono text-xs font-semibold uppercase tracking-label text-accent-text">
         {eyebrow}
       </p>
       <h2
@@ -76,14 +76,14 @@ const eyebrow = strings[lang].nav.privacy;
       <p class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
         <a
           href={localePrivacyHref(lang)}
-          class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+          class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
         >
           {t.linkLabel}
           <span aria-hidden="true">→</span>
         </a>
         <a
           href={`${localeTransparencyHref(lang)}#cant-spy`}
-          class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+          class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
         >
           {t.safeguardsLabel}
           <span aria-hidden="true">→</span>

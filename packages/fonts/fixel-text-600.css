@@ -1,0 +1,10 @@
+/* Fixel — MacPaw + AlfaBravo, SIL Open Font License (see OFL.txt).
+ * Subset to Latin + Cyrillic by scripts/subset-fixel.mts; both scripts sit in
+ * one file because every reader of this product needs Cyrillic. */
+@font-face {
+  font-family: 'Fixel Text';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./files/fixel-text-600.woff2') format('woff2');
+}

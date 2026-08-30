@@ -28,7 +28,7 @@
  * ------------------------------------------------------------------------- */
 
 .bui {
-  /* Browser chrome is drawn in the OS UI font, never in Movar's Manrope. */
+  /* Browser chrome is drawn in the OS UI font, never in Movar's Fixel. */
   --bui-font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --bui-font-apple: -apple-system, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
 

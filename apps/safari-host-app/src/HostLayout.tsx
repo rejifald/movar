@@ -90,6 +90,11 @@ export function HostLayout<TabId extends string>({
  * The mark is the inlined `ic-brand` glyph: a rounded square (`currentColor` =
  * `--ink-strong`), the accent dot, and the Manrope "r" (`--brand-letter`), so
  * it reads as Movar, not an Apple-generic WebView.
+ *
+ * The "r" stays Manrope on purpose while the rest of the app is Fixel: this is
+ * `--font-brand` (see `fontFamily` in @movar/theme), the lockup face, and it is
+ * spelled out here because an SVG `font-family` attribute cannot read a CSS var
+ * through to the rasterisers that also cut this mark.
  */
 function BrandBar(): JSX.Element {
   return (

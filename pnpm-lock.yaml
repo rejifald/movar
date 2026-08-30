@@ -51,6 +51,9 @@ importers:
       publint:
         specifier: ^0.3.21
         version: 0.3.21
+      subset-font:
+        specifier: ^2.6.0
+        version: 2.6.0
       tsx:
         specifier: ^4.22.3
         version: 4.22.3
@@ -194,6 +197,9 @@ importers:
       '@movar/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@movar/fonts':
+        specifier: workspace:*
+        version: link:../../packages/fonts
       '@movar/host-match':
         specifier: workspace:*
         version: link:../../packages/host-match
@@ -312,6 +318,9 @@ importers:
       '@movar/browser-ui':
         specifier: workspace:*
         version: link:../../packages/browser-ui
+      '@movar/fonts':
+        specifier: workspace:*
+        version: link:../../packages/fonts
       '@movar/theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -418,6 +427,9 @@ importers:
       '@movar/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@movar/fonts':
+        specifier: workspace:*
+        version: link:../../packages/fonts
       '@movar/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -618,6 +630,15 @@ importers:
       '@movar/lang-detect':
         specifier: workspace:*
         version: link:../lang-detect
+    devDependencies:
+      '@movar/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config-movar
+      eslint:
+        specifier: ^9.39.4
+        version: 9.39.4(jiti@2.6.1)
+
+  packages/fonts:
     devDependencies:
       '@movar/eslint-config':
         specifier: workspace:*
@@ -845,6 +866,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@movar/fonts':
+        specifier: workspace:*
+        version: link:../fonts
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.6)
@@ -4892,6 +4916,9 @@ packages:
     resolution: {integrity: sha512-Wp1zXWPVUPBmfoa3Cqc9ctaKuzKAV6uLstRqlR56kSjplf5uAce+qeyYym7F+PHbGTk+tCEdkCW6RD7DX/gBZw==}
     engines: {node: '>=20'}
 
+  fontverter@2.0.0:
+    resolution: {integrity: sha512-DFVX5hvXuhi1Jven1tbpebYTCT9XYnvx6/Z+HFUPb7ZRMCW+pj2clU9VMhoTPgWKPhAs7JJDSk3CW1jNUvKCZQ==}
+
   for-each@0.3.5:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
     engines: {node: '>= 0.4'}
@@ -5057,6 +5084,9 @@ packages:
 
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
+
+  harfbuzzjs@0.10.3:
+    resolution: {integrity: sha512-GJnLUrgLMadlMYrBGEXwYEimObbysy3prWT4HyPpFQERvgTU/OZ+ReUlEPOum6w4RBtFXzXiCCmECOr4sz3qwQ==}
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -5774,6 +5804,9 @@ packages:
 
   lodash.startcase@4.4.0:
     resolution: {integrity: sha512-+WKqsK294HMSc2jEbNgpHpd0JfIBhp7rEV4aqXWqFr6AlXov+SlcgB1Fv01y2kGe3Gc8nMW7VA0SrGuSkRfIEg==}
+
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
   log-symbols@4.1.0:
     resolution: {integrity: sha512-8XPvpAA8uyhfteu8pIvQxpJZ7SYYdpUivZpGy6sFsBuKRY/7rQGavedeB8aK+Zkyq6upMFVL/9AW6vOYzfRyLg==}
@@ -7074,6 +7107,9 @@ packages:
   stubborn-utils@1.0.2:
     resolution: {integrity: sha512-zOh9jPYI+xrNOyisSelgym4tolKTJCQd5GBhK0+0xJvcYDcwlOoxF/rnFKQ2KRZknXSG9jWAp66fwP6AxN9STg==}
 
+  subset-font@2.6.0:
+    resolution: {integrity: sha512-iqaziPrYUuVp74E9ISripkQpKMSjMXhc9OtPfya6xh8in/SeQcYRUs0nsILd0dh/KF4olmQoXDVnOIOsB6bIxA==}
+
   supports-color@10.2.2:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
     engines: {node: '>=18'}
@@ -7747,6 +7783,10 @@ packages:
     resolution: {integrity: sha512-c5EGNOiyxxV5qmTtAB7rbiXxi1ooX1pQKMLX/MIabJjRA0SJBQOjKF+KSVfHkr9U1cADPon0mRiVe/riyaiDUA==}
     engines: {node: '>=10.13.0'}
 
+  wawoff2@2.0.1:
+    resolution: {integrity: sha512-r0CEmvpH63r4T15ebFqeOjGqU4+EgTx4I510NtK35EMciSdcTxCw3Byy3JnBonz7iyIFZ0AbVo0bbFpEVuhCYA==}
+    hasBin: true
+
   wcwidth@1.0.1:
     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
 
@@ -7818,6 +7858,9 @@ packages:
 
   winreg@0.0.12:
     resolution: {integrity: sha512-typ/+JRmi7RqP1NanzFULK36vczznSNN8kWVA9vIqXyv8GhghUlwhGp1Xj3Nms1FsPcNnsQrJOR10N58/nQ9hQ==}
+
+  woff2sfnt-sfnt2woff@1.0.0:
+    resolution: {integrity: sha512-edK4COc1c1EpRfMqCZO1xJOvdUtM5dbVb9iz97rScvnTevqEB3GllnLWCmMVp1MfQBdF1DFg/11I0rSyAdS4qQ==}
 
   word-wrap@1.2.5:
     resolution: {integrity: sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==}
@@ -12023,6 +12066,11 @@ snapshots:
     dependencies:
       tiny-inflate: 1.0.3
 
+  fontverter@2.0.0:
+    dependencies:
+      wawoff2: 2.0.1
+      woff2sfnt-sfnt2woff: 1.0.0
+
   for-each@0.3.5:
     dependencies:
       is-callable: 1.2.7
@@ -12206,6 +12254,8 @@ snapshots:
       radix3: 1.1.2
       ufo: 1.6.4
       uncrypto: 0.1.3
+
+  harfbuzzjs@0.10.3: {}
 
   has-bigints@1.1.0: {}
 
@@ -12901,6 +12951,8 @@ snapshots:
   lodash.once@4.1.1: {}
 
   lodash.startcase@4.4.0: {}
+
+  lodash@4.18.1: {}
 
   log-symbols@4.1.0:
     dependencies:
@@ -14684,6 +14736,13 @@ snapshots:
 
   stubborn-utils@1.0.2: {}
 
+  subset-font@2.6.0:
+    dependencies:
+      fontverter: 2.0.0
+      harfbuzzjs: 0.10.3
+      lodash: 4.18.1
+      p-limit: 3.1.0
+
   supports-color@10.2.2: {}
 
   supports-color@7.2.0:
@@ -15328,6 +15387,10 @@ snapshots:
       glob-to-regexp: 0.4.1
       graceful-fs: 4.2.11
 
+  wawoff2@2.0.1:
+    dependencies:
+      argparse: 2.0.1
+
   wcwidth@1.0.1:
     dependencies:
       defaults: 1.0.4
@@ -15439,6 +15502,10 @@ snapshots:
       string-width: 7.2.0
 
   winreg@0.0.12: {}
+
+  woff2sfnt-sfnt2woff@1.0.0:
+    dependencies:
+      pako: 1.0.11
 
   word-wrap@1.2.5: {}
 

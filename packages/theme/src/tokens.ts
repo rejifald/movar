@@ -165,15 +165,28 @@ export const color = { light: colorLight, dark: colorDark } as const;
 /* -------------------------------------------------------------------------- */
 
 /**
- * Font-family stacks (the *names* — the `@fontsource` weight/subset imports
- * that actually load the faces are a per-app bundling decision and stay in each
- * app's CSS). Manrope carries display, body, and UI; IBM Plex Mono carries
- * locale codes, tokens, and meta.
+ * Font-family stacks (the *names* — the weight imports that actually load the
+ * faces are a per-app bundling decision and stay in each app's CSS, now from
+ * `@movar/fonts`). Fixel carries display, body and UI in two optical cuts —
+ * Display for headings, Text for everything else. IBM Plex Mono is the
+ * technical face: inline code and URL strings, where character cells mean
+ * something. Labels and eyebrows are Fixel Text, not mono.
  */
 export const fontFamily = {
-  sans: "'Manrope', ui-sans-serif, system-ui, sans-serif",
-  display: "'Manrope', ui-sans-serif, system-ui, sans-serif",
+  sans: "'Fixel Text', ui-sans-serif, system-ui, sans-serif",
+  display: "'Fixel Display', ui-sans-serif, system-ui, sans-serif",
   mono: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+  /**
+   * The brand lockup only — the mark's cutout "r" and the wordmark.
+   *
+   * It is deliberately NOT `--font-display`. The "r" is cut into artefacts no
+   * CSS token reaches: the toolbar icon rasterised through fontconfig by
+   * `apps/extension/scripts/generate-icons.mts`, the Safari host's inline SVG,
+   * and a committed e2e visual snapshot. Pinning the lockup here let the rest of
+   * the product move to Fixel without redrawing the logo and re-shooting four
+   * stores' icons. Change this only as a deliberate rebrand.
+   */
+  brand: "'Manrope', ui-sans-serif, system-ui, sans-serif",
 } as const;
 
 /**
@@ -259,7 +272,7 @@ export const lineHeight = {
 export const typeRoles = {
   /** Mono micro-label / eyebrow — uppercase kicker over a heading (§6.1). */
   eyebrow: {
-    'font-family': 'var(--font-mono)',
+    'font-family': 'var(--font-sans)',
     'font-size': 'var(--text-ui-micro)',
     'font-weight': '500',
     'letter-spacing': 'var(--tracking-label)',
@@ -321,7 +334,7 @@ export const typeRoles = {
    *  with a size utility and, for the tall lockup, the `leading-wordmark`
    *  utility (kept off the role so a paired size utility's leading can't clash). */
   wordmark: {
-    'font-family': 'var(--font-display)',
+    'font-family': 'var(--font-brand)',
     'font-weight': '800',
     'letter-spacing': 'var(--tracking-wordmark)',
   },

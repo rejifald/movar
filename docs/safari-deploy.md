@@ -423,11 +423,16 @@ done
    the other stores. Paste the **App Review notes** and the **App Privacy /
    export-compliance** answers from
    [`apps/extension/store-assets/apple/`](../apps/extension/store-assets/apple/)
-   (`REVIEW-NOTES.md` + `APP-PRIVACY.md`). Screenshots: macOS reuses the landscape
-   1280×800 set (`store-assets/screenshots/{en,uk}/`); iOS/iPadOS use the portrait
-   `store-assets/screenshots/{ios,ipad}/` sets. Regenerate all three with
-   `pnpm --filter @movar/extension capture:storybook-assets` (see
+   (`REVIEW-NOTES.md` + `APP-PRIVACY.md`). Screenshots: **macOS shows the macOS app
+   itself** (`store-assets/screenshots/macos/{uk,en}/`, 2560×1600), captured from
+   the built app by `pnpm --filter @movar/extension capture:macos-screenshots`;
+   iOS/iPadOS use the portrait `store-assets/screenshots/{ios,ipad}/` sets, and
+   the landscape 1280×800 `{en,uk}` storyboards remain the Chrome / Edge / Firefox
+   set (regenerate those with `capture:storybook-assets`; see
    [store-assets/REQUIREMENTS.md](../apps/extension/store-assets/REQUIREMENTS.md) §5).
+   The macOS listing used to reuse the browser storyboards, which showed a Mac app
+   through pictures of a browser — reasonable while the host app was a stub, wrong
+   once it became the product v1.8.0 rebuilt.
 
 ### 2. Certificates (export as `.p12`)
 

@@ -285,3 +285,37 @@ Google до адреси додається позначка мови. Усер�
   набору.
 
 Покроково для кожної системи, браузера й сервісу — в [інструкції](/uk/guide).
+
+## Джерела
+
+- **Браузер надсилає ваш перелік мов кожному сайту** — MDN про
+  [Accept-Language](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Language)
+  і [navigator.languages](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/languages).
+  Свій перелік видно на [httpbin.org/headers](https://httpbin.org/headers) —
+  сторінка просто друкує те, що надіслав ваш браузер.
+- **Safari надсилає скорочений перелік** — та сама сторінка MDN: «only one
+  language is listed». Зроблено це проти впізнавання між сайтами, але наслідок
+  такий, що на Apple перша мова — це вся ваша заява цілком.
+- **Клавіатура додає мову до переліку** — довідки Apple для
+  [iPhone](https://support.apple.com/guide/iphone/add-or-change-keyboards-iph73b71eb/ios)
+  і [Mac](https://support.apple.com/guide/mac-help/intl163/mac).
+- **Регіон — це не мова** —
+  [Microsoft Learn](https://learn.microsoft.com/en-us/globalization/locale/user-preferences)
+  розділяє їх прямо: регіон керує форматами дат, чисел і грошей, а мову задає
+  окремий перелік.
+- **Сервіс сам дописує мову** —
+  [довідка Google](https://support.google.com/accounts/answer/32047), записи
+  «Added for you».
+- **Поради вгадують мову з ваших переглядів** —
+  [довідка X](https://help.x.com/en/managing-your-account/how-to-change-language-settings),
+  розділ «Languages you may know».
+- **Вибір, збережений на сайті, стирається разом з даними браузера** —
+  [політика Google щодо файлів cookie](https://policies.google.com/technologies/cookies).
+- **Куди сервіс відступає, коли вашої мови немає** —
+  [реліз CLDR 46](https://cldr.unicode.org/downloads/cldr-46) від 24 жовтня
+  2024-го: до цієї версії стандартні дані містили односторонній відступ з
+  української на російську. Не плутати з таблицею
+  [likelySubtags](https://www.unicode.org/cldr/charts/45/supplemental/likely_subtags.html),
+  яка каже протилежне — що для регіону UA ймовірна мова українська. Це два різні
+  набори даних, які відповідають на два різні питання, і плутанина між ними
+  робить цю тезу то очевидною, то спростованою.

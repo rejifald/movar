@@ -478,3 +478,35 @@ _Частка плейлістів — лічильник поведінки; ч
 числа за ним. Її додають тоді, коли бачать, що є кого рахувати. А в ті таблиці,
 крім нас, потрапити нікому — і ми в них уже є. Питання лише в тому, у якому
 стовпчику.
+
+## Джерела
+
+Посилання з тексту, зібрані разом.
+
+- **Мови клієнтів Steam** —
+  [опитування обладнання та ПЗ](https://store.steampowered.com/hwsurvey),
+  оновлюється щомісяця, тож числа з часом зміняться.
+- **Мови інтерфейсу Firefox** —
+  [зведення Mozilla](https://data.firefox.com/dashboard/usage-behavior).
+- **Кількість статей у Wikipedia за мовами** —
+  [List of Wikipedias](https://meta.wikimedia.org/wiki/List_of_Wikipedias).
+- **Мови вебу загалом** —
+  [W3Techs](https://w3techs.com/technologies/overview/content_language). Це
+  оцінка за вибіркою, а не перепис: дає порядок величин, не точні частки.
+- **Українська локалізація в іграх** — [заміри, про які розповіли на
+  DOU](https://gamedev.dou.ua/forums/topic/47022/) і
+  [каталог української локалізації ігор](https://kuli.com.ua/).
+- **Частка української музики** — [дослідження «Музика має
+  силу»](https://suspilne.media/culture/1110886-ukrainska-muzika-nabirae-obertiv-castka-pisen-ukrainskou-v-plejlistah-zrosla-do-57/).
+- **Мова запиту змінює джерела відповіді ШІ** —
+  [аналіз Focus](https://focus.ua/uk/opinions/764285-komu-naspravdi-doviryaye-shtuchniy-intelekt-google-v-ukrajini).
+- **Мережа, що засіває моделі російською пропагандою** —
+  [звіт VIGINUM](https://www.sgdsn.gouv.fr/files/files/20240212_NP_SGDSN_VIGINUM_PORTAL-KOMBAT-NETWORK_ENG_VF.pdf)
+  (французька державна служба) і
+  [спецрепортаж NewsGuard](https://www.newsguardtech.com/special-reports/moscow-based-global-news-network-infected-western-artificial-intelligence-russian-propaganda/).
+  Два незалежні розслідування однієї й тієї самої мережі — саме тому вони тут
+  обидва.
+- **Той самий матеріал різними мовами розходиться змістом** —
+  [BBC про розбіжність версій](https://www.bbc.com/news/blogs-news-from-elsewhere-47964774),
+  [Netflix і субтитри до «Брата-2»](https://detector.media/infospace/article/188699/2021-06-02-netflix-vypravyv-subtytry-u-filmi-brat-2-pro-banderivtsiv-kolaborantiv-natsystiv/),
+  [як російський дубляж змінює сюжети західних фільмів](https://behindthenews.ua/pravda/pereklad-na-movu-propagandi-yak-rosiyskiy-dublyaj-spotvoryue-syujeti-zahidnih-filmiv-893/).

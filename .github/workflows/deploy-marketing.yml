@@ -8,6 +8,22 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - '.github/workflows/deploy-marketing.yml'
+      # Two pages are built from files OUTSIDE apps/marketing, so a change to
+      # one of these rebuilds no page unless it is listed here. That is not
+      # hypothetical: v1.8.0's release commit touched only RELEASE-NOTES.md and
+      # never redeployed, leaving movar.fyi/changelog topped out at 1.7.0 while
+      # the App Store note appended to every store submission pointed readers
+      # at it (`withChangelogLink`).
+      #   changelog.astro  <- Changelog.astro reads RELEASE-NOTES.md at build
+      #                       time through scripts/lib/release-notes.mjs
+      #   Transparency     <- scripts/lib/promises.mts re-derives each verified
+      #                       promise from the extension it describes
+      - 'apps/extension/store-assets/RELEASE-NOTES.md'
+      - 'apps/extension/package.json'
+      - 'apps/extension/wxt.config.ts'
+      - 'scripts/lib/release-notes.mjs'
+      - 'scripts/lib/promises.mts'
+      - 'LICENSE'
   workflow_dispatch:
 
 permissions:

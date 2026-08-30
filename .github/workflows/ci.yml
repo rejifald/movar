@@ -52,6 +52,16 @@ jobs:
       # which runs at the release cut — the one moment where finding out is too
       # late, on a post whose whole premise is that the reader can check it.
       - run: pnpm check:charts
+      # Internal links in the posts resolve to a route that exists. The posts
+      # carry a «Джерела» section whose whole premise is that the reader can
+      # click through and check, and a renamed article slug silently breaks
+      # every sibling post that linked to it — Astro builds the dead link
+      # without complaint, and lint, typecheck and the prose guard all pass.
+      # Offline half only: the same script's `--external` pass talks to fifty
+      # third-party hosts, so as a required check it would fail this job for
+      # reasons that have nothing to do with the commit. That half is run on
+      # demand, before publishing.
+      - run: pnpm check:links
       - run: pnpm check:suppressions
       # Governance config-as-code parity: metrics-gate bypass is empty (JSON +
       # doc agree) and every release store job gates on an environment.

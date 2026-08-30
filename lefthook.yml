@@ -66,6 +66,18 @@ pre-commit:
       # CI runs it unconditionally as the backstop.
       glob: '{apps/marketing/src/pages/**,apps/marketing/functions/_middleware.ts}'
       run: pnpm check:locale-redirects
+    prose-links:
+      # Keep internal links in the posts pointing at routes that exist
+      # (apps/marketing/scripts/check-links.mts). Renaming an article slug
+      # breaks every sibling post that linked to it, and nothing above
+      # notices: the markdown is valid, the types hold, and Astro builds the
+      # dead link happily. Gated to the two sides that can drift — the prose
+      # that holds the links, and the routes they resolve against — plus the
+      # guard itself. Only the offline half runs here; the `--external`
+      # network pass is deliberately wired to neither a hook nor a PR.
+      # CI runs this unconditionally as the backstop.
+      glob: '{apps/marketing/src/content/**,apps/marketing/src/pages/**,apps/marketing/scripts/check-links.mts}'
+      run: pnpm check:links
 pre-push:
   # `piped: true` runs commands in declaration order and stops at the first
   # failure. Build before e2e: build failures surface fast (≈ seconds) vs

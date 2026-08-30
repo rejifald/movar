@@ -1058,7 +1058,8 @@ const en: Strings = {
         points: [
           'Many servers read only the first two characters of Accept-Language, ignore the q-value, or honour the header on the first hit and then cache that decision against your session for the rest of the visit.',
           "CDNs cache responses by URL alone. The first visitor's variant — usually Russian, because the broader market is bigger — gets served to every subsequent visitor who shares the cache key.",
-          'Geo-IP overrides the header. A browser set to Ukrainian, on a foreign network, gets Russian regardless of what the header claims. A browser set to Russian, inside Ukraine, gets the opposite. Neither matches the stated preference.',
+          'Geo-IP overrides the header. On a site that has both versions, a browser set to Ukrainian, on a foreign network, gets Russian regardless of what the header claims — and a browser set to Russian, inside Ukraine, gets Ukrainian. Neither matches the stated preference.',
+          'When your language is missing entirely, the fallback follows a table, not your list. Until CLDR 46 (October 2024) the standard language-matching data carried a one-way uk → ru fallback: an app with no Ukrainian served Russian by specification, not by bug. Version 46 dropped it; stacks pinned to older data still inherit it.',
           'Legacy ru-UA locale tags persist in older installations and old account profiles. Some servers treat them as Russian, some as Ukrainian; both are wrong about half the time.',
           'A cookie set on a single accidental click overrides every Accept-Language header you send afterward. The cookie outlasts the choice that set it, often by years.',
         ],
@@ -1889,7 +1890,8 @@ const uk: Strings = {
         points: [
           'Багато серверів читають лише перші два символи Accept-Language, ігнорують q-параметр або зважають на заголовок лише на першому запиті — а потім кешують це рішення на весь сеанс.',
           'CDN кешують відповіді лише за URL. Варіант, який отримав перший відвідувач — зазвичай російський, бо ринок більший, — потім дістається всім іншим, у кого збігається ключ кешу.',
-          'Geo-IP перебиває заголовок. Браузер з налаштуванням «українська» у закордонній мережі отримує російську, незважаючи на заголовок. Браузер з налаштуванням «російська» всередині України — навпаки. Жодна з двох поведінок не збігається із заявленою.',
+          'Geo-IP перебиває заголовок. На сайті, у якого є обидві версії, браузер з налаштуванням «українська» у закордонній мережі отримує російську, незважаючи на заголовок, — а браузер з налаштуванням «російська» всередині України отримує українську. Жодна з двох поведінок не збігається із заявленою.',
+          'Коли вашої мови немає зовсім, відступ іде за таблицею, а не за вашим списком. До CLDR 46 (жовтень 2024) стандартні дані зіставлення мов містили односторонній відступ uk → ru: застосунок без української підставляв російську — за специфікацією, а не через помилку. У 46-й версії запис прибрали; стеки, закріплені на старіших даних, успадковують його досі.',
           'Застарілі теги локалі ru-UA лишаються в старіших інсталяціях і профілях акаунтів. Одні сервери трактують їх як російську, інші як українську; обидві відповіді помиляються приблизно в половині випадків.',
           'Кука, поставлена одним випадковим кліком, перебиває кожен Accept-Language, який ви надсилаєте потім. Кука живе довше за вибір, який її поставив, — часто роками.',
         ],

@@ -15,7 +15,8 @@
     "capture:og": "tsx scripts/capture-og-images.mts",
     "gen:favicons": "tsx scripts/gen-favicons.mts",
     "gen:charts": "tsx --tsconfig tsconfig.scripts.json scripts/gen-article-charts.mts",
-    "check:charts": "tsx --tsconfig tsconfig.scripts.json scripts/check-article-charts.mts"
+    "check:charts": "tsx --tsconfig tsconfig.scripts.json scripts/check-article-charts.mts",
+    "check:links": "tsx scripts/check-links.mts"
   },
   "dependencies": {
     "@movar/brand": "workspace:*",

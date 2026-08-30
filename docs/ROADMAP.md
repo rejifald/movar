@@ -62,7 +62,8 @@ lane** that is planned now but built later.
   handles versions, notes, compliance and submission, and no screenshots at all.
   **macOS and iOS/iPadOS are both live** on one listing
   ([id6779282071](https://apps.apple.com/app/id6779282071); macOS since 2026-06-30),
-  currently shipping v1.6.2 — as recorded in `deployment-checklist.md`'s store table.
+  serving v1.6.2 with **v1.8.0 in review** on both platforms (submitted from CI
+  2026-08-30) — as recorded in `deployment-checklist.md`'s store table.
 - **Diagnostics lives outside the product.** Content-retaining/analysing tooling ships
   separately, never in the trust-critical MIT artifact. It lives in
   `apps/diagnostics`, a private, never-published dev extension that re-runs

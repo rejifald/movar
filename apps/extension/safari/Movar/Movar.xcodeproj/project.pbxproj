@@ -814,7 +814,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				CODE_SIGN_ENTITLEMENTS = "iOS (Extension)/Movar Extension.entitlements";
 				REGISTER_APP_GROUPS = YES;
@@ -828,7 +828,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -850,7 +850,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				CODE_SIGN_ENTITLEMENTS = "iOS (Extension)/Movar Extension.entitlements";
 				REGISTER_APP_GROUPS = YES;
@@ -864,7 +864,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -889,7 +889,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				CODE_SIGN_ENTITLEMENTS = "iOS (App)/Movar.entitlements";
 				REGISTER_APP_GROUPS = YES;
@@ -906,7 +906,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -932,7 +932,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				CODE_SIGN_ENTITLEMENTS = "iOS (App)/Movar.entitlements";
 				REGISTER_APP_GROUPS = YES;
@@ -949,7 +949,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -974,7 +974,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -991,7 +991,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -1012,7 +1012,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1029,7 +1029,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -1052,7 +1052,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1069,7 +1069,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
@@ -1095,7 +1095,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1786386205;
+				CURRENT_PROJECT_VERSION = 1788087223;
 				DEVELOPMENT_TEAM = RQSR4UU3VB;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1112,7 +1112,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.7.0;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,

@@ -9,7 +9,7 @@
  *
  * Auto-advances every 4500ms; a click on a tab selects it and restarts the
  * timer. Never auto-advances at all under `prefers-reduced-motion: reduce`
- * (checked in the <script> below) — that is a hard requirement, not a
+ * (checked in the client script below) — that is a hard requirement, not a
  * "slower" mode. The active tab's 2px underline doubles as a 4500ms
  * progress bar, built from two Tailwind width classes (`w-0` → `w-full`)
  * plus a `transition-[width]` on the fill bar, so a plain class toggle is
@@ -246,6 +246,9 @@ const frameAfter =
   <p data-drum-caption class="mt-3.5 text-center text-sm text-ink-faint">
     {slides[0]?.caption}
   </p>
+
+  {/* Fixed, not part of the rotation — see `ExamplesStrings.provenance`. */}
+  <p class="mt-1.5 text-center text-xs text-ink-faint">{t.provenance}</p>
 </div>
 
 <script>

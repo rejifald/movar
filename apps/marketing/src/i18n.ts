@@ -459,6 +459,14 @@ interface ExamplesStrings {
    * the matching entry's `scenario` where a locale is missing one.
    */
   captions: string[];
+  /**
+   * Fixed provenance note under the drum — shown on every slide rather than
+   * rotating with `captions`. The before/after PNGs are Storybook-rendered
+   * approximations with fictitious `.example` domains and redrawn wordmarks
+   * (apps/extension/store-assets/REQUIREMENTS.md, "No literal third-party
+   * logos"), so the note has to be readable whichever slide is open.
+   */
+  provenance: string;
 }
 
 interface OgStrings {
@@ -909,7 +917,7 @@ const en: Strings = {
   },
   stakes: {
     sectionTitle: 'Why this matters',
-    sectionLead: 'Each wrong default is small. Together they shape the Ukrainian internet.',
+    sectionLead: 'One page is a small thing. Millions of them are the Ukrainian internet.',
     facts: [
       {
         heading: 'A broken default looks like a real preference.',
@@ -928,7 +936,7 @@ const en: Strings = {
         body: 'Search increasingly opens with an AI-written answer, and assistants answer from the web instead of linking to it. Those answers arrive in the language of the pages the AI read — for Cyrillic queries today, mostly Russian. Every site that goes Ukrainian changes what the AI reads next, and eventually the language it answers in.',
       },
     ],
-    closeLine: 'None of it has to keep happening. The fix is small.',
+    closeLine: 'The loop breaks where a page finally opens in your language.',
     diagram: {
       figureLabel: 'Fig. 1',
       ariaLabel:
@@ -955,9 +963,9 @@ const en: Strings = {
         body: 'Search engines guess your language from your letters — and Cyrillic reads as Russian. Movar attaches your real language to the query itself, so Google, YouTube, Bing, and DuckDuckGo answer in the right one. And when a multilingual site hides the Ukrainian version behind the Russian one, Movar takes you straight to yours.',
         status: 'Works right after install',
         dialogue: [
-          { label: 'Browser', text: '"This person reads Ukrainian."' },
+          { label: 'Browser', text: '"This person reads Ukrainian." — on every request' },
           { label: 'Site', text: '"Got it." — then shows Russian anyway' },
-          { label: 'Search', text: '"Cyrillic? Must be Russian."' },
+          { label: 'Search', text: '"Cyrillic? Must be Russian." — it never asked' },
         ],
         dialogueNote:
           "Browser language is only a hint, and sites ignore it. Search doesn't even ask — it guesses from your letters, and there are more Russian pages on the web.",
@@ -966,7 +974,7 @@ const en: Strings = {
         query: 'новини',
         sentLabel: 'What reaches search',
         callout:
-          'That green tail means exactly one thing: "answer in Ukrainian." Your language now rides inside the query itself, where search can\'t help but see it.',
+          'That tail on the query means exactly one thing: "answer in Ukrainian." Your language is no longer a hint on the side that can be ignored — it is part of the query itself.',
       },
       {
         title: 'Step 2. Filter out what slips through',
@@ -987,7 +995,7 @@ const en: Strings = {
       eyebrow: "What Movar won't do to the page",
       items: [
         "Never translates content. That option doesn't exist.",
-        "Doesn't read language inside images, video, or audio.",
+        "Doesn't detect language inside images, video, or audio — only the page text.",
       ],
       sourceLink: 'Source code — check for yourself',
     },
@@ -1051,11 +1059,12 @@ const en: Strings = {
         },
       },
     ],
+    provenance: 'Interfaces redrawn so no third-party logos are used.',
     captions: [
-      'A Cyrillic search for "war news." Screenshots from a real build — not a mockup.',
-      "Searching by name — Google's instant answer doesn't follow your browser language.",
-      'The same Cyrillic search on YouTube — results and recommendations both.',
-      'This shop opened in Russian. Movar takes you to the Ukrainian version — the whole page.',
+      'A Cyrillic search for "war news": Russian pages first, Ukrainian after Movar.',
+      'The query "God of War": knowledge panel in English, Ukrainian after Movar.',
+      'A search on YouTube: Russian channels in the results, Ukrainian creators after Movar.',
+      'A product page in a Ukrainian shop: opens in Russian, Ukrainian after Movar.',
     ],
   },
   beforeAfter: {
@@ -1124,7 +1133,7 @@ const en: Strings = {
   },
   footer: {
     invite:
-      "Found a site where Movar didn't work? Tell us. Movar is non-commercial — bug reports and store reviews help the most.",
+      "Found a site where Movar didn't work? Tell us — every fix starts with one of those reports. Movar is non-commercial, so a store review helps too.",
     credits: 'Movar community · non-commercial · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
@@ -1822,7 +1831,7 @@ const uk: Strings = {
   },
   stakes: {
     sectionTitle: 'Чому це важливо',
-    sectionLead: 'Поодинці це дрібниці. Разом вони формують український інтернет.',
+    sectionLead: 'Одна сторінка — дрібниця. Мільйони таких сторінок — це і є український інтернет.',
     facts: [
       {
         heading: 'Сайт обрав за вас — у звітах це виглядає як ваш вибір.',
@@ -1841,7 +1850,7 @@ const uk: Strings = {
         body: 'Пошук дедалі частіше починається з відповіді, написаної ШІ, а асистенти відповідають самі замість давати посилання. Ці відповіді приходять мовою сторінок, які ШІ прочитав, — за кириличними запитами сьогодні це переважно російська. Кожен сайт, що переходить на українську, змінює те, що ШІ читатиме далі, — а з часом і мову, якою він відповідає.',
       },
     ],
-    closeLine: 'Мовар розриває це коло.',
+    closeLine: 'Коло розривається там, де сторінка нарешті відкривається вашою мовою.',
     diagram: {
       figureLabel: 'Рис. 1',
       ariaLabel:
@@ -1865,9 +1874,9 @@ const uk: Strings = {
         body: 'Пошуковики вгадують мову з ваших літер — і кирилицю читають як російську. Мовар додає вашу справжню мову прямо в запит, тож Google, YouTube, Bing і DuckDuckGo відповідають правильною. А коли багатомовний сайт ховає українську за російською, Мовар одразу веде вас на вашу версію.',
         status: 'Працює одразу після встановлення',
         dialogue: [
-          { label: 'Браузер', text: '«Ця людина читає українською.»' },
+          { label: 'Браузер', text: '«Ця людина читає українською.» — у кожному запиті' },
           { label: 'Сайт', text: '«Прийнято.» — і показує російською' },
-          { label: 'Пошук', text: '«Кирилиця? Тоді російською.»' },
+          { label: 'Пошук', text: '«Кирилиця? Отже, російська.» — про мову він не питав' },
         ],
         dialogueNote:
           'Мова браузера — лише підказка, і сайти її ігнорують. А пошук про мову навіть не питає: вгадує з ваших літер, і російських сторінок у мережі більше.',
@@ -1876,7 +1885,7 @@ const uk: Strings = {
         query: 'новини',
         sentLabel: 'Що йде в пошук',
         callout:
-          'Цей зелений хвостик означає рівно одне: «відповідай українською». Мова тепер у самому запиті — там, де пошук її не може не побачити.',
+          'Цей хвостик у запиті означає рівно одне: «відповідай українською». Мова тепер не підказка збоку, яку можна проігнорувати, а частина самого запиту.',
       },
       {
         title: 'Крок 2. Відсіюємо те, що прослизнуло',
@@ -1897,7 +1906,7 @@ const uk: Strings = {
       eyebrow: 'Чого Мовар не робить зі сторінкою',
       items: [
         'Не перекладає вміст — ніколи. Такої опції просто немає.',
-        'Не читає мову всередині зображень, відео та звуку.',
+        'Не визначає мову всередині зображень, відео та звуку — лише текст сторінки.',
       ],
       sourceLink: 'Вихідний код — перевірте самі',
     },
@@ -1961,11 +1970,12 @@ const uk: Strings = {
         },
       },
     ],
+    provenance: 'Інтерфейси відтворено, щоб не використовувати чужі логотипи.',
     captions: [
-      'Кириличний запит «новини війни». Знімки з реальної збірки — не макет.',
-      'Пошук за назвою: швидка відповідь Google не зважає на мову браузера.',
-      'Той самий кириличний запит на YouTube — пошук і рекомендації.',
-      'Магазин відкривався російською. Мовар веде на українську версію — цілою сторінкою.',
+      'Кириличний запит «новини війни»: спершу російські сторінки, після Мовара — українські.',
+      'Запит «God of War»: картка-довідка англійською, після Мовара — українською.',
+      'Пошук на YouTube: у результатах російські канали, після Мовара — українські автори.',
+      'Товар в українському магазині: відкривається російською, після Мовара — українською.',
     ],
   },
   beforeAfter: {
@@ -2034,7 +2044,7 @@ const uk: Strings = {
   },
   footer: {
     invite:
-      'Знайшли сайт, де Мовар не спрацював? Розкажіть. Мовар некомерційний — повідомлення про помилки та відгук у магазині допомагають найбільше.',
+      'Знайшли сайт, де Мовар не спрацював? Розкажіть — з таких повідомлень і починається кожне виправлення. Мовар некомерційний, тож відгук у магазині теж допомагає.',
     credits: 'Спільнота Мовар · некомерційний проєкт · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',

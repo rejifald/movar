@@ -1,0 +1,103 @@
+name: AMO release notes
+
+# Set the Firefox listing's per-version release notes on addons.mozilla.org,
+# in Ukrainian and English, from RELEASE-NOTES.md.
+#
+# WHY IT IS SEPARATE FROM release-firefox
+#
+# `release.yml` already runs `scripts/amo-release-notes.mjs` after `web-ext
+# sign`, and that stays the normal path. This exists because that step is
+# `continue-on-error` — a failure there costs release notes, not the release —
+# which is right, but leaves no way to put the notes back afterwards without
+# re-running a release job that would try to re-upload an already-signed xpi.
+#
+# That gap was not theoretical. The script asked AMO for `filter=all`, which is
+# not one of the values that endpoint accepts, so it threw before writing
+# anything on every run from at least v1.7.0 — and the green `release-firefox`
+# job said nothing. v1.7.0 and v1.8.0 both reached AMO with an empty "Release
+# notes" section. Backfilling them is exactly what this workflow is for.
+#
+# The script is idempotent: it PATCHes `release_notes` on an existing version
+# and touches nothing else, so re-running it on a shipped version is safe.
+#
+# Every run first prints a DRY RUN (reads only, no approval needed). The write
+# is behind the `production` environment gate, like every other store job.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to annotate (blank = apps/extension/package.json).'
+        type: string
+        default: ''
+      mode:
+        description: 'plan = read-only. apply = write the notes to AMO.'
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two runs PATCH the same listing at once.
+  group: amo-notes
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - id: resolve
+        run: |
+          set -euo pipefail
+          v="${{ inputs.version }}"
+          [ -n "$v" ] || v="$(node -p "require('./apps/extension/package.json').version")"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Annotating version $v"
+
+      # Fail here rather than against AMO: a version whose locales are empty
+      # would otherwise surface as a confusing partial write.
+      - run: node scripts/lib/release-notes.test.mjs
+
+      # No `pnpm install`: this script is dependency-free ESM on purpose, and
+      # the release job runs it the same bare way.
+      - name: Plan (reads only)
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          DRY_RUN: '1'
+        # `shell: bash` is not cosmetic: the default shell has no pipefail, so
+        # `node … | tee` would report tee's status and hide a failure.
+        shell: bash
+        run: node scripts/amo-release-notes.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    needs: plan
+    # The event check is load-bearing: on any trigger that is not
+    # workflow_dispatch, `inputs.mode` is empty and `'' != 'plan'` is TRUE,
+    # which would arm the writing job on every such event.
+    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'plan'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set AMO release notes
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        shell: bash
+        run: node scripts/amo-release-notes.mjs | tee -a "$GITHUB_STEP_SUMMARY"

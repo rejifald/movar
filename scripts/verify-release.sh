@@ -36,27 +36,39 @@ fail() {
 # and every one of those fails LATE and quietly without it: App Store Connect
 # rejects the version on metadata after the build is already uploaded, and the
 # rest simply render blank. Cheapest possible check, so it goes first.
-step "1/10 user-facing release notes (uk + en for this version)"
+step "1/11 user-facing release notes (uk + en for this version)"
 node scripts/check-release-notes.mjs
 ok "release notes present for both locales"
 
-step "2/10 validate (typecheck + lint + test + publint)"
+# Same shape of failure as the notes above — late, quiet, and after something
+# irreversible. Changesets bumps apps/extension/package.json; Safari's
+# MARKETING_VERSION is a HAND step, and v1.8.0 was cut with the Xcode project
+# still on 1.7.0. `release.yml` passes the version on the xcodebuild command
+# line, so a CI archive stayed correct and the drift was invisible until the
+# documented Organizer fallback, where it would upload a build labelled with a
+# version App Store Connect had already taken. Runs inside `pnpm validate` too,
+# but that is minutes away; this costs a file read, so it fails fast here.
+step "2/11 safari version matches the package version"
+node scripts/check-safari-version.mjs
+ok "MARKETING_VERSION agrees with package.json"
+
+step "3/11 validate (typecheck + lint + test + publint)"
 pnpm validate
 ok "validate clean"
 
-step "3/10 build chrome zip"
+step "4/11 build chrome zip"
 pnpm --filter @movar/extension zip
 chrome_zip=$(ls -t apps/extension/.output/*-chrome.zip 2>/dev/null | head -n 1)
 [ -n "$chrome_zip" ] || fail "no chrome zip produced under apps/extension/.output/"
 ok "produced $chrome_zip"
 
-step "4/10 build firefox zip"
+step "5/11 build firefox zip"
 pnpm --filter @movar/extension zip:firefox
 firefox_zip=$(ls -t apps/extension/.output/*-firefox.zip 2>/dev/null | head -n 1)
 [ -n "$firefox_zip" ] || fail "no firefox zip produced under apps/extension/.output/"
 ok "produced $firefox_zip"
 
-step "5/10 inspect zip contents"
+step "6/11 inspect zip contents"
 inspect_zip() {
   local zip="$1"
   local label="$2"
@@ -261,23 +273,23 @@ verify_reproducible() {
   ok "$label build is byte-for-byte reproducible"
 }
 
-step "6/10 addons-linter — chrome (Mozilla AMO ruleset)"
+step "7/11 addons-linter — chrome (Mozilla AMO ruleset)"
 lint_build "apps/extension/.output/chrome-mv3" "chrome zip" "${addons_linter_acknowledged_chrome[@]}"
 
-step "7/10 addons-linter — firefox (Mozilla AMO ruleset)"
+step "8/11 addons-linter — firefox (Mozilla AMO ruleset)"
 lint_build "apps/extension/.output/firefox-mv3" "firefox zip"
 
-step "8/10 reproducibility — chrome (rebuild, compare file hashes)"
+step "9/11 reproducibility — chrome (rebuild, compare file hashes)"
 verify_reproducible "build:chrome" "apps/extension/.output/chrome-mv3" "chrome"
 
-step "9/10 reproducibility — firefox (rebuild, compare file hashes)"
+step "10/11 reproducibility — firefox (rebuild, compare file hashes)"
 verify_reproducible "build:firefox" "apps/extension/.output/firefox-mv3" "firefox"
 
 # Manifest permissions and the justifications drafted in
 # deployment-checklist.md must agree exactly. If they drift, the
 # wrong copy ends up in the AMO/Chrome submission form's per-permission
 # justification fields.
-step "10/10 permission/justification drift"
+step "11/11 permission/justification drift"
 manifest_perms=$(jq -r '(.permissions // []) + (.host_permissions // []) + (.optional_host_permissions // []) | .[]' \
   apps/extension/.output/firefox-mv3/manifest.json | sort)
 checklist_perms=$(awk '

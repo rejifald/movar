@@ -65,6 +65,13 @@ jobs:
       - run: pnpm check:suppressions
       # Governance config-as-code parity: metrics-gate bypass is empty (JSON +
       # doc agree) and every release store job gates on an environment.
+      # package.json is bumped by Changesets; Safari's MARKETING_VERSION is a
+      # HAND step, and v1.8.0 was cut with the Xcode project still on 1.7.0
+      # because nothing compared them. Invisible in CI by design —
+      # release.yml overrides the version on the xcodebuild command line — so
+      # it only surfaced on the Organizer fallback, as a build uploaded under
+      # a version already taken. Cheap enough to gate every PR.
+      - run: pnpm check:safari-version
       - run: pnpm check:release-governance
       # Supply-chain: every `uses:` across .github/workflows is pinned to a
       # 40-char commit SHA, not a mutable tag. Self-consistent — this step

@@ -115,7 +115,11 @@ interface StakesDiagramCopy {
   nodes: readonly [StakesDiagramNode, StakesDiagramNode, StakesDiagramNode, StakesDiagramNode];
   /** Label on the pill sitting on the return path. */
   loopLabel: string;
-  /** One-sentence reading of the figure, set beneath it. */
+  /** One-sentence reading of the figure, set beneath it — it has to describe
+   *  the loop the four boxes draw, not the way out of it. The way out is the
+   *  next section's headline («Мовар розриває це коло»), and a caption that
+   *  reached for it sent the eye looking for something the figure doesn't
+   *  show. */
   caption: string;
 }
 
@@ -961,8 +965,7 @@ const en: Strings = {
         { heading: ['The site chooses', 'for you more often'], detail: 'and the signal repeats' },
       ],
       loopLabel: 'and the loop closes',
-      caption:
-        'Every site that goes Ukrainian changes what the next reader sees — and what the next AI reads.',
+      caption: 'The choice the site made comes back as proof that readers wanted it.',
     },
   },
   howItWorks: {
@@ -1884,8 +1887,7 @@ const uk: Strings = {
         { heading: ['Сайт дедалі частіше', 'обирає за вас'], detail: 'і сигнал повторюється' },
       ],
       loopLabel: 'і коло замикається',
-      caption:
-        'Кожен сайт, що переходить на українську, змінює те, що прочитає наступний читач — і наступний ШІ.',
+      caption: 'Вибір, який зробив сайт, повертається як доказ, що читачі саме цього й хотіли.',
     },
   },
   howItWorks: {

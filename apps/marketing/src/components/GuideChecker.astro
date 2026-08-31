@@ -76,7 +76,7 @@ const stepsUpdated = formatUpdated(
   <div
     class="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-border px-6 py-3"
   >
-    <h2 class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint">
+    <h2 class="font-mono text-ui-micro font-medium uppercase tracking-label text-ink-faint">
       {t.heading}
     </h2>
     <p class="inline-flex items-center gap-2 text-xs text-ink-faint">
@@ -91,7 +91,7 @@ const stepsUpdated = formatUpdated(
   <div class="flex flex-col gap-5 px-6 pb-5 pt-6">
     <div class="grid gap-5 sm:grid-cols-2">
       <div class="flex flex-col gap-2">
-        <p class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint">
+        <p class="font-mono text-ui-micro font-medium uppercase tracking-label text-ink-faint">
           {t.browserLabel}
         </p>
         <p class="flex items-center gap-2">
@@ -102,7 +102,7 @@ const stepsUpdated = formatUpdated(
         </p>
       </div>
       <div class="flex flex-col gap-2">
-        <p class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint">
+        <p class="font-mono text-ui-micro font-medium uppercase tracking-label text-ink-faint">
           {t.systemLabel}
         </p>
         {/* All three system glyphs render here and the island unhides one.
@@ -122,14 +122,14 @@ const stepsUpdated = formatUpdated(
     <div class="flex flex-col gap-3 border-t border-border pt-5">
       <p
         data-languages-label
-        class="font-mono text-[10.5px] font-medium uppercase tracking-label text-ink-faint"
+        class="font-mono text-ui-micro font-medium uppercase tracking-label text-ink-faint"
       >
         {t.languagesLabel}
       </p>
       <ol data-languages class="flex list-none flex-wrap items-center gap-2 p-0"></ol>
     </div>
 
-    <p data-explain class="max-w-[68ch] text-base leading-relaxed text-ink"></p>
+    <p data-explain class="max-w-[var(--measure-lg)] text-base leading-relaxed text-ink"></p>
   </div>
 
   {/* Count strip. Instructions rot, so the right-hand side carries the date the
@@ -139,10 +139,10 @@ const stepsUpdated = formatUpdated(
   >
     <p
       data-count
-      class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-ink-medium"
+      class="font-mono text-ui-micro font-semibold uppercase tracking-label text-ink-medium"
     >
     </p>
-    <p class="font-mono text-[10.5px] tracking-wide text-ink-medium">
+    <p class="font-mono text-ui-micro tracking-wide text-ink-medium">
       {t.stepsUpdated} {stepsUpdated}
     </p>
   </div>
@@ -157,17 +157,17 @@ const stepsUpdated = formatUpdated(
       so it reads as the last row of the diagnosis rather than as an ad
       parked beneath it. */}
   <div class="border-t border-accent-soft bg-accent-surface px-6 py-6">
-    <p class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent-text">
+    <p class="font-mono text-ui-micro font-semibold uppercase tracking-label text-accent-text">
       {t.beyond.label}
     </p>
     <h3 class="mt-2 font-display text-xl font-extrabold tracking-display text-ink-strong">
       {t.beyond.heading}
     </h3>
-    <p class="mt-2.5 max-w-[62ch] text-[15px] leading-relaxed text-ink">{t.beyond.body}</p>
+    <p class="mt-2.5 max-w-[var(--measure-sm)] text-ui-lg leading-relaxed text-ink">{t.beyond.body}</p>
 
     <div class="mt-5 flex flex-wrap items-center gap-4">
       <DownloadButtons lang="uk" align="start" anchor={false} />
-      <p class="font-mono text-[11px] tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
+      <p class="font-mono text-ui-2xs tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
     </div>
   </div>
 </section>
@@ -183,9 +183,9 @@ const stepsUpdated = formatUpdated(
 <template data-tpl-chip>
   <li
     data-chip
-    class="inline-flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2"
+    class="inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-border bg-surface px-3 py-2"
   >
-    <span data-chip-rank class="font-mono text-[11px] font-medium tabular-nums text-ink-faint"
+    <span data-chip-rank class="font-mono text-ui-2xs font-medium tabular-nums text-ink-faint"
     ></span>
     <span data-chip-name class="text-sm font-semibold tracking-tight text-ink"></span>
   </li>
@@ -253,21 +253,21 @@ const stepsUpdated = formatUpdated(
       <div class="flex min-w-0 grow flex-col gap-1.5">
         <h3 data-problem-title class="font-display text-lg font-bold tracking-display text-ink-strong">
         </h3>
-        <p data-problem-body class="max-w-[66ch] text-sm leading-relaxed text-ink-soft"></p>
+        <p data-problem-body class="max-w-[var(--measure-md)] text-sm leading-relaxed text-ink-soft"></p>
       </div>
     </div>
 
     <div data-fix class="ml-10 flex flex-col gap-3 border-l-2 border-accent-soft pl-5">
       <p
         data-fix-label
-        class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent-text"
+        class="font-mono text-ui-micro font-semibold uppercase tracking-label text-accent-text"
       >
       </p>
       <div data-fix-mockup class="max-w-full overflow-x-auto"></div>
       <ol data-fix-steps class="flex list-none flex-col gap-2 p-0"></ol>
       <p
         data-fix-trap
-        class="flex items-start gap-2.5 rounded-[9px] bg-surface-2 px-3 py-2.5 text-[13px] leading-relaxed text-ink-medium"
+        class="flex items-start gap-2.5 rounded-[var(--corner-inset)] bg-surface-2 px-3 py-2.5 text-ui-base leading-relaxed text-ink-medium"
       >
         <svg
           width="14"
@@ -289,7 +289,7 @@ const stepsUpdated = formatUpdated(
       <a
         data-fix-link
         href="#"
-        class="self-start text-[13px] font-bold text-accent-text transition hover:text-ink-strong"></a>
+        class="self-start text-ui-base font-bold text-accent-text transition hover:text-ink-strong"></a>
     </div>
   </article>
 </template>
@@ -298,12 +298,12 @@ const stepsUpdated = formatUpdated(
   <li class="flex items-start gap-2.5">
     <span
       data-step-rank
-      class="shrink-0 pt-0.5 font-mono text-[11px] font-medium tabular-nums text-ink-faint"></span>
+      class="shrink-0 pt-0.5 font-mono text-ui-2xs font-medium tabular-nums text-ink-faint"></span>
     <span class="flex min-w-0 flex-col items-start gap-2">
       <span data-step-text class="text-sm leading-relaxed text-ink"></span>
       <span
         data-step-address
-        class="inline-flex max-w-full items-center gap-2.5 rounded-[9px] border border-border bg-surface-2 py-1.5 pl-3 pr-1.5"
+        class="inline-flex max-w-full items-center gap-2.5 rounded-[var(--corner-inset)] border border-border bg-surface-2 py-1.5 pl-3 pr-1.5"
       >
         <span
           data-step-address-text
@@ -433,7 +433,7 @@ const stepsUpdated = formatUpdated(
       if (!known) {
         const li = document.createElement('li');
         li.className =
-          'inline-flex items-center rounded-[10px] border border-dashed border-border-strong bg-surface-2 px-3 py-2 text-sm font-medium text-ink-soft';
+          'inline-flex items-center rounded-[var(--corner-chip)] border border-dashed border-border-strong bg-surface-2 px-3 py-2 text-sm font-medium text-ink-soft';
         li.textContent = t.languagesEmpty;
         list.append(li);
         text('[data-languages-label]', t.languagesLabelUnavailable);
@@ -455,13 +455,13 @@ const stepsUpdated = formatUpdated(
            */
           if (language.role === 'target') {
             chip.className =
-              'inline-flex items-center gap-2 rounded-[10px] border border-accent-soft bg-accent-surface px-3 py-2';
-            rank.className = 'font-mono text-[11px] font-medium tabular-nums text-accent-text';
+              'inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-accent-soft bg-accent-surface px-3 py-2';
+            rank.className = 'font-mono text-ui-2xs font-medium tabular-nums text-accent-text';
             name.className = 'text-sm font-semibold tracking-tight text-accent-deep';
           } else if (language.role === 'blocked') {
             chip.className =
-              'inline-flex items-center gap-2 rounded-[10px] border border-danger-soft bg-danger-surface px-3 py-2';
-            rank.className = 'font-mono text-[11px] font-medium tabular-nums text-danger';
+              'inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-danger-soft bg-danger-surface px-3 py-2';
+            rank.className = 'font-mono text-ui-2xs font-medium tabular-nums text-danger';
             name.className = 'text-sm font-semibold tracking-tight text-danger-deep';
           }
 

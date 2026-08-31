@@ -61,11 +61,11 @@ const t = blogStrings;
 <section data-reader-cta class="mt-20 border-t border-border pt-12">
   {
     install && (
-      <div class="rounded-2xl bg-forest-900 px-6 py-12 sm:px-10">
+      <div data-dark-surface class="rounded-2xl bg-forest-900 px-6 py-12 sm:px-10">
         <h2 class="font-display text-3xl font-extrabold tracking-display text-white sm:text-4xl">
           {pitch.heading}
         </h2>
-        <p class="mt-4 max-w-[58ch] text-[17px] leading-relaxed text-stone-200">{pitch.body}</p>
+        <p class="mt-4 max-w-[var(--measure-xs)] text-[length:var(--fs-lead)] leading-relaxed text-stone-200">{pitch.body}</p>
 
         <div class="mt-8">
           <DownloadButtons lang="uk" align="start" tone="inverse" />

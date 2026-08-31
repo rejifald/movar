@@ -118,7 +118,7 @@ const fundingTag =
             data-directory-search
             placeholder={t.search.placeholder}
             aria-label={t.search.label}
-            class="w-full bg-transparent text-[15px] text-ink-strong outline-none placeholder:text-ink-faint"
+            class="w-full bg-transparent text-ui-lg text-ink-strong outline-none placeholder:text-ink-faint"
           />
         </div>
 
@@ -147,7 +147,7 @@ const fundingTag =
                 type="button"
                 data-sphere-filter={chip.sphere}
                 aria-pressed={chip.sphere === ALL ? 'true' : 'false'}
-                class="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 text-[13px] font-medium text-ink-soft transition hover:border-border-strong hover:text-ink-strong aria-pressed:border-accent/30 aria-pressed:bg-accent-soft aria-pressed:font-semibold aria-pressed:text-accent-deep"
+                class="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 text-ui-base font-medium text-ink-soft transition hover:border-border-strong hover:text-ink-strong aria-pressed:border-accent/30 aria-pressed:bg-accent-soft aria-pressed:font-semibold aria-pressed:text-accent-deep"
               >
                 {chip.label}
                 <span class="font-mono text-xs tabular-nums text-accent-deep">{chip.count}</span>
@@ -193,7 +193,7 @@ const fundingTag =
                 data-sphere={section.sphere}
                 data-haystack={haystackOf(entry.data.name, entry.data.summary[lang])}
               >
-                <article class="flex h-full flex-col gap-2 rounded-[14px] border border-border bg-surface p-5 shadow-sm transition hover:border-border-strong hover:shadow-md">
+                <article class="flex h-full flex-col gap-2 rounded-[var(--corner-card)] border border-border bg-surface p-5 shadow-sm transition hover:border-border-strong hover:shadow-md">
                   {/*
                    * Name and host are one unit — the host reads as the card's
                    * identity line, and saying where a name goes before it is
@@ -250,7 +250,7 @@ const fundingTag =
       data-directory-empty
       hidden
       role="status"
-      class="rounded-[14px] border border-dashed border-border-strong px-6 py-10 text-center text-sm text-ink-soft"
+      class="rounded-[var(--corner-card)] border border-dashed border-border-strong px-6 py-10 text-center text-sm text-ink-soft"
     >
       <span class="font-semibold text-ink-strong">{t.filter.emptyHeading}</span>{' '}
       {t.filter.emptyBody}{' '}

@@ -30,6 +30,9 @@ interface NavStrings {
   privacy: string;
   /** Accessible label for the mobile hamburger toggle. */
   menu: string;
+  /** Skip link — first in the tab order on every page, visible only on focus,
+   *  and the reason every page carries a `<main id="main">`. */
+  skipToContent: string;
 }
 
 interface HeroStrings {
@@ -872,6 +875,7 @@ const en: Strings = {
     feedback: 'Contact',
     privacy: 'Privacy',
     menu: 'Menu',
+    skipToContent: 'Skip to content',
   },
   hero: {
     eyebrow: 'Browser extension',
@@ -1114,15 +1118,15 @@ const en: Strings = {
     items: [
       {
         title: 'A store review',
-        body: 'Stores decide who to show an extension to by its ratings. One honest review counts for more than it looks.',
+        body: 'Stores decide who to show an extension to by its ratings and reviews. One honest review counts for more than it looks.',
       },
       {
         title: 'Tell someone',
-        body: 'Everyone who switches Movar on is one more clean signal in the statistics localisation budgets grow from.',
+        body: 'Everyone who switches Movar on is a row in the same analytics localisation budgets grow from. A true one, this time.',
       },
       {
         title: 'Bug reports',
-        body: "A site where Movar missed, or fired where it shouldn't have. Each one becomes a test.",
+        body: "A site where Movar missed, or fired where it shouldn't have. Each one becomes a test, and stops happening.",
       },
       {
         title: 'A star on GitHub',
@@ -1133,7 +1137,7 @@ const en: Strings = {
   close: {
     sectionTitle: 'Movar breaks this loop. One minute to install.',
     sectionLead:
-      'Have a question, an idea, or a site where Movar missed? Join the Discord or drop a note. Movar is non-commercial — reviews and bug reports help most.',
+      'Have a question, an idea, or a site where Movar missed? Join the Discord or drop a note.',
     emailLabel: 'Email support@movar.fyi',
     discordLabel: 'Join the Discord',
   },
@@ -1512,7 +1516,7 @@ const en: Strings = {
     ],
     closing: {
       heading: 'Like the idea? Get involved',
-      body: "Movar is non-commercial: no paid tier, no premium features, no data for sale. There is one goal — more Ukrainian on the internet. Four things help most. An honest review in an extension store: ratings are how stores decide who to show an extension to. Telling people about it — everyone who switches Movar on is one more clean signal in the same statistics that localisation budgets grow from. A bug report about a site where Movar missed, or fired where it shouldn't have: each one becomes a test and stops recurring. And design — icons, illustrations, store-page assets; that is what is in shortest supply.",
+      body: "Movar is non-commercial: no paid tier, no premium features, no data for sale. There is one goal — more Ukrainian on the internet. Three things help most. An honest review in an extension store: ratings and reviews are how stores decide who to show an extension to. Telling people about it — everyone who switches Movar on is one more clean signal in the same statistics that localisation budgets grow from. A bug report about a site where Movar missed, or fired where it shouldn't have: each one becomes a test and stops recurring.",
       linkLabel: 'Get in touch',
       linkHref: '/#close',
     },
@@ -1786,6 +1790,7 @@ const uk: Strings = {
     feedback: 'Звʼязатися',
     privacy: 'Приватність',
     menu: 'Меню',
+    skipToContent: 'Перейти до вмісту',
   },
   hero: {
     eyebrow: 'Розширення для браузера',
@@ -2026,26 +2031,26 @@ const uk: Strings = {
     items: [
       {
         title: 'Відгук у магазині',
-        body: 'Магазини вирішують, кому показувати розширення, саме за оцінками. Один чесний відгук важить більше, ніж здається.',
+        body: 'Магазини вирішують, кому показувати розширення, за оцінками й відгуками. Один чесний відгук важить більше, ніж здається.',
       },
       {
         title: 'Розкажіть знайомим',
-        body: 'Кожен, хто вмикає Мовар, — це ще один чистий сигнал у статистиці, з якої ростуть бюджети на локалізацію.',
+        body: 'Кожен, хто вмикає Мовар, — рядок у тій самій аналітиці, з якої ростуть бюджети на локалізацію. Тільки тепер правдивий.',
       },
       {
-        title: 'Баг-репорти',
-        body: 'Сайт, де Мовар не спрацював — або спрацював там, де не мав. Кожен такий випадок стає тестом.',
+        title: 'Повідомлення про помилки',
+        body: 'Сайт, де Мовар не спрацював — або спрацював там, де не мав. Кожен такий випадок стає тестом і більше не повторюється.',
       },
       {
         title: 'Зірочка на GitHub',
-        body: 'Найдешевша дія з усіх: що помітніший проєкт, то більше людей його знайде.',
+        body: 'Найменше зусиль з усіх: що помітніший проєкт, то більше людей його знайде.',
       },
     ],
   },
   close: {
     sectionTitle: 'Мовар розриває це коло. Встановлення за хвилину.',
     sectionLead:
-      'Маєте запитання, ідею чи сайт, де Мовар не спрацював? Приєднуйтеся до Discord або напишіть. Мовар некомерційний — відгук у магазині та повідомлення про помилки допомагають найбільше.',
+      'Маєте запитання, ідею чи сайт, де Мовар не спрацював? Приєднуйтеся до Discord або напишіть.',
     emailLabel: 'Написати на support@movar.fyi',
     discordLabel: 'Приєднатися до Discord',
   },
@@ -2424,7 +2429,7 @@ const uk: Strings = {
     ],
     closing: {
       heading: 'Сподобалась ідея? Долучайтеся',
-      body: 'Мовар — некомерційний проєкт: ні платної версії, ні преміум-функцій, ні даних на продаж. Мета одна — щоб української в інтернеті ставало більше. Найбільше допомагають чотири речі. Чесний відгук у магазині розширень: саме за оцінками магазини вирішують, кому показувати розширення. Розповідь знайомим — кожен, хто вмикає Мовар, це ще один чистий сигнал у тій самій статистиці, з якої ростуть бюджети на локалізацію. Повідомлення про сайт, де Мовар не спрацював — або спрацював там, де не мав: кожен такий випадок стає тестом і більше не повторюється. І дизайн — іконки, ілюстрації, матеріали для сторінок у магазинах; цього бракує найбільше.',
+      body: 'Мовар — некомерційний проєкт: ні платної версії, ні преміум-функцій, ні даних на продаж. Мета одна — щоб української в інтернеті ставало більше. Найбільше допомагають три речі. Чесний відгук у магазині розширень: за оцінками й відгуками магазини вирішують, кому показувати розширення. Розповідь знайомим — кожен, хто вмикає Мовар, це ще один чистий сигнал у тій самій статистиці, з якої ростуть бюджети на локалізацію. Повідомлення про сайт, де Мовар не спрацював — або спрацював там, де не мав: кожен такий випадок стає тестом і більше не повторюється.',
       linkLabel: 'Написати нам',
       linkHref: '/uk/#close',
     },

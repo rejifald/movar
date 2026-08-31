@@ -129,7 +129,7 @@ const stepsUpdated = formatUpdated(
       <ol data-languages class="flex list-none flex-wrap items-center gap-2 p-0"></ol>
     </div>
 
-    <p data-explain class="max-w-[68ch] text-base leading-relaxed text-ink"></p>
+    <p data-explain class="max-w-[var(--measure-lg)] text-base leading-relaxed text-ink"></p>
   </div>
 
   {/* Count strip. Instructions rot, so the right-hand side carries the date the
@@ -163,7 +163,7 @@ const stepsUpdated = formatUpdated(
     <h3 class="mt-2 font-display text-xl font-extrabold tracking-display text-ink-strong">
       {t.beyond.heading}
     </h3>
-    <p class="mt-2.5 max-w-[62ch] text-ui-lg leading-relaxed text-ink">{t.beyond.body}</p>
+    <p class="mt-2.5 max-w-[var(--measure-sm)] text-ui-lg leading-relaxed text-ink">{t.beyond.body}</p>
 
     <div class="mt-5 flex flex-wrap items-center gap-4">
       <DownloadButtons lang="uk" align="start" anchor={false} />
@@ -183,7 +183,7 @@ const stepsUpdated = formatUpdated(
 <template data-tpl-chip>
   <li
     data-chip
-    class="inline-flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2"
+    class="inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-border bg-surface px-3 py-2"
   >
     <span data-chip-rank class="font-mono text-ui-2xs font-medium tabular-nums text-ink-faint"
     ></span>
@@ -253,7 +253,7 @@ const stepsUpdated = formatUpdated(
       <div class="flex min-w-0 grow flex-col gap-1.5">
         <h3 data-problem-title class="font-display text-lg font-bold tracking-display text-ink-strong">
         </h3>
-        <p data-problem-body class="max-w-[66ch] text-sm leading-relaxed text-ink-soft"></p>
+        <p data-problem-body class="max-w-[var(--measure-md)] text-sm leading-relaxed text-ink-soft"></p>
       </div>
     </div>
 
@@ -267,7 +267,7 @@ const stepsUpdated = formatUpdated(
       <ol data-fix-steps class="flex list-none flex-col gap-2 p-0"></ol>
       <p
         data-fix-trap
-        class="flex items-start gap-2.5 rounded-[9px] bg-surface-2 px-3 py-2.5 text-ui-base leading-relaxed text-ink-medium"
+        class="flex items-start gap-2.5 rounded-[var(--corner-inset)] bg-surface-2 px-3 py-2.5 text-ui-base leading-relaxed text-ink-medium"
       >
         <svg
           width="14"
@@ -303,7 +303,7 @@ const stepsUpdated = formatUpdated(
       <span data-step-text class="text-sm leading-relaxed text-ink"></span>
       <span
         data-step-address
-        class="inline-flex max-w-full items-center gap-2.5 rounded-[9px] border border-border bg-surface-2 py-1.5 pl-3 pr-1.5"
+        class="inline-flex max-w-full items-center gap-2.5 rounded-[var(--corner-inset)] border border-border bg-surface-2 py-1.5 pl-3 pr-1.5"
       >
         <span
           data-step-address-text
@@ -433,7 +433,7 @@ const stepsUpdated = formatUpdated(
       if (!known) {
         const li = document.createElement('li');
         li.className =
-          'inline-flex items-center rounded-[10px] border border-dashed border-border-strong bg-surface-2 px-3 py-2 text-sm font-medium text-ink-soft';
+          'inline-flex items-center rounded-[var(--corner-chip)] border border-dashed border-border-strong bg-surface-2 px-3 py-2 text-sm font-medium text-ink-soft';
         li.textContent = t.languagesEmpty;
         list.append(li);
         text('[data-languages-label]', t.languagesLabelUnavailable);
@@ -455,12 +455,12 @@ const stepsUpdated = formatUpdated(
            */
           if (language.role === 'target') {
             chip.className =
-              'inline-flex items-center gap-2 rounded-[10px] border border-accent-soft bg-accent-surface px-3 py-2';
+              'inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-accent-soft bg-accent-surface px-3 py-2';
             rank.className = 'font-mono text-ui-2xs font-medium tabular-nums text-accent-text';
             name.className = 'text-sm font-semibold tracking-tight text-accent-deep';
           } else if (language.role === 'blocked') {
             chip.className =
-              'inline-flex items-center gap-2 rounded-[10px] border border-danger-soft bg-danger-surface px-3 py-2';
+              'inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-danger-soft bg-danger-surface px-3 py-2';
             rank.className = 'font-mono text-ui-2xs font-medium tabular-nums text-danger';
             name.className = 'text-sm font-semibold tracking-tight text-danger-deep';
           }

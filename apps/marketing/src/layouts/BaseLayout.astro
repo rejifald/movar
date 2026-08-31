@@ -175,6 +175,13 @@ const ukHref = new URL(ukPath, Astro.site).toString();
     <slot name="head" />
   </head>
   <body class="min-h-screen flex flex-col bg-bg text-ink">
+    {/*
+      First in the tab order on every page, off-screen until focused. It has to
+      be the first focusable element in the DOM to be worth anything, which is
+      why it lives here rather than in Header — Header is a component pages
+      compose, and two of them would have put it second.
+    */}
+    <a class="skip-link" href="#main">{t.nav.skipToContent}</a>
     <slot />
   </body>
 </html>

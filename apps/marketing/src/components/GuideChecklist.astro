@@ -98,7 +98,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
           <div
             data-checklist-group-meter
             hidden
-            class="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-border"
+            class="mt-2 h-[var(--meter-h)] w-full overflow-hidden rounded-full bg-border"
           >
             <div data-checklist-group-fill class="h-full rounded-full bg-accent" style="width: 0%"></div>
           </div>
@@ -109,7 +109,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
               const linkLabel = checklistLinkLabel(item.to);
               const label = parts(item.label).map((part) =>
                 part.code ? (
-                  <code class="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[0.875em] text-ink-strong">
+                  <code class="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[length:var(--fs-code)] text-ink-strong">
                     {part.text}
                   </code>
                 ) : (
@@ -124,7 +124,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
                       <span
                         data-checklist-auto-badge
                         aria-hidden="true"
-                        class="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full bg-surface-3 text-ink-faint"
+                        class="mt-0.5 flex size-[var(--switch-knob)] shrink-0 items-center justify-center rounded-full bg-surface-3 text-ink-faint"
                       >
                         <span data-auto-icon="unknown">
                           <Minus class="size-3" />
@@ -179,7 +179,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
       in one sentence, and this is where it is shown its evidence. */}
   <div class="mt-10">
     <h3 class="font-display text-xl font-bold text-ink-strong">{guideStrings.limits.heading}</h3>
-    <p class="mt-3 max-w-[62ch] text-ink-soft leading-relaxed">{guideStrings.limits.body}</p>
+    <p class="mt-3 max-w-[var(--measure-sm)] text-ink-soft leading-relaxed">{guideStrings.limits.body}</p>
   </div>
 
   {/* The twenty-first row: same list, no checkbox. The lock glyph sits exactly
@@ -193,7 +193,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
     <div class="flex items-start gap-3.5">
       <span
         aria-hidden="true"
-        class="mt-1 inline-flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border border-accent-soft bg-surface text-accent-text"
+        class="mt-1 inline-flex size-[var(--switch-knob)] shrink-0 items-center justify-center rounded-[var(--corner-badge)] border border-accent-soft bg-surface text-accent-text"
       >
         <Lock size={11} />
       </span>
@@ -204,7 +204,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
         <h3 class="mt-2 font-display text-xl font-extrabold tracking-display text-ink-strong">
           {guideStrings.cta.heading}
         </h3>
-        <p class="mt-2.5 max-w-[62ch] text-ui-lg leading-relaxed text-ink">
+        <p class="mt-2.5 max-w-[var(--measure-sm)] text-ui-lg leading-relaxed text-ink">
           {guideStrings.cta.body}
         </p>
         <div class="mt-5 flex flex-wrap items-center gap-4">
@@ -226,7 +226,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
     >
       <div class="flex flex-1 items-center gap-3">
         <span class="text-xs font-semibold">{t.totalLabel}</span>
-        <div class="h-[3px] min-w-12 flex-1 overflow-hidden rounded-full bg-bg/25">
+        <div class="h-[var(--meter-h)] min-w-12 flex-1 overflow-hidden rounded-full bg-bg/25">
           <div data-checklist-sticky-fill class="h-full rounded-full bg-accent" style="width: 0%"></div>
         </div>
         <span data-checklist-sticky-progress class="font-mono text-xs tabular-nums"></span>

@@ -45,13 +45,13 @@ const { movar } = Astro.props;
 
 <aside
   data-guide-callout
-  class="mt-14 rounded-xl border border-border border-t-[3px] border-t-accent bg-surface px-6 py-5"
+  class="mt-14 rounded-xl border border-border border-t-[length:var(--rule-w)] border-t-accent bg-surface px-6 py-5"
 >
   <div class="flex items-start gap-3.5">
     <img src="/icon.svg" alt="" width="28" height="28" class="mt-0.5 shrink-0 rounded-md" />
     <div class="min-w-0">
       <p class="font-display text-lg font-bold tracking-display text-ink-strong">{movar.claim}</p>
-      <p class="mt-2 max-w-[62ch] text-ui-lg leading-relaxed text-ink-soft">{movar.body}</p>
+      <p class="mt-2 max-w-[var(--measure-sm)] text-ui-lg leading-relaxed text-ink-soft">{movar.body}</p>
 
       <div class="mt-4 flex flex-wrap items-center gap-4">
         <DownloadButtons lang="uk" align="start" anchor={false} />

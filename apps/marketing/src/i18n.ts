@@ -30,6 +30,9 @@ interface NavStrings {
   privacy: string;
   /** Accessible label for the mobile hamburger toggle. */
   menu: string;
+  /** Skip link — first in the tab order on every page, visible only on focus,
+   *  and the reason every page carries a `<main id="main">`. */
+  skipToContent: string;
 }
 
 interface HeroStrings {
@@ -872,6 +875,7 @@ const en: Strings = {
     feedback: 'Contact',
     privacy: 'Privacy',
     menu: 'Menu',
+    skipToContent: 'Skip to content',
   },
   hero: {
     eyebrow: 'Browser extension',
@@ -1512,7 +1516,7 @@ const en: Strings = {
     ],
     closing: {
       heading: 'Like the idea? Get involved',
-      body: "Movar is non-commercial: no paid tier, no premium features, no data for sale. There is one goal — more Ukrainian on the internet. Four things help most. An honest review in an extension store: ratings and reviews are how stores decide who to show an extension to. Telling people about it — everyone who switches Movar on is one more clean signal in the same statistics that localisation budgets grow from. A bug report about a site where Movar missed, or fired where it shouldn't have: each one becomes a test and stops recurring. And design — icons, illustrations, store-page assets; that is what is in shortest supply.",
+      body: "Movar is non-commercial: no paid tier, no premium features, no data for sale. There is one goal — more Ukrainian on the internet. Three things help most. An honest review in an extension store: ratings and reviews are how stores decide who to show an extension to. Telling people about it — everyone who switches Movar on is one more clean signal in the same statistics that localisation budgets grow from. A bug report about a site where Movar missed, or fired where it shouldn't have: each one becomes a test and stops recurring.",
       linkLabel: 'Get in touch',
       linkHref: '/#close',
     },
@@ -1786,6 +1790,7 @@ const uk: Strings = {
     feedback: 'Звʼязатися',
     privacy: 'Приватність',
     menu: 'Меню',
+    skipToContent: 'Перейти до вмісту',
   },
   hero: {
     eyebrow: 'Розширення для браузера',
@@ -2424,7 +2429,7 @@ const uk: Strings = {
     ],
     closing: {
       heading: 'Сподобалась ідея? Долучайтеся',
-      body: 'Мовар — некомерційний проєкт: ні платної версії, ні преміум-функцій, ні даних на продаж. Мета одна — щоб української в інтернеті ставало більше. Найбільше допомагають чотири речі. Чесний відгук у магазині розширень: за оцінками й відгуками магазини вирішують, кому показувати розширення. Розповідь знайомим — кожен, хто вмикає Мовар, це ще один чистий сигнал у тій самій статистиці, з якої ростуть бюджети на локалізацію. Повідомлення про сайт, де Мовар не спрацював — або спрацював там, де не мав: кожен такий випадок стає тестом і більше не повторюється. І дизайн — іконки, ілюстрації, матеріали для сторінок у магазинах; цього бракує найбільше.',
+      body: 'Мовар — некомерційний проєкт: ні платної версії, ні преміум-функцій, ні даних на продаж. Мета одна — щоб української в інтернеті ставало більше. Найбільше допомагають три речі. Чесний відгук у магазині розширень: за оцінками й відгуками магазини вирішують, кому показувати розширення. Розповідь знайомим — кожен, хто вмикає Мовар, це ще один чистий сигнал у тій самій статистиці, з якої ростуть бюджети на локалізацію. Повідомлення про сайт, де Мовар не спрацював — або спрацював там, де не мав: кожен такий випадок стає тестом і більше не повторюється.',
       linkLabel: 'Написати нам',
       linkHref: '/uk/#close',
     },

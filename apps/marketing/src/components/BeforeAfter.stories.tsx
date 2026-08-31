@@ -102,7 +102,9 @@ function MockSerp({ variant }: Readonly<{ variant: Variant }>): JSX.Element {
       <div className="space-y-4">
         {items.map((item) => (
           <div key={item.site}>
-            <div className="text-[10px] tracking-wide text-zinc-400 uppercase">{item.site}</div>
+            <div className="text-[length:var(--fs-micro)] tracking-wide text-zinc-400 uppercase">
+              {item.site}
+            </div>
             <div className="text-ui-base mt-1 leading-snug font-medium text-blue-700">
               {item.title}
             </div>
@@ -182,7 +184,7 @@ function HalfFigure({
         half.variant === 'with' ? 'border-accent/30' : 'border-border',
       )}
     >
-      <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-white">
+      <div className="relative aspect-[var(--figure-aspect)] overflow-hidden rounded-lg bg-white">
         {useRealImages ? (
           <img src={half.src} alt={half.alt} loading="lazy" className="size-full object-cover" />
         ) : (

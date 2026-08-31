@@ -84,6 +84,32 @@ would say nothing to anyone. That single decision drives four things, all docume
 - Body styling is the `.article-prose` element sheet in `styles/global.css`, because
   generated Markdown cannot carry utility classes.
 
+**Numbers live in `styles/global.css`, not in class attributes.** `@movar/theme` owns
+everything shared with the extension — colour, the `text-ui-*` ladder, radii, spacing, the
+icon ladder — and anything that maps onto a step of those uses the utility. What is left is
+declared once at the top of `global.css`: the four type sizes with no step on the shared
+ladder, the five prose measures, the nested corner radii, the illustration geometry, and the
+two permanently-dark band fills. Two traps when adding one:
+
+- **Hint ambiguous prefixes with `length:`.** `text-[var(--x)]` and `border-t-[var(--x)]` are
+  read as _colours_; `border-t-[var(--rule-w)]` silently compiled to `border-top-color` until
+  the emitted CSS was checked. `max-w-`, `size-`, `rounded-`, `aspect-` and `duration-` are
+  unambiguous and need no hint.
+- **Verify against `dist`, not against the edit.** `grep` the built CSS for the declaration
+  you expect (`font-size:var(--fs-band)`) and for the variable's value. A renamed variable
+  whose call sites still use the old name resolves to nothing and paints transparent, which
+  no typecheck and no light-theme screenshot will catch.
+
+**Focus is a token, not a per-component decision.** `--focus-ring` defaults to `--accent-text`
+and is overridden to `--color-forest-300` on the surfaces that stay dark in both themes
+(`#how-it-works`, anything marked `data-dark-surface`), because a light-theme accent on
+near-black is unreadable. The rule is wrapped in `:where()` so a component can override it
+with a plain class. The skip link is `position: fixed` and keys off `:focus`, not
+`:focus-visible` — tabbing is the only way to reach it, and `:focus-visible` is a heuristic
+that does not fire for programmatic focus. Every page needs `<main id="main" tabindex="-1">`
+as its destination; `marketing.a11y-focus.spec.ts` fails if one is missing, and it drives
+real key presses because neither focus selector matches while the document is unfocused.
+
 Post illustrations live in `src/content/blog/assets/` — also where `pnpm gen:charts`
 (`scripts/gen-article-charts.mts`) writes the SVG scenes it renders from `src/lib/article-figures.ts`,
 so there is no second copy to drift, and `pnpm check:charts` re-renders and byte-compares them on

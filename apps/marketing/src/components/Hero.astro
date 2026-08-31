@@ -45,11 +45,11 @@ const claims = [
  */}
 <section class="overflow-hidden bg-bg px-6 py-16 md:py-20">
   <div class="mx-auto flex max-w-5xl flex-col gap-10 md:flex-row md:items-start md:gap-8 lg:gap-16">
-    <div class="md:w-[380px] md:shrink-0 lg:w-[540px]">
+    <div class="md:w-[var(--hero-col-md)] md:shrink-0 lg:w-[var(--hero-col-lg)]">
       <p class="text-xs font-medium uppercase tracking-label text-ink-faint">{t.eyebrow}</p>
 
       <h1
-        class="mt-6 font-display text-[26px] font-extrabold leading-[1.1] tracking-display text-ink-strong md:text-3xl lg:text-5xl"
+        class="mt-6 font-display text-[length:var(--fs-hero-sm)] font-extrabold leading-[var(--lh-hero)] tracking-display text-ink-strong md:text-3xl lg:text-5xl"
       >
         {t.headlineLine1}
         <span class="block text-accent-text">{t.headlineLine2}</span>

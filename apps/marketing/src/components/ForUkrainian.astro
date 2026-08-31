@@ -193,7 +193,7 @@ const fundingTag =
                 data-sphere={section.sphere}
                 data-haystack={haystackOf(entry.data.name, entry.data.summary[lang])}
               >
-                <article class="flex h-full flex-col gap-2 rounded-[14px] border border-border bg-surface p-5 shadow-sm transition hover:border-border-strong hover:shadow-md">
+                <article class="flex h-full flex-col gap-2 rounded-[var(--corner-card)] border border-border bg-surface p-5 shadow-sm transition hover:border-border-strong hover:shadow-md">
                   {/*
                    * Name and host are one unit — the host reads as the card's
                    * identity line, and saying where a name goes before it is
@@ -250,7 +250,7 @@ const fundingTag =
       data-directory-empty
       hidden
       role="status"
-      class="rounded-[14px] border border-dashed border-border-strong px-6 py-10 text-center text-sm text-ink-soft"
+      class="rounded-[var(--corner-card)] border border-dashed border-border-strong px-6 py-10 text-center text-sm text-ink-soft"
     >
       <span class="font-semibold text-ink-strong">{t.filter.emptyHeading}</span>{' '}
       {t.filter.emptyBody}{' '}

@@ -21,6 +21,8 @@ const t = strings[lang].forUkrainian;
 
 <BaseLayout lang={lang} title={t.pageTitle} description={t.pageDescription}>
   <Header lang={lang} />
-  <ForUkrainian lang={lang} />
+  <main id="main" tabindex="-1" class="flex-1">
+    <ForUkrainian lang={lang} />
+  </main>
   <Footer lang={lang} />
 </BaseLayout>

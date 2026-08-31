@@ -1,6 +1,6 @@
 ---
-import { Menu, X } from 'lucide-astro';
-import { headerLinks } from '../lib/header-links';
+import { ChevronDown, Menu, X } from 'lucide-astro';
+import { headerEntries, isHeaderGroup } from '../lib/header-links';
 import { localeHomeHref, localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
@@ -15,7 +15,26 @@ const { lang = 'en' } = Astro.props;
 const t = strings[lang];
 const home = localeHomeHref(lang);
 const guideHref = localeInstallHref(lang);
-const links = headerLinks(lang);
+const entries = headerEntries(lang);
+
+/*
+ * Why the desktop group is a `<details>` and not a button plus a panel.
+ *
+ * The disclosure is the browser's: open state, the summary's button role and
+ * its `aria-expanded` are all the UA's job, and the menu works with the script
+ * below removed — which is the same bargain the directory toolbar and the guide
+ * checker strike, and the reason nothing on this site hides a destination
+ * behind JavaScript. The script only adds what a `<details>` has no opinion
+ * about: closing on Escape and on a click elsewhere.
+ *
+ * The mobile panel renders the same group flat, under its label. It is already
+ * a disclosure — nesting a second one inside it would put two taps between a
+ * phone reader and the guide.
+ */
+const summaryClass =
+  'inline-flex cursor-pointer list-none items-center gap-1 transition hover:text-ink-strong [&::-webkit-details-marker]:hidden';
+const menuItemClass =
+  'block rounded-md px-3 py-2 whitespace-nowrap transition hover:bg-surface-2 hover:text-ink-strong';
 ---
 
 <header
@@ -28,24 +47,43 @@ const links = headerLinks(lang);
     </a>
 
     {/*
-     * Desktop: links inline. Below sm: they collapse into the hamburger
-     * menu — there isn't room for even the shorter (en: 2, uk: 3) label set
+     * Desktop: entries inline. Below sm: they collapse into the hamburger
+     * menu — there isn't room for even the shorter (en: 3, uk: 3) label set
      * on a phone row.
      */}
     <nav class="hidden items-center gap-x-5 text-sm text-ink-soft sm:flex">
       {
-        links.map((link) => (
-          <a
-            href={link.href}
-            data-download-cta={link.download ? '' : undefined}
-            data-soon-label={link.download ? t.download.soon : undefined}
-            data-guide-href={link.download ? guideHref : undefined}
-            data-new-tab-label={link.download ? t.download.newTab : undefined}
-            class="inline-flex items-center gap-2 transition hover:text-ink-strong"
-          >
-            {link.label}
-          </a>
-        ))
+        entries.map((entry) =>
+          isHeaderGroup(entry) ? (
+            <details data-nav-group class="group relative">
+              <summary class={summaryClass}>
+                {entry.label}
+                <ChevronDown
+                  class="size-4 transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div class="absolute left-0 top-full z-10 mt-3 min-w-44 rounded-lg border border-border bg-surface p-1.5 shadow-lg">
+                {entry.links.map((link) => (
+                  <a href={link.href} class={menuItemClass}>
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </details>
+          ) : (
+            <a
+              href={entry.href}
+              data-download-cta={entry.download ? '' : undefined}
+              data-soon-label={entry.download ? t.download.soon : undefined}
+              data-guide-href={entry.download ? guideHref : undefined}
+              data-new-tab-label={entry.download ? t.download.newTab : undefined}
+              class="inline-flex items-center gap-2 transition hover:text-ink-strong"
+            >
+              {entry.label}
+            </a>
+          ),
+        )
       }
     </nav>
 
@@ -66,20 +104,40 @@ const links = headerLinks(lang);
   <nav id="mobile-menu" data-menu-panel class="hidden border-t border-border/60 sm:hidden">
     <ul class="mx-auto flex max-w-5xl flex-col px-4 py-2 text-sm text-ink-soft">
       {
-        links.map((link) => (
-          <li>
-            <a
-              href={link.href}
-              data-download-cta={link.download ? '' : undefined}
-              data-soon-label={link.download ? t.download.soon : undefined}
-              data-guide-href={link.download ? guideHref : undefined}
-              data-new-tab-label={link.download ? t.download.newTab : undefined}
-              class="flex items-center gap-2 rounded-lg px-2 py-3 transition hover:bg-surface hover:text-ink-strong"
-            >
-              {link.label}
-            </a>
-          </li>
-        ))
+        entries.map((entry) =>
+          isHeaderGroup(entry) ? (
+            <li class="mb-2 border-b border-border/60 pb-2">
+              <p class="px-2 pt-3 pb-1 font-mono text-xs font-semibold uppercase tracking-label text-ink-faint">
+                {entry.label}
+              </p>
+              <ul>
+                {entry.links.map((link) => (
+                  <li>
+                    <a
+                      href={link.href}
+                      class="flex items-center gap-2 rounded-lg px-2 py-3 transition hover:bg-surface hover:text-ink-strong"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ) : (
+            <li>
+              <a
+                href={entry.href}
+                data-download-cta={entry.download ? '' : undefined}
+                data-soon-label={entry.download ? t.download.soon : undefined}
+                data-guide-href={entry.download ? guideHref : undefined}
+                data-new-tab-label={entry.download ? t.download.newTab : undefined}
+                class="flex items-center gap-2 rounded-lg px-2 py-3 transition hover:bg-surface hover:text-ink-strong"
+              >
+                {entry.label}
+              </a>
+            </li>
+          ),
+        )
       }
     </ul>
   </nav>
@@ -94,6 +152,19 @@ const links = headerLinks(lang);
   // that need it. SSR left the GitHub fallback href in place for unrecognised
   // browsers / no JS. The footer's install link runs the same wiring.
   wireDownloadCta();
+
+  // The desktop group is a `<details>`, so opening and closing it is the
+  // browser's. These are the two behaviours a disclosure has no opinion about
+  // and a nav menu needs: Escape, and a click that landed somewhere else.
+  const groups = [...document.querySelectorAll<HTMLDetailsElement>('[data-nav-group]')];
+  const closeGroups = (except?: EventTarget | null): void => {
+    for (const group of groups) {
+      if (!group.contains(except as Node | null)) group.open = false;
+    }
+  };
+  document.addEventListener('click', (event) => {
+    closeGroups(event.target);
+  });
 
   // Hamburger toggle for the mobile menu.
   const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
@@ -117,10 +188,16 @@ const links = headerLinks(lang);
       if ((event.target as HTMLElement).closest('a')) setOpen(false);
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        closeGroups();
+      }
     });
     document.addEventListener('click', (event) => {
-      if (!(event.target as HTMLElement).closest('header') && toggle.getAttribute('aria-expanded') === 'true') {
+      if (
+        !(event.target as HTMLElement).closest('header') &&
+        toggle.getAttribute('aria-expanded') === 'true'
+      ) {
         setOpen(false);
       }
     });

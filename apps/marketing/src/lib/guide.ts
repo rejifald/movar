@@ -189,6 +189,53 @@ export function formatUpdated(date: Date): string {
 export const guideStrings = {
   navLabel: 'Інструкція',
   /**
+   * The homepage band that opens this guide — Ukrainian-only, like everything
+   * else here, so it renders on `/uk` and has no English counterpart.
+   *
+   * ## Why the homepage carries it at all
+   *
+   * The guide was reachable from one footer column and from blog posts. A nav
+   * slot fixes the address problem and nothing else: «Інструкція» is a word,
+   * and a word does not tell a reader that the thing behind it is about *them*.
+   * The band does, because the verdict it renders is read off this visitor's
+   * own browser.
+   *
+   * ## Why it never hides itself
+   *
+   * `GuideChecker` on the hub ships `hidden` and reveals itself, because the
+   * page underneath it is the whole guide. Here there is nothing underneath —
+   * this band is the homepage's only route into the guide — so it renders
+   * complete and the verdict is the part that appears. A no-JS visitor gets the
+   * claim and the link, which is the whole job minus the flourish.
+   *
+   * ## Why the verdict borrows the checker's words
+   *
+   * The count strings come from `diagnosisStrings.count`, not from copies here.
+   * Two surfaces reading the same browser must not describe it in two
+   * vocabularies, and the reader meets them minutes apart.
+   */
+  teaser: {
+    /* `diagnosisStrings.heading` says this on the hub, about the same three
+       facts. Repeated as a literal rather than imported because this is the
+       eyebrow of a homepage band, and tying a marketing heading to a widget's
+       label would make either one unmovable. */
+    eyebrow: 'Що бачать сайти',
+    heading: 'Перш ніж віддати сторінку, сайт читає ваш список мов',
+    /* The second sentence is the load-bearing one, and the first draft of it
+       («Мовар працює з тим, що сайт уже віддав») was false: the extension ships
+       a declarativeNetRequest rule that sends its own `Accept-Language`, which
+       `guideStrings.cta` already states in these words. What Movar does NOT do
+       is write the system's language, a Google account's settings, or a
+       service's own list — which is the whole subject of this guide, and the
+       honest reason a reader should open it. */
+    body: 'Мовар передає вашу мову сайтам. Але сам список живе в системі, у браузері та в акаунтах — там його змінюєте тільки ви.',
+    /** Sits under the verdict, naming what the reader is about to open. */
+    linkLabel: 'Відкрити інструкцію',
+    /** Screen-reader name for the verdict region, which is otherwise a bare
+     *  count chip and reads as a stray number out of context. */
+    verdictLabel: 'Стан вашого списку мов',
+  },
+  /**
    * The mono line beside every install button in this section — the diagnosis
    * strip, the checklist's twenty-first row, and each page's callout.
    *

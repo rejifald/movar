@@ -64,13 +64,17 @@ test.describe('blog — Ukrainian-only routing', () => {
     await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(0);
   });
 
+  /* The back-link is looked up under `main`: the header's «Для мови» menu links
+     the blog index from every page, and it is the first such anchor in the
+     document — inside a closed `<details>`, so it is not clickable. The claim
+     here is that the POST links back, so the post's own body is the scope. */
   test('index links to the post, and the post links back', async ({ page }) => {
     await page.goto(INDEX, { waitUntil: 'domcontentloaded' });
     await page.locator(`a[href="${POST}"]`).first().click();
     await page.waitForURL(/\/uk\/blog\/tykha-kapitulyatsiya/);
 
     await expect(page.locator('h1')).toContainText('Тиха капітуляція');
-    await page.locator(`a[href="${INDEX}"]`).first().click();
+    await page.locator(`main a[href="${INDEX}"]`).first().click();
     await page.waitForURL(/\/uk\/blog\/?$/);
   });
 });

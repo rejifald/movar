@@ -133,9 +133,14 @@ test.describe('guide — hub', () => {
     await expect(page.locator('h1')).toContainText('Мовна гігієна');
   });
 
+  /* Scoped to `main`, because the header's «Для мови» menu also links the hub
+     on every page — and it is the FIRST such anchor in the document, sitting
+     inside a closed `<details>` where a click cannot reach it. The claim under
+     test is about the guide page's own back-link, so the page is where it is
+     asserted. */
   test('a page links back to the hub', async ({ page }) => {
     await page.goto(PAGE, { waitUntil: 'domcontentloaded' });
-    await page.locator(`a[href="${INDEX}"]`).first().click();
+    await page.locator(`main a[href="${INDEX}"]`).first().click();
     await page.waitForURL(/\/uk\/guide\/?$/);
   });
 

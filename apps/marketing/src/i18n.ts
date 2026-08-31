@@ -289,10 +289,10 @@ interface ContributeItem {
 interface ContributeStrings {
   sectionTitle: string;
   sectionLead: string;
-  /** Exactly five, in decreasing order of how much they help. The tuple
-   *  length is fixed because Contribute.astro pairs each with an icon by
-   *  position — a sixth item would render with no mark. */
-  items: readonly [ContributeItem, ContributeItem, ContributeItem, ContributeItem, ContributeItem];
+  /** Exactly four, in decreasing order of how much they help. The tuple
+   *  length is fixed because Contribute.astro pairs each with an icon and a
+   *  destination by position — a fifth item would render with neither. */
+  items: readonly [ContributeItem, ContributeItem, ContributeItem, ContributeItem];
 }
 
 interface FooterStrings {
@@ -1143,10 +1143,6 @@ const en: Strings = {
       {
         title: 'Bug reports',
         body: "A site where Movar missed, or fired where it shouldn't have. Each one becomes a test.",
-      },
-      {
-        title: 'Design',
-        body: "Icons, illustrations, store-page assets. This is what's in shortest supply.",
       },
       {
         title: 'A star on GitHub',
@@ -2071,10 +2067,6 @@ const uk: Strings = {
       {
         title: 'Баг-репорти',
         body: 'Сайт, де Мовар не спрацював — або спрацював там, де не мав. Кожен такий випадок стає тестом.',
-      },
-      {
-        title: 'Дизайн',
-        body: 'Іконки, ілюстрації, матеріали для сторінок у магазинах. Цього бракує найбільше.',
       },
       {
         title: 'Зірочка на GitHub',

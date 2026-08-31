@@ -63,14 +63,14 @@ const chips = [
       {t.sectionLead}
     </p>
 
-    {/* Every claim is a short phrase now, so the icons centre cleanly against
-       their single line — the wrapping sentence that forced `items-start` is
-       gone, and the "how do I know it stays true" question it compressed is
-       answered properly by the safeguards link below. */}
-    <ul class="mt-6 flex max-w-2xl flex-col gap-3 border-t border-accent-soft pt-6">
+    {/* A row, not a column: the four claims measure ~590px together, so they
+       sit on one line inside this block's `max-w-2xl` and fall to two around
+       phone width. `whitespace-nowrap` makes each claim wrap as a unit, so a
+       break never lands inside «Не сповільнює сторінки». */}
+    <ul class="mt-6 flex max-w-2xl flex-wrap gap-x-6 gap-y-3 border-t border-accent-soft pt-6">
       {
         chips.map(({ Icon, label }) => (
-          <li class="flex items-center gap-2.5 text-sm text-ink-soft">
+          <li class="flex items-center gap-2.5 whitespace-nowrap text-sm text-ink-soft">
             <Icon class="size-4 shrink-0 text-accent-text" aria-hidden="true" />
             {label}
           </li>

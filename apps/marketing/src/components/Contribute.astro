@@ -9,14 +9,16 @@
  * has read the privacy section they have already decided about installing,
  * so this is the right moment to ask for the things that aren't installing.
  *
- * The items carry no links. Every route they name is already a control in
- * the footer directly below — Discord and email as buttons, "Вихідний код"
- * in the link columns — so linking each item would be a second copy of the
- * same four destinations two rows apart.
+ * Each item links to where the action happens. "Розкажіть знайомим" is the
+ * exception and stays plain text — telling someone happens off the page, and
+ * there is nothing to point at. The store review goes to /install rather than
+ * to one marketplace: the listing to review on is whichever the visitor
+ * installed from, and that page is the only surface naming all of them.
  */
-import { Star, Megaphone, Bug, Palette, Github } from 'lucide-astro';
+import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
+import { Star, Megaphone, Bug, Github } from 'lucide-astro';
 
-import { strings, type Locale } from '../i18n';
+import { localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -25,9 +27,15 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].contribute;
 
-// One icon per way to help, paired by position with `t.items` — the list is a
-// fixed five-tuple in i18n.ts, so the pairing can't drift out of alignment.
-const icons = [Star, Megaphone, Bug, Palette, Github];
+// One icon and one destination per way to help, paired by position with
+// `t.items` — a fixed four-tuple in i18n.ts, so neither can drift out of
+// alignment. `href: null` renders the title as plain text.
+const actions = [
+  { Icon: Star, href: localeInstallHref(lang), external: false },
+  { Icon: Megaphone, href: null, external: false },
+  { Icon: Bug, href: FEEDBACK_URL, external: false },
+  { Icon: Github, href: SOURCE_URL, external: true },
+];
 ---
 
 <section id="contribute" class="border-t border-border bg-bg px-6 py-20">
@@ -39,22 +47,33 @@ const icons = [Star, Megaphone, Bug, Palette, Github];
     </h2>
     <p class="mt-5 max-w-2xl leading-relaxed text-ink-soft">{t.sectionLead}</p>
 
-    {/*
-     * Five items in a two-column grid, so the fifth spans both rather than
-     * sitting alone in a half-width cell — the same closer Coverage.astro
-     * uses for its third card.
-     */}
+    {/* Four items, two per row — an even grid at every step. */}
     <ul class="mt-10 grid gap-x-8 gap-y-7 sm:grid-cols-2">
       {
         t.items.map((item, i) => {
-          const Icon = icons[i] ?? Star;
+          const action = actions[i];
+          const Icon = action?.Icon ?? Star;
           return (
-            <li class:list={['flex gap-3.5', i === 4 ? 'sm:col-span-2' : '']}>
+            <li class="flex gap-3.5">
               <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-accent-soft bg-accent-surface text-accent-text">
                 <Icon class="size-4" aria-hidden="true" />
               </span>
               <div class="min-w-0">
-                <p class="text-[15px] font-bold tracking-tight text-ink-strong">{item.title}</p>
+                <p class="text-[15px] font-bold tracking-tight text-ink-strong">
+                  {action?.href ? (
+                    <a
+                      href={action.href}
+                      target={action.external ? '_blank' : undefined}
+                      rel={action.external ? 'noopener noreferrer' : undefined}
+                      class="inline-flex items-center gap-1 text-accent-text hover:underline"
+                    >
+                      {item.title}
+                      <span aria-hidden="true">→</span>
+                    </a>
+                  ) : (
+                    item.title
+                  )}
+                </p>
                 <p class="mt-1.5 text-sm leading-relaxed text-ink-soft">{item.body}</p>
               </div>
             </li>

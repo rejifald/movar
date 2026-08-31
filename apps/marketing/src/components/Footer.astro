@@ -1,8 +1,5 @@
 ---
-import { DISCORD_URL, FEEDBACK_URL } from '@movar/brand';
-import { Mail } from 'lucide-astro';
-
-import { discordIconPath, socialLinks } from '../lib/social-links';
+import { socialLinks } from '../lib/social-links';
 import { footerColumns } from '../lib/footer-links';
 import { localeInstallHref, strings, type Locale } from '../i18n';
 
@@ -19,14 +16,14 @@ const downloadCopy = strings[lang].download;
 const guideHref = localeInstallHref(lang);
 
 /*
- * Four columns, not five: `contact` is dropped from the grid here rather
+ * Five columns: `contact` is one of them rather
  * than in the shared helper, because its two destinations (email, Discord)
  * now surface as the invitation row's buttons above instead of a column of
  * their own. Filtering here — instead of editing footerColumns — leaves the
  * Storybook mock (which reads the same helper) free to still show five until
  * it's updated on its own schedule.
  */
-const columns = footerColumns(lang).filter((column) => column.id !== 'contact');
+const columns = footerColumns(lang);
 
 /*
  * Tap target and hover box are the same on every footer link; only the install
@@ -45,53 +42,12 @@ const columns = footerColumns(lang).filter((column) => column.id !== 'contact');
  */
 const linkClass = '-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p-0';
 
-/*
- * Quiet, neutral outline for the invitation row's two buttons — deliberately
- * not `border-accent`/`bg-accent`. The install CTA higher on the page is the
- * only button this site asks to compete for attention; these ask something
- * much smaller (report a site, say hi), so they read as secondary.
- *
- * `min-h-11` guarantees a 44px tap target regardless of label length or line
- * height, the same fixed-height convention GuideChecklist.astro uses for its
- * own pill buttons.
- */
-const inviteButtonClass =
-  'inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-ink-strong shadow-sm transition hover:border-border-strong';
 ---
 
 <footer class="mt-auto border-t border-border bg-surface px-6 py-10 text-sm text-ink-soft">
   <div class="mx-auto flex max-w-5xl flex-col gap-10">
     {/*
-     * 1. Contact row — Discord for a public report anyone can confirm, email
-     * for a private one. This is why the `contact` column is dropped from
-     * the grid below: these two buttons are it.
-     *
-     * The sentence that used to introduce them ("found a site where Movar
-     * didn't work?") moved into the Contribute section above, which makes
-     * the same ask with the context for why it helps.
-     */}
-    <div class="border-b border-border pb-8">
-      <div class="flex flex-wrap gap-2.5">
-        <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" class={inviteButtonClass}>
-          <svg
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-            class="size-4 shrink-0 text-ink-soft"
-          >
-            <path d={discordIconPath} />
-          </svg>
-          {t.discord}
-        </a>
-        <a href={FEEDBACK_URL} class={inviteButtonClass}>
-          <Mail class="size-4 shrink-0 text-ink-soft" aria-hidden="true" />
-          {t.email}
-        </a>
-      </div>
-    </div>
-
-    {/*
-     * 2. Four link columns. Two-up through tablet (measured at 768px: two
+     * Link columns. Two-up through tablet (measured at 768px: two
      * 344px tracks, room to spare for the longest label, "Як працює
      * Мовар"), one row of four from `lg:` up.
      */}

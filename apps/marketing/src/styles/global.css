@@ -149,6 +149,28 @@ body {
   pointer-events: none;
 }
 
+/*
+ * The "How it works" band's two inset surfaces.
+ *
+ * The band is permanently dark in both themes — it renders a facsimile of a
+ * browser doing the wrong thing, and that scene reads the same whichever
+ * theme the reader is in — so it deliberately opts out of the semantic
+ * `--surface-*` tokens, which flip. That opt-out is the reason the contrast
+ * spec calls this component out by name; it is also why the two fills below
+ * were hex literals repeated at seven call sites, where nothing said what
+ * either one was for or that the two greens had to stay in step.
+ *
+ * Each is the fill that pairs with a border already on the brand scale: the
+ * forest surface always sits inside `border-forest-900`, the stone one inside
+ * `border-stone-700/800`. Both are darker than any step of those scales — the
+ * band needs an inset that recedes from `bg-stone-900`, and `stone-950` is
+ * already spoken for by the section ground.
+ */
+:root {
+  --band-forest-surface: #122a1d; /* forest inset — pairs with border-forest-900 */
+  --band-stone-surface: #16130f; /* stone inset — pairs with border-stone-700/800 */
+}
+
 /* Soft drifting accent blobs — the "aurora". Heavily blurred + low opacity so
  * they read as ambient colour bleeding in from the top corners, not shapes. */
 .hero-backdrop__aurora {

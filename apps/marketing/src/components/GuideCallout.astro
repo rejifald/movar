@@ -51,11 +51,11 @@ const { movar } = Astro.props;
     <img src="/icon.svg" alt="" width="28" height="28" class="mt-0.5 shrink-0 rounded-md" />
     <div class="min-w-0">
       <p class="font-display text-lg font-bold tracking-display text-ink-strong">{movar.claim}</p>
-      <p class="mt-2 max-w-[62ch] text-[15px] leading-relaxed text-ink-soft">{movar.body}</p>
+      <p class="mt-2 max-w-[62ch] text-ui-lg leading-relaxed text-ink-soft">{movar.body}</p>
 
       <div class="mt-4 flex flex-wrap items-center gap-4">
         <DownloadButtons lang="uk" align="start" anchor={false} />
-        <p class="font-mono text-[11px] tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
+        <p class="font-mono text-ui-2xs tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
       </div>
     </div>
   </div>

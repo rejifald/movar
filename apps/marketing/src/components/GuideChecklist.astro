@@ -140,7 +140,7 @@ const parts = (label: string): { text: string; code: boolean }[] =>
                         <span>{label}</span>
                         <span
                           data-checklist-auto-label
-                          class="font-mono text-[11px] uppercase tracking-label text-ink-faint"
+                          class="font-mono text-ui-2xs uppercase tracking-label text-ink-faint"
                         >
                           {t.autoUnknown}
                         </span>
@@ -198,18 +198,18 @@ const parts = (label: string): { text: string; code: boolean }[] =>
         <Lock size={11} />
       </span>
       <div>
-        <p class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent-text">
+        <p class="font-mono text-ui-micro font-semibold uppercase tracking-label text-accent-text">
           {t.beyond.label}
         </p>
         <h3 class="mt-2 font-display text-xl font-extrabold tracking-display text-ink-strong">
           {guideStrings.cta.heading}
         </h3>
-        <p class="mt-2.5 max-w-[62ch] text-[15px] leading-relaxed text-ink">
+        <p class="mt-2.5 max-w-[62ch] text-ui-lg leading-relaxed text-ink">
           {guideStrings.cta.body}
         </p>
         <div class="mt-5 flex flex-wrap items-center gap-4">
           <DownloadButtons lang="uk" align="start" anchor={false} />
-          <p class="font-mono text-[11px] tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
+          <p class="font-mono text-ui-2xs tracking-wide text-ink-faint">{guideStrings.installMeta}</p>
         </div>
       </div>
     </div>

@@ -83,7 +83,7 @@ function CtaButton({
       <BrowserGlyph browser={browser} />
       <span>{resolveLabel(t, browser)}</span>
       {soon && (
-        <span className="text-accent-on rounded-md bg-black/25 px-2 py-1 text-[11px] font-medium tracking-wide uppercase">
+        <span className="text-accent-on text-ui-2xs rounded-md bg-black/25 px-2 py-1 font-medium tracking-wide uppercase">
           {t.soon}
         </span>
       )}

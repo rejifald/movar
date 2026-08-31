@@ -95,7 +95,7 @@ function MockSerp({ variant }: Readonly<{ variant: Variant }>): JSX.Element {
   const items = variant === 'without' ? WITHOUT_ITEMS : WITH_ITEMS;
   return (
     <div className="size-full overflow-hidden bg-white p-5 text-left">
-      <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
+      <div className="text-ui-2xs mb-4 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-600">
         <span aria-hidden="true">🔍</span>
         <span>політика</span>
       </div>
@@ -103,10 +103,10 @@ function MockSerp({ variant }: Readonly<{ variant: Variant }>): JSX.Element {
         {items.map((item) => (
           <div key={item.site}>
             <div className="text-[10px] tracking-wide text-zinc-400 uppercase">{item.site}</div>
-            <div className="mt-1 text-[13px] leading-snug font-medium text-blue-700">
+            <div className="text-ui-base mt-1 leading-snug font-medium text-blue-700">
               {item.title}
             </div>
-            <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-zinc-600">
+            <p className="text-ui-2xs mt-1 line-clamp-2 leading-snug text-zinc-600">
               {item.snippet}
             </p>
           </div>

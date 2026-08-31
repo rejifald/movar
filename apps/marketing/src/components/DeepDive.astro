@@ -29,7 +29,7 @@ const isExternal = (href: string): boolean => !href.startsWith('/');
 ---
 
 <article class="mx-auto max-w-3xl">
-  <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
+  <p class="font-display text-xs font-bold uppercase tracking-label text-accent-text">
     {t.hero.eyebrow}
   </p>
   <h1 class="mt-2 font-display text-4xl font-extrabold tracking-display text-ink-strong sm:text-5xl">
@@ -48,7 +48,7 @@ const isExternal = (href: string): boolean => !href.startsWith('/');
       {
         t.sections.map((section, index) => (
           <li>
-            <a href={`#${section.id}`} class="hover:text-accent transition">
+            <a href={`#${section.id}`} class="hover:text-accent-text transition">
               <span class="mr-2 font-mono text-xs tabular-nums text-ink-faint">
                 {String(index + 1).padStart(2, '0')}
               </span>
@@ -81,7 +81,7 @@ const isExternal = (href: string): boolean => !href.startsWith('/');
                     href={point.href}
                     target={isExternal(point.href) ? '_blank' : undefined}
                     rel={isExternal(point.href) ? 'noopener noreferrer' : undefined}
-                    class="font-medium text-accent underline underline-offset-4 transition hover:text-ink-strong"
+                    class="font-medium text-accent-text underline underline-offset-4 transition hover:text-ink-strong"
                   >{point.linkLabel}</a>{point.after}
                 </>
               )}
@@ -102,7 +102,7 @@ const isExternal = (href: string): boolean => !href.startsWith('/');
         <p class="pt-2">
           <a
             href={t.closing.linkHref}
-            class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+            class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
           >
             {t.closing.linkLabel}
             <span aria-hidden="true">→</span>

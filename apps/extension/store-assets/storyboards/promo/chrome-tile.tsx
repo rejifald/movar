@@ -48,7 +48,7 @@ const frameStyle: CSSProperties = {
   height: 280,
   background: BG,
   color: INK,
-  fontFamily: 'Manrope, ui-sans-serif, system-ui, sans-serif',
+  fontFamily: "'Fixel Text', ui-sans-serif, system-ui, sans-serif",
   colorScheme: 'light',
   display: 'flex',
   alignItems: 'center',

@@ -1,8 +1,9 @@
 import type { JSX } from 'react';
 
 /**
- * Shared mock shell for the Problem + Stakes story files. The production
- * `Problem.astro` and `Stakes.astro` components are themselves
+ * Mock shell for the Stakes story file. It was shared with Problem until the
+ * homepage redesign folded that section into the hero and step 1; the production
+ * `Stakes.astro` component is
  * near-identical — same Tailwind shell, different i18n slice and
  * section id — and the React story mocks mirrored that duplication
  * before being extracted here. Underscored filename + non-`.stories.tsx`
@@ -28,7 +29,7 @@ export function FactsSectionMock({
   return (
     <section id={sectionId} className="border-border bg-bg border-t px-6 py-20">
       <div className="mx-auto max-w-3xl">
-        <p className="font-display text-accent tracking-label text-xs font-bold uppercase">
+        <p className="font-display text-accent-text tracking-label text-xs font-bold uppercase">
           {t.sectionTitle}
         </p>
         <h2 className="font-display text-ink-strong tracking-display mt-3 text-3xl font-extrabold sm:text-4xl">

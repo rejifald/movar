@@ -19,7 +19,7 @@
 
 /*
  * This panel is injected into arbitrary pages and does NOT bundle the brand
- * fonts, so it overrides the shared Manrope/IBM-Plex faces with the system
+ * fonts, so it overrides the shared Fixel/IBM-Plex faces with the system
  * stack. Declared after the import so it wins the `@theme` merge.
  */
 @theme {

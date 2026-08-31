@@ -73,6 +73,14 @@ test.describe('extension options — behavior', () => {
     await setMovarSettings({ priority: ['uk', 'en', 'pl'] });
     const page = await openOptions(movarContext, extensionId);
 
+    // Confirm the seeded three-language state mounted before touching
+    // anything — the sibling tests above and below gate on the same
+    // signal. Without it this test is blind to a lost seed: EVERY
+    // assertion below also holds for a two-language ['uk', 'en'] mount,
+    // so it would click, swap, persist ['en', 'uk'], and only fail at
+    // the very last line with a missing tail rather than a wrong order.
+    await expect(page.getByRole('button', { name: 'Move Polish down' })).toBeDisabled();
+
     // Pre-click: Move-Ukrainian-up is disabled (head); the test of
     // "head item can move down" is exactly this affordance flipping
     // ['uk', 'en', 'pl'] → ['en', 'uk', 'pl'].

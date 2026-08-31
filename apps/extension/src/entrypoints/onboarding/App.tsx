@@ -160,7 +160,11 @@ function ReassuranceCard() {
   const { t } = useI18n();
   return (
     <aside className="border-border flex items-start gap-4 rounded-xl border p-5">
-      <ShieldCheck size={iconSize.lg} aria-hidden="true" className="text-accent mt-1 shrink-0" />
+      <ShieldCheck
+        size={iconSize.lg}
+        aria-hidden="true"
+        className="text-accent-text mt-1 shrink-0"
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <h2 className="text-base font-semibold">{t.onboarding.reassuranceTitle}</h2>
         <p className="text-ink-soft text-sm">{t.onboarding.reassurance}</p>
@@ -168,7 +172,7 @@ function ReassuranceCard() {
           href={SOURCE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent hover:text-ink-strong inline-flex items-center gap-1 self-start text-sm font-semibold transition-colors"
+          className="text-accent-text hover:text-ink-strong inline-flex items-center gap-1 self-start text-sm font-semibold transition-colors"
         >
           <CodeXml size={iconSize.sm} aria-hidden="true" className="shrink-0" />
           {t.sourceCode}
@@ -201,7 +205,7 @@ function StepCard({ step, index, total, flow, browserLabel, permission }: Readon
     <li className="border-border bg-surface-2 flex gap-4 rounded-xl border p-5">
       <span
         aria-hidden="true"
-        className="bg-surface-3 text-accent flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+        className="bg-surface-3 text-accent-text flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
       >
         <Icon className="h-5 w-5" />
       </span>
@@ -233,7 +237,7 @@ function PermissionLine({ permission }: Readonly<{ permission: PermissionStatusH
 
   if (status === 'granted') {
     return (
-      <p className="text-accent inline-flex items-center gap-2 pt-1 text-sm font-medium">
+      <p className="text-accent-text inline-flex items-center gap-2 pt-1 text-sm font-medium">
         <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
         {t.onboarding.permission.granted}
       </p>
@@ -248,7 +252,7 @@ function PermissionLine({ permission }: Readonly<{ permission: PermissionStatusH
         <Button variant="secondary" size="sm" onClick={request} disabled={requesting}>
           {requesting ? t.onboarding.permission.requesting : t.onboarding.permission.button}
         </Button>
-        <button type="button" onClick={recheck} className="text-accent hover:underline">
+        <button type="button" onClick={recheck} className="text-accent-text hover:underline">
           {t.onboarding.permission.recheck}
         </button>
       </div>

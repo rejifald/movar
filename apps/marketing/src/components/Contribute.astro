@@ -1,0 +1,90 @@
+---
+/*
+ * "Like the idea? Join in" — the page's last beat before the footer, carried
+ * over from the DOU article's closing section.
+ *
+ * It sits after Privacy rather than beside the install CTA: Close has one
+ * job, getting people installing, and stacking a second ask against it split
+ * the reader's attention at the page's decision point. By the time someone
+ * has read the privacy section they have already decided about installing,
+ * so this is the right moment to ask for the things that aren't installing.
+ *
+ * Each item links to where the action happens. "Розкажіть знайомим" is the
+ * exception and stays plain text — telling someone happens off the page, and
+ * there is nothing to point at. That exception is why the titles rest in ink
+ * rather than in accent: a green heading beside three black ones reads as a
+ * fifth state rather than as "this one has nowhere to go". The arrow carries
+ * the affordance instead, and the whole title goes accent on hover — the same
+ * link-as-heading treatment as ForUkrainian's directory cards. The store
+ * review goes to /install rather than to one marketplace: the listing to
+ * review on is whichever the visitor installed from, and that page is the
+ * only surface naming all of them.
+ */
+import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
+import { Star, Megaphone, Bug, Github } from 'lucide-astro';
+
+import { localeInstallHref, strings, type Locale } from '../i18n';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].contribute;
+
+// One icon and one destination per way to help, paired by position with
+// `t.items` — a fixed four-tuple in i18n.ts, so neither can drift out of
+// alignment. `href: null` renders the title as plain text.
+const actions = [
+  { Icon: Star, href: localeInstallHref(lang), external: false },
+  { Icon: Megaphone, href: null, external: false },
+  { Icon: Bug, href: FEEDBACK_URL, external: false },
+  { Icon: Github, href: SOURCE_URL, external: true },
+];
+---
+
+<section id="contribute" class="border-t border-border bg-bg px-6 py-20">
+  <div class="mx-auto max-w-5xl">
+    <h2
+      class="font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+    >
+      {t.sectionTitle}
+    </h2>
+    <p class="mt-5 max-w-2xl leading-relaxed text-ink-soft">{t.sectionLead}</p>
+
+    {/* Four items, two per row — an even grid at every step. */}
+    <ul class="mt-10 grid gap-x-8 gap-y-7 sm:grid-cols-2">
+      {
+        t.items.map((item, i) => {
+          const action = actions[i];
+          const Icon = action?.Icon ?? Star;
+          return (
+            <li class="flex gap-3.5">
+              <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-accent-soft bg-accent-surface text-accent-text">
+                <Icon class="size-4" aria-hidden="true" />
+              </span>
+              <div class="min-w-0">
+                <p class="text-ui-lg font-bold tracking-tight text-ink-strong">
+                  {action?.href ? (
+                    <a
+                      href={action.href}
+                      target={action.external ? '_blank' : undefined}
+                      rel={action.external ? 'noopener noreferrer' : undefined}
+                      class="inline-flex items-center gap-1 transition hover:text-accent-text hover:underline"
+                    >
+                      {item.title}
+                      <span class="text-accent-text" aria-hidden="true">→</span>
+                    </a>
+                  ) : (
+                    item.title
+                  )}
+                </p>
+                <p class="mt-1.5 text-sm leading-relaxed text-ink-soft">{item.body}</p>
+              </div>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</section>

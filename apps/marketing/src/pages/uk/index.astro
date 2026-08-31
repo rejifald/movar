@@ -2,27 +2,25 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
 import Hero from '../../components/Hero.astro';
-import Problem from '../../components/Problem.astro';
-import Stakes from '../../components/Stakes.astro';
+import Coverage from '../../components/Coverage.astro';
 import HowItWorks from '../../components/HowItWorks.astro';
-import Examples from '../../components/Examples.astro';
-import Limitations from '../../components/Limitations.astro';
-import Privacy from '../../components/Privacy.astro';
+import Stakes from '../../components/Stakes.astro';
 import Close from '../../components/Close.astro';
+import Privacy from '../../components/Privacy.astro';
+import Contribute from '../../components/Contribute.astro';
 import Footer from '../../components/Footer.astro';
 ---
 
 <BaseLayout lang="uk">
   <Header lang="uk" />
-  <main class="flex-1">
+  <main id="main" tabindex="-1" class="flex-1">
     <Hero lang="uk" />
-    <Problem lang="uk" />
-    <Stakes lang="uk" />
+    <Coverage lang="uk" />
     <HowItWorks lang="uk" />
-    <Privacy lang="uk" />
-    <Examples lang="uk" />
-    <Limitations lang="uk" />
+    <Stakes lang="uk" />
     <Close lang="uk" />
+    <Privacy lang="uk" />
+    <Contribute lang="uk" />
   </main>
   <Footer lang="uk" />
 </BaseLayout>

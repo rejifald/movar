@@ -11,7 +11,7 @@ const t = strings[lang].howMovarWorks;
 
 <BaseLayout lang={lang} title={t.pageTitle} description={t.pageDescription}>
   <Header lang={lang} />
-  <main class="flex-1 px-6 py-16">
+  <main id="main" tabindex="-1" class="flex-1 px-6 py-16">
     <DeepDive t={t} />
   </main>
   <Footer lang={lang} />

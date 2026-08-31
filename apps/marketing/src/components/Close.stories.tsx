@@ -45,7 +45,7 @@ function CloseMock({ lang = 'en' as Locale }): JSX.Element {
           </a>
           <a
             href={FEEDBACK_URL}
-            className="border-accent bg-surface text-accent hover:bg-accent-surface inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-4 text-base font-semibold shadow-sm transition hover:shadow-md"
+            className="border-accent bg-surface text-accent-text hover:bg-accent-surface inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-4 text-base font-semibold shadow-sm transition hover:shadow-md"
           >
             {t.emailLabel}
           </a>

@@ -12,7 +12,7 @@ function PrivacyMock({ lang = 'en' as Locale }): JSX.Element {
     <section id="privacy-callout" className="border-border bg-bg border-t px-6 py-20">
       <div className="mx-auto max-w-3xl">
         <div className="flex items-start gap-4">
-          <ShieldCheck className="text-accent mt-1 size-6 shrink-0" aria-hidden="true" />
+          <ShieldCheck className="text-accent-text mt-1 size-6 shrink-0" aria-hidden="true" />
           <div>
             <h2 className="font-display text-ink-strong text-3xl font-extrabold tracking-tight sm:text-4xl">
               {t.sectionTitle}
@@ -21,14 +21,14 @@ function PrivacyMock({ lang = 'en' as Locale }): JSX.Element {
             <p className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
               <a
                 href={localePrivacyHref(lang)}
-                className="text-accent inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+                className="text-accent-text inline-flex items-center gap-1 text-sm font-semibold hover:underline"
               >
                 {t.linkLabel}
                 <span aria-hidden="true">→</span>
               </a>
               <a
                 href={`${localeTransparencyHref(lang)}#cant-spy`}
-                className="text-accent inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+                className="text-accent-text inline-flex items-center gap-1 text-sm font-semibold hover:underline"
               >
                 {t.safeguardsLabel}
                 <span aria-hidden="true">→</span>

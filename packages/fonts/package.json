@@ -1,0 +1,21 @@
+{
+  "name": "@movar/fonts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    "./*.css": "./*.css",
+    "./files/*": "./files/*"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "eslint": "^9.39.4"
+  }
+}

@@ -24,14 +24,17 @@ const home = localeHomeHref(lang);
 const privacy = localePrivacyHref(lang);
 const guideHref = localeInstallHref(lang);
 
-// The same three links render in the desktop row and the mobile menu — each is
-// an action or off-page destination (no in-page section jumps; the page is a
-// scroll-first narrative). `download` flags the install link, which the script
-// below resolves to a browser-detected store, mirroring the hero CTA.
+// The same three links render in the desktop row and the mobile menu — each
+// is an action or an off-page destination. In-page section jumps were tried
+// here and removed: the page is a scroll-first narrative, and anchors to its
+// own sections earn nothing on the homepage while resolving to a different
+// page everywhere else the header renders. `download` flags the install link,
+// which the script below resolves to a browser-detected store, mirroring the
+// hero CTA.
 const links = [
-  { href: FALLBACK_HREF, label: t.nav.download, download: true },
-  { href: FEEDBACK_URL, label: t.nav.feedback, download: false },
   { href: privacy, label: t.nav.privacy, download: false },
+  { href: FEEDBACK_URL, label: t.nav.feedback, download: false },
+  { href: FALLBACK_HREF, label: t.nav.download, download: true },
 ];
 ---
 
@@ -41,7 +44,7 @@ const links = [
   <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
     <a href={home} class="flex items-center gap-3 font-display font-bold text-ink-strong">
       <img src="/icon.svg" alt="" width="28" height="28" class="rounded-md" />
-      <span class="text-lg tracking-display">movar<span class="text-accent">.fyi</span></span>
+      <span class="text-lg tracking-display">movar<span class="text-accent-text">.fyi</span></span>
     </a>
 
     {/*

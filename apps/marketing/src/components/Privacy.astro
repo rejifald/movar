@@ -1,16 +1,28 @@
 ---
 /*
- * Privacy claim. Echoes the short version on /privacy and links there
- * for the full policy.
+ * Privacy claim. Mint-tinted band sitting directly above the footer — the
+ * last thing a reader sees before the site's fine print, so the claim closes
+ * the page rather than opening a new topic.
  *
- * Sits right after HowItWorks so it amplifies the "runs entirely in
- * your browser — nothing leaves it" line in that section's lead, while
- * the reader is still thinking about mechanism (and the natural
- * "where does my data go?" follow-up that raises).
+ * Restructured from a centered icon+paragraph card into a two-column band: a
+ * heading anchors the left column; a lead paragraph, a wrapping row of claim
+ * chips, and two links fill the right. `border-accent-soft bg-accent-surface`
+ * for the band and `border-accent-soft bg-surface` for the chips both echo
+ * the highlighted-card idiom already used in GuideChecker.astro's language
+ * chips and GuideChecklist.astro's `#BEYOND_ANCHOR` card — same mint, same
+ * "quiet card on a tinted band" construction, just at section scale.
+ *
+ * Below `md:` the heading sits left of a fixed-width column and the lead
+ * fills the rest; above it, both stack full-width. `md:` (not `lg:`) because
+ * this split reads fine already at a 768px tablet — there's no cramped
+ * in-between width the way a narrower fixed column plus icon might have.
+ *
+ * The eyebrow reuses `nav.privacy` — just the word "Privacy"/"Приватність"
+ * — rather than adding a new string for a label that only needs to name the
+ * section.
  */
-import { ShieldCheck } from 'lucide-astro';
+import { ServerOff, UserX, EyeOff, Gauge } from 'lucide-astro';
 
-import FeatureIcon from './FeatureIcon.astro';
 import { strings, type Locale, localePrivacyHref, localeTransparencyHref } from '../i18n';
 
 interface Props {
@@ -19,40 +31,68 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].privacy;
+const eyebrow = strings[lang].nav.privacy;
+
+// Same treatment as the hero's trust checklist: one icon per claim, each
+// mapping to the thing it asserts rather than decorating it. Paired by name,
+// not by index — see `PrivacyChips` in i18n.ts.
+const chips = [
+  { Icon: ServerOff, label: t.chips.servers },
+  { Icon: UserX, label: t.chips.accounts },
+  { Icon: EyeOff, label: t.chips.analytics },
+  { Icon: Gauge, label: t.chips.speed },
+];
 ---
 
-<section id="privacy-callout" class="border-t border-border bg-bg px-6 py-20">
-  <div class="mx-auto max-w-3xl">
-    <div class="flex items-start gap-4">
-      <FeatureIcon class="mt-1">
-        <ShieldCheck class="size-6" />
-      </FeatureIcon>
-      <div>
-        <h2
-          class="font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
-        >
-          {t.sectionTitle}
-        </h2>
-        <p class="mt-4 text-ink-soft leading-relaxed">
-          {t.sectionLead}
-        </p>
-        <p class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2">
-          <a
-            href={localePrivacyHref(lang)}
-            class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
-          >
-            {t.linkLabel}
-            <span aria-hidden="true">→</span>
-          </a>
-          <a
-            href={`${localeTransparencyHref(lang)}#cant-spy`}
-            class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
-          >
-            {t.safeguardsLabel}
-            <span aria-hidden="true">→</span>
-          </a>
-        </p>
-      </div>
-    </div>
+<section id="privacy-callout" class="border-t border-accent-soft bg-accent-surface px-6 py-20">
+  {/* One column: the heading used to sit in a fixed side column, where
+     «Залишається у вашому браузері» broke to three lines. Full width it sets
+     on one, and the reading measure below it is held by `max-w-2xl` rather
+     than by the column. */}
+  <div class="mx-auto max-w-5xl">
+    <p class="font-mono text-xs font-semibold uppercase tracking-label text-accent-text">
+      {eyebrow}
+    </p>
+    <h2
+      class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+    >
+      {t.sectionTitle}
+    </h2>
+
+    <p class="mt-5 max-w-2xl leading-relaxed text-ink-soft">
+      {t.sectionLead}
+    </p>
+
+    {/* A row, not a column: the four claims measure ~590px together, so they
+       sit on one line inside this block's `max-w-2xl` and fall to two around
+       phone width. `whitespace-nowrap` makes each claim wrap as a unit, so a
+       break never lands inside «Не сповільнює сторінки». */}
+    <ul class="mt-6 flex max-w-2xl flex-wrap gap-x-6 gap-y-3 border-t border-accent-soft pt-6">
+      {
+        chips.map(({ Icon, label }) => (
+          <li class="flex items-center gap-2.5 whitespace-nowrap text-sm text-ink-soft">
+            <Icon class="size-4 shrink-0 text-accent-text" aria-hidden="true" />
+            {label}
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <a
+        href={localePrivacyHref(lang)}
+        class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
+      >
+        {t.linkLabel}
+        <span aria-hidden="true">→</span>
+      </a>
+      <a
+        href={`${localeTransparencyHref(lang)}#cant-spy`}
+        class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
+      >
+        {t.safeguardsLabel}
+        <span aria-hidden="true">→</span>
+      </a>
+    </p>
   </div>
 </section>

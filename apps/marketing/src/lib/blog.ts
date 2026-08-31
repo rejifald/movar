@@ -85,7 +85,8 @@ export function formatPostDate(date: Date): string {
 }
 
 export const blogStrings = {
-  /** The section's own name — the footer link and the index's eyebrow. */
+  /** The section's own name — the header link, the footer link, and the
+   *  index's eyebrow. */
   navLabel: 'Блог',
   index: {
     /** Browser tab + OG title for the index. */

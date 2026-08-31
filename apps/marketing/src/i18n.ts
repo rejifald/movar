@@ -233,9 +233,6 @@ interface PrivacyChips {
   accounts: string;
   analytics: string;
   speed: string;
-  /** The build-time promise check — a full sentence, not a two-word claim,
-   *  so it wraps where the other four never do. */
-  verified: string;
 }
 
 interface PrivacyStrings {
@@ -1120,7 +1117,6 @@ const en: Strings = {
       accounts: 'No accounts',
       analytics: 'No analytics',
       speed: "Doesn't slow pages down",
-      verified: 'Every promise checked against the code, every build',
     },
     linkLabel: 'Read the full privacy policy',
     safeguardsLabel: "Why a future version can't change that quietly",
@@ -2027,7 +2023,6 @@ const uk: Strings = {
       accounts: 'Без акаунтів',
       analytics: 'Без аналітики',
       speed: 'Не сповільнює сторінки',
-      verified: 'Кожна обіцянка звіряється з кодом на кожній збірці',
     },
     linkLabel: 'Повна політика приватності',
     safeguardsLabel: 'Чому майбутня версія не змінить цього непомітно',

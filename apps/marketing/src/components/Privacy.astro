@@ -21,7 +21,7 @@
  * — rather than adding a new string for a label that only needs to name the
  * section.
  */
-import { ServerOff, UserX, EyeOff, Gauge, FileCheck2 } from 'lucide-astro';
+import { ServerOff, UserX, EyeOff, Gauge } from 'lucide-astro';
 
 import { strings, type Locale, localePrivacyHref, localeTransparencyHref } from '../i18n';
 
@@ -41,7 +41,6 @@ const chips = [
   { Icon: UserX, label: t.chips.accounts },
   { Icon: EyeOff, label: t.chips.analytics },
   { Icon: Gauge, label: t.chips.speed },
-  { Icon: FileCheck2, label: t.chips.verified },
 ];
 ---
 
@@ -64,16 +63,15 @@ const chips = [
       {t.sectionLead}
     </p>
 
-      {/*
-       * `items-start` with the icon nudged down by a half-step, because the
-       * last claim is a full sentence that wraps at narrow widths while the
-       * other four never do — centring would float its icon mid-paragraph.
-       */}
+    {/* Every claim is a short phrase now, so the icons centre cleanly against
+       their single line — the wrapping sentence that forced `items-start` is
+       gone, and the "how do I know it stays true" question it compressed is
+       answered properly by the safeguards link below. */}
     <ul class="mt-6 flex max-w-2xl flex-col gap-3 border-t border-accent-soft pt-6">
       {
         chips.map(({ Icon, label }) => (
-          <li class="flex items-start gap-2.5 text-sm text-ink-soft">
-            <Icon class="mt-0.5 size-4 shrink-0 text-accent-text" aria-hidden="true" />
+          <li class="flex items-center gap-2.5 text-sm text-ink-soft">
+            <Icon class="size-4 shrink-0 text-accent-text" aria-hidden="true" />
             {label}
           </li>
         ))

@@ -126,7 +126,7 @@ interface StakesStrings {
   sectionTitle: string;
   /** Punch sentence covering the scale of the harm. */
   sectionLead: string;
-  facts: StakesFact[]; // exactly 4
+  facts: StakesFact[]; // exactly 2
   /** Transition line at the bottom, hands off to HowItWorks. */
   closeLine: string;
   diagram: StakesDiagramCopy;
@@ -933,16 +933,8 @@ const en: Strings = {
     sectionLead: 'On their own these are small things. Together they are the Ukrainian internet.',
     facts: [
       {
-        heading: "Steam's survey: Russian third, Ukrainian fifteenth.",
-        body: 'Steam publishes which language people launch the client in: in July 2026, Russian at 9.3% and third place, Ukrainian at 0.7% and fifteenth. Publishers read that table when they decide which localisations to commission. A Ukrainian running a Russian client lands in that 9.3%.',
-      },
-      {
         heading: 'What never surfaces never gets made.',
         body: 'Ukrainian shops, creators, and newsrooms get fewer readers — not because their work is worse, but because readers never see it. Less audience this year means less Ukrainian content next year.',
-      },
-      {
-        heading: 'The Ukrainian version exists, as an afterthought.',
-        body: 'Ukrainian often gets made to tick a box and maintained on whatever is left over. Buttons, form errors, tooltips, and third-party widgets stay Russian — they simply live in a different file. And the translation itself is often machine-made and unread.',
       },
       {
         heading: 'AI reads this skewed web back to everyone.',
@@ -1855,16 +1847,8 @@ const uk: Strings = {
     sectionLead: 'Поодинці це дрібниці. Разом вони формують український інтернет.',
     facts: [
       {
-        heading: 'Опитування Steam: російська третя, українська пʼятнадцята.',
-        body: 'Steam публікує, якою мовою люди запускають клієнт: у липні 2026-го російська — 9,3% і третє місце, українська — 0,7% і пʼятнадцяте. Саме цю таблицю читають видавці, коли вирішують, які локалізації замовляти. Українець із російським клієнтом потрапляє в ті 9,3%.',
-      },
-      {
         heading: 'Менше бачать — менше створюють.',
         body: 'Українські магазини, автори й редакції отримують менше читачів — не тому, що гірші, а тому, що їх просто не бачать. Менше аудиторії цього року — менше українського контенту наступного.',
-      },
-      {
-        heading: 'Українська версія є — але на правах додаткової.',
-        body: 'Українську часто роблять для галочки й підтримують за залишковим принципом. Кнопки, помилки у формі, підказки та сторонні віджети лишаються російськими — вони просто в іншому файлі. А сам переклад буває машинний і невичитаний: там, де «электропитание» стає «електрохарчуванням».',
       },
       {
         heading: 'ШІ переказує цей перекошений інтернет усім.',

@@ -35,6 +35,9 @@ const t = strings[lang].stakes;
 
 const diagram = t.diagram;
 
+/** Columns the thesis grid runs at `md:` and up — see `md:grid-cols-2`. */
+const COLS = 2;
+
 // "Why this keeps happening" closes this section rather than the final CTA
 // row: the four theses raise the question, and the deep dive is the answer.
 // Label and destination are the retired Problem section's, unchanged.
@@ -334,14 +337,21 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
     <div class="mt-14 grid grid-cols-1 md:grid-cols-2">
       {
         t.facts.map((fact, i) => {
-          const isLeftCol = i % 2 === 0;
-          const isTopRow = i < 2;
+          /* Derived from the list length rather than assuming four. The rules
+             do double duty: stacked, `border-b` separates consecutive items;
+             two-up, it becomes the divider between rows, so the last row drops
+             it. A single row (two facts) therefore has no horizontal rule at
+             all, only the vertical one between the columns. */
+          const isLeftCol = i % COLS === 0;
+          const isFirstRow = i < COLS;
+          const isLastRow = i >= t.facts.length - (t.facts.length % COLS || COLS);
           return (
             <div
               class:list={[
                 'py-8 md:py-0',
-                i < 3 ? 'border-b border-border' : '',
-                isTopRow ? 'md:pb-9' : 'md:border-b-0 md:pt-9',
+                i < t.facts.length - 1 ? 'border-b border-border' : '',
+                isLastRow ? 'md:border-b-0' : 'md:pb-9',
+                isFirstRow ? '' : 'md:pt-9',
                 isLeftCol ? 'md:border-r md:border-border md:pr-11' : 'md:pl-11',
               ]}
             >

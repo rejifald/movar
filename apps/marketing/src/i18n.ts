@@ -28,11 +28,6 @@ interface NavStrings {
   download: string;
   feedback: string;
   privacy: string;
-  /** In-page jumps to the two sections that answer "what does it do". Built
-   *  as home-href + hash so they still resolve from /privacy, /blog and the
-   *  deep dives, where those sections don't exist. */
-  coverage: string;
-  howItWorks: string;
   /** Accessible label for the mobile hamburger toggle. */
   menu: string;
 }
@@ -876,8 +871,6 @@ const en: Strings = {
     download: 'Install',
     feedback: 'Contact',
     privacy: 'Privacy',
-    coverage: 'Where it works',
-    howItWorks: 'How it works',
     menu: 'Menu',
   },
   hero: {
@@ -906,7 +899,7 @@ const en: Strings = {
     },
     perElement: {
       title: 'Element by element',
-      body: 'Movar reads the structure of the page and hides individual elements — results in the wrong language, videos, posts.',
+      body: 'Movar reads the structure of the page and hides individual elements — results in the wrong language, videos, posts. For now it knows the Google and YouTube result pages; each new structure is its own rule.',
       sites: ['Google', 'YouTube'],
     },
   },
@@ -1805,8 +1798,6 @@ const uk: Strings = {
     download: 'Встановити',
     feedback: 'Звʼязатися',
     privacy: 'Приватність',
-    coverage: 'Де працює',
-    howItWorks: 'Як це працює',
     menu: 'Меню',
   },
   hero: {
@@ -1835,7 +1826,7 @@ const uk: Strings = {
     },
     perElement: {
       title: 'Поелементно',
-      body: 'Мовар розбирає структуру сторінки й ховає окремі елементи: результати не тією мовою, відео, дописи.',
+      body: 'Мовар розбирає структуру сторінки й ховає окремі елементи: результати не тією мовою, відео, дописи. Поки що він знає структуру видачі Google і YouTube — кожна нова це окреме правило.',
       sites: ['Google', 'YouTube'],
     },
   },

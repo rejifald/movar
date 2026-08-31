@@ -24,21 +24,17 @@ const home = localeHomeHref(lang);
 const privacy = localePrivacyHref(lang);
 const guideHref = localeInstallHref(lang);
 
-// The same links render in the desktop row and the mobile menu. `download`
-// flags the install link, which the script below resolves to a browser-detected
-// store, mirroring the hero CTA.
-//
-// The first two are in-page jumps to the homepage's own sections, written as
-// home-href + hash so they still resolve from /privacy, /blog and the deep
-// dives, where those sections don't exist. They are `section: true` and hide
-// below md: five Ukrainian labels overflow the row at sm, and the hamburger
-// menu already lists all of them.
+// The same three links render in the desktop row and the mobile menu — each
+// is an action or an off-page destination. In-page section jumps were tried
+// here and removed: the page is a scroll-first narrative, and anchors to its
+// own sections earn nothing on the homepage while resolving to a different
+// page everywhere else the header renders. `download` flags the install link,
+// which the script below resolves to a browser-detected store, mirroring the
+// hero CTA.
 const links = [
-  { href: `${home}#coverage`, label: t.nav.coverage, download: false, section: true },
-  { href: `${home}#how-it-works`, label: t.nav.howItWorks, download: false, section: true },
-  { href: privacy, label: t.nav.privacy, download: false, section: false },
-  { href: FEEDBACK_URL, label: t.nav.feedback, download: false, section: false },
-  { href: FALLBACK_HREF, label: t.nav.download, download: true, section: false },
+  { href: privacy, label: t.nav.privacy, download: false },
+  { href: FEEDBACK_URL, label: t.nav.feedback, download: false },
+  { href: FALLBACK_HREF, label: t.nav.download, download: true },
 ];
 ---
 
@@ -52,9 +48,8 @@ const links = [
     </a>
 
     {/*
-     * Desktop: links inline. The Ukrainian labels are too wide for a phone
-     * row, so below sm: they all collapse into the hamburger menu; the two
-     * section jumps stay hidden until md for the same reason.
+     * Desktop: links inline. The three Ukrainian labels are too wide for a
+     * phone row, so below sm: they collapse into the hamburger menu.
      */}
     <nav class="hidden items-center gap-x-5 text-sm text-ink-soft sm:flex">
       {
@@ -65,10 +60,7 @@ const links = [
             data-soon-label={link.download ? t.download.soon : undefined}
             data-guide-href={link.download ? guideHref : undefined}
             data-new-tab-label={link.download ? t.download.newTab : undefined}
-            class:list={[
-              'items-center gap-2 transition hover:text-ink-strong',
-              link.section ? 'hidden md:inline-flex' : 'inline-flex',
-            ]}
+            class="inline-flex items-center gap-2 transition hover:text-ink-strong"
           >
             {link.label}
           </a>

@@ -48,6 +48,23 @@ final class ScreenshotTests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+
+        // macOS turns itself dark in the evening, and the committed set is light.
+        // Capturing the other one produces a listing that is half and half — which
+        // is exactly what happened the first time this ran after sunset. There is
+        // no reliable way to pin an app's appearance from the outside:
+        // `-AppleInterfaceStyle` in NSArgumentDomain is ignored here (tried; the app
+        // came up dark regardless), so the honest move is to refuse rather than mix.
+        let wantDark = ProcessInfo.processInfo.environment["MOVAR_SHOT_APPEARANCE"] == "Dark"
+        let systemIsDark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        let want = wantDark ? "dark" : "light"
+        let have = systemIsDark ? "dark" : "light"
+        try XCTSkipIf(
+            systemIsDark != wantDark,
+            "The system is in \(have) mode but this run wants \(want); capturing now would "
+                + "leave the listing with a mixed set. Switch the appearance in System "
+                + "Settings, or set MOVAR_SHOT_APPEARANCE=\(systemIsDark ? "Dark" : "Light").",
+        )
     }
 
     func testCaptureStoreScreenshots() throws {

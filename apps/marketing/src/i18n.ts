@@ -99,12 +99,6 @@ interface StakesFact {
 interface StakesDiagramNode {
   /** Two-line heading set inside the box. */
   heading: readonly [string, string];
-  /** Small line under the heading. Must be a standalone clause saying WHY —
-   *  not the tail of the heading's sentence. Two of these used to complete
-   *  their heading's grammar ("looks like a choice" / "of readers, not the
-   *  site's"), which made the reader parse one sentence across two type
-   *  sizes. Closing the loop is the return path's job, not a detail's. */
-  detail: string;
 }
 
 /** Copy for the closed-loop diagram (Fig. 1): the four box labels, the
@@ -960,13 +954,10 @@ const en: Strings = {
       ariaLabel:
         'Diagram of a closed loop: a site defaults to Russian, analytics reads that as your choice, Ukrainian content shrinks, and the site keeps choosing for you.',
       nodes: [
-        { heading: ['A site defaults', 'to Russian'], detail: 'though you chose Ukrainian' },
-        { heading: ['In analytics, this', 'looks like your choice'], detail: 'no reader chose it' },
-        {
-          heading: ['Less Ukrainian', 'content gets made'],
-          detail: 'because demand looks smaller',
-        },
-        { heading: ['The site keeps', 'choosing for you'], detail: 'on the same data' },
+        { heading: ['A site defaults', 'to Russian'] },
+        { heading: ['In analytics, this', 'looks like your choice'] },
+        { heading: ['Less Ukrainian', 'content gets made'] },
+        { heading: ['The site keeps', 'choosing for you'] },
       ],
       loopLabel: 'and the loop closes',
       caption: 'The choice the site made comes back as proof that readers wanted it.',
@@ -1885,10 +1876,10 @@ const uk: Strings = {
       ariaLabel:
         'Схема замкненого кола: сайт віддає російську, аналітика читає це як ваш вибір, українського контенту стає менше, і сайт продовжує робити вибір за вас',
       nodes: [
-        { heading: ['Сайт віддає', 'російську'], detail: 'хоч ви обрали українську' },
-        { heading: ['В аналітиці це', 'виглядає як ваш вибір'], detail: 'обирав не читач' },
-        { heading: ['Українського', 'контенту менше'], detail: 'бо попит виглядає меншим' },
-        { heading: ['Сайт продовжує', 'робити вибір за вас'], detail: 'на тих самих даних' },
+        { heading: ['Сайт віддає', 'російську'] },
+        { heading: ['В аналітиці це', 'виглядає як ваш вибір'] },
+        { heading: ['Українського', 'контенту менше'] },
+        { heading: ['Сайт продовжує', 'робити вибір за вас'] },
       ],
       loopLabel: 'і коло замикається',
       caption: 'Вибір, який зробив сайт, повертається як доказ, що читачі саме цього й хотіли.',

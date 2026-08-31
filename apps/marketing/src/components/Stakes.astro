@@ -43,14 +43,14 @@ const deepDiveHref = localeWhyThisHappensHref(lang);
 
 /* ---- Wide diagram (md and up) ------------------------------------------ */
 const WIDE_BOX_W = 230;
-const WIDE_BOX_H = 100;
+const WIDE_BOX_H = 84;
 const WIDE_BOX_Y = 24;
 const WIDE_PITCH = 262;
 
 const wideBoxes = diagram.nodes.map((node, i) => ({ node, x: i * WIDE_PITCH }));
 const wideArrows = wideBoxes.slice(0, 3).map(({ x }) => {
   const right = x + WIDE_BOX_W;
-  const midY = WIDE_BOX_Y + 50;
+  const midY = WIDE_BOX_Y + WIDE_BOX_H / 2;
   return {
     line: `M${right + 4} ${midY} L${right + 24} ${midY}`,
     chevron: `M${right + 18} ${midY - 5} L${right + 24} ${midY} L${right + 18} ${midY + 5}`,
@@ -67,7 +67,7 @@ const wideArrowIntoFirst = `M${wideLoopEnd - 6} 146 L${wideLoopEnd} 136 L${wideL
 
 /* ---- Narrow diagram (below md) ------------------------------------------ */
 const NARROW_BOX_W = 230;
-const NARROW_BOX_H = 100;
+const NARROW_BOX_H = 84;
 const NARROW_GAP = 70;
 const NARROW_TOP = 20;
 const NARROW_GUTTER_X = 278;
@@ -165,14 +165,6 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
               </>
             ))}
           </g>
-          <g font-family="var(--font-sans)" font-size="12.5" fill="var(--ink-soft)">
-            {wideBoxes.map(({ x, node }) => (
-              <text x={x + 20} y={WIDE_BOX_Y + 80}>
-                {node.detail}
-              </text>
-            ))}
-          </g>
-
           <g
             stroke="var(--ink-faint)"
             stroke-width="1.4"
@@ -276,14 +268,6 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
               </>
             ))}
           </g>
-          <g font-family="var(--font-sans)" font-size="12.5" fill="var(--ink-soft)">
-            {narrowBoxes.map(({ y, node }) => (
-              <text x="20" y={y + 80}>
-                {node.detail}
-              </text>
-            ))}
-          </g>
-
           <g
             stroke="var(--ink-faint)"
             stroke-width="1.4"

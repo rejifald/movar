@@ -1,14 +1,7 @@
 ---
-import { FEEDBACK_URL } from '@movar/brand';
 import { Menu, X } from 'lucide-astro';
-import { FALLBACK_HREF } from '../lib/downloads';
-import {
-  localeHomeHref,
-  localeInstallHref,
-  localePrivacyHref,
-  strings,
-  type Locale,
-} from '../i18n';
+import { headerLinks } from '../lib/header-links';
+import { localeHomeHref, localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -21,21 +14,8 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang];
 const home = localeHomeHref(lang);
-const privacy = localePrivacyHref(lang);
 const guideHref = localeInstallHref(lang);
-
-// The same three links render in the desktop row and the mobile menu — each
-// is an action or an off-page destination. In-page section jumps were tried
-// here and removed: the page is a scroll-first narrative, and anchors to its
-// own sections earn nothing on the homepage while resolving to a different
-// page everywhere else the header renders. `download` flags the install link,
-// which the script below resolves to a browser-detected store, mirroring the
-// hero CTA.
-const links = [
-  { href: privacy, label: t.nav.privacy, download: false },
-  { href: FEEDBACK_URL, label: t.nav.feedback, download: false },
-  { href: FALLBACK_HREF, label: t.nav.download, download: true },
-];
+const links = headerLinks(lang);
 ---
 
 <header
@@ -48,8 +28,9 @@ const links = [
     </a>
 
     {/*
-     * Desktop: links inline. The three Ukrainian labels are too wide for a
-     * phone row, so below sm: they collapse into the hamburger menu.
+     * Desktop: links inline. Below sm: they collapse into the hamburger
+     * menu — there isn't room for even the shorter (en: 2, uk: 3) label set
+     * on a phone row.
      */}
     <nav class="hidden items-center gap-x-5 text-sm text-ink-soft sm:flex">
       {

@@ -26,7 +26,6 @@ export type Locale = 'en' | 'uk';
 
 interface NavStrings {
   download: string;
-  feedback: string;
   privacy: string;
   /** Accessible label for the mobile hamburger toggle. */
   menu: string;
@@ -872,7 +871,6 @@ const en: Strings = {
   },
   nav: {
     download: 'Install',
-    feedback: 'Contact',
     privacy: 'Privacy',
     menu: 'Menu',
     skipToContent: 'Skip to content',
@@ -1787,7 +1785,6 @@ const uk: Strings = {
   },
   nav: {
     download: 'Встановити',
-    feedback: 'Звʼязатися',
     privacy: 'Приватність',
     menu: 'Меню',
     skipToContent: 'Перейти до вмісту',

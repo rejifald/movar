@@ -937,8 +937,8 @@ const en: Strings = {
         body: 'Ukrainian shops, creators, and newsrooms get fewer readers — not because their work is worse, but because readers never see it. Less audience this year means less Ukrainian content next year.',
       },
       {
-        heading: 'AI reads this skewed web back to everyone.',
-        body: 'Assistants answer in the language of the pages they read — for Cyrillic queries today, mostly Russian. Every site that goes Ukrainian changes what the AI reads next.',
+        heading: 'AI answers in the language of its sources.',
+        body: 'For Cyrillic queries those sources are mostly Russian-language pages — there are simply more of them on the web. Every site that goes Ukrainian changes what the AI reads next time.',
       },
     ],
     closeLine: 'The loop breaks where a page finally opens in your language.',
@@ -1851,8 +1851,8 @@ const uk: Strings = {
         body: 'Українські магазини, автори й редакції отримують менше читачів — не тому, що гірші, а тому, що їх просто не бачать. Менше аудиторії цього року — менше українського контенту наступного.',
       },
       {
-        heading: 'ШІ переказує цей перекошений інтернет усім.',
-        body: 'Асистенти відповідають мовою сторінок, які прочитали, — за кириличними запитами сьогодні це переважно російська. Кожен сайт, що переходить на українську, змінює те, що ШІ читатиме далі.',
+        heading: 'ШІ відповідає мовою своїх джерел.',
+        body: 'За кириличними запитами це переважно російськомовні сторінки — їх у мережі просто більше. Кожен сайт, що переходить на українську, змінює те, що ШІ прочитає наступного разу.',
       },
     ],
     closeLine: 'Коло розривається там, де сторінка нарешті відкривається вашою мовою.',

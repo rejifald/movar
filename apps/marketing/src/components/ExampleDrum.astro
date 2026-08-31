@@ -127,13 +127,10 @@ const slides: Slide[] = [0, 1, 2, 3].map((i) => ({
   images: imagesFor(i),
 }));
 
-const chipBase =
-  'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-ui-xs font-semibold uppercase tracking-label';
-
 // Crop window per breakpoint — shorter at mobile/tablet, where the drum is
 // much narrower and a tall crop would just show more of the page at a
 // smaller, less legible scale rather than the same legible slice.
-const frameBefore = 'mt-3 h-36 overflow-hidden rounded-lg border border-border md:h-40 lg:h-52';
+const frameBefore = 'h-36 overflow-hidden rounded-lg border border-border md:h-40 lg:h-52';
 const frameAfter =
   'h-36 overflow-hidden rounded-lg border border-accent/40 ring-4 ring-accent-surface md:h-40 lg:h-52';
 ---
@@ -190,9 +187,6 @@ const frameAfter =
             data-caption={slide.caption}
             hidden={i !== 0}
           >
-            <span class:list={[chipBase, 'border border-border bg-surface text-ink-soft']}>
-              {t.without}
-            </span>
             {slide.images && (
               <div class={frameBefore}>
                 <picture>
@@ -209,30 +203,13 @@ const frameAfter =
               </div>
             )}
 
-            {/* Names what actually changed between the two panels. The `✓`
-               chip below only marks which panel is which; this says why the
-               second one differs. Mirrors HowItWorks' claim pill. */}
-            <div class="mt-4 flex justify-center">
-              <span
-                class="inline-flex min-w-0 items-center gap-2 rounded-full border border-accent/30 bg-accent-surface py-1 pl-1 pr-3"
-              >
-                <img src="/icon.svg" alt="" width="18" height="18" class="shrink-0 rounded-[5px]" />
-                <span class="min-w-0 text-xs font-semibold text-accent-deep">{t.declared}</span>
-              </span>
-            </div>
-
-            <div class="mb-4 mt-3 flex items-center gap-3">
-              <span class="h-px flex-1 bg-border" />
-              <span
-                class:list={[chipBase, 'border border-accent/30 bg-accent-surface text-accent-deep']}
-              >
-                <span aria-hidden="true" class="text-[1.35em] font-bold leading-none">
-                  ✓
-                </span>
-                {t.withMovar}
-              </span>
-              <span class="h-px flex-1 bg-border" />
-            </div>
+            {/* No labels between the panels. They are stacked before-then-after,
+               which is the order the pair is read in, and the second frame's
+               accent border marks it as the result — naming them would only
+               repeat what the images already show. The caption under the card
+               carries the one thing they can't: what Movar did. Alt text keeps
+               the two distinguishable for anyone not seeing them. */}
+            <div class="my-4 h-px bg-border" />
 
             {slide.images && (
               <div class={frameAfter}>

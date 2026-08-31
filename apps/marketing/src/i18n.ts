@@ -464,21 +464,16 @@ interface ExampleEntry {
 interface ExamplesStrings {
   sectionTitle: string;
   sectionLead: string;
-  without: string;
-  withMovar: string;
   entries: ExampleEntry[];
   /**
-   * One-line summary per slide, shown under the hero's screenshot drum
-   * (ExampleDrum.astro) — same order as `entries`, index 0-3. Falls back to
-   * the matching entry's `scenario` where a locale is missing one.
+   * One line per slide under the hero's drum (ExampleDrum.astro), same order
+   * as `entries`, index 0-3. Says what Movar *did* on this site, in that
+   * site's own canonical verb (docs/copy.md §1.5) — the two screenshots
+   * already show the before and after, so naming them again would only
+   * repeat what the reader can see. Falls back to the entry's `scenario`
+   * where a locale is missing one.
    */
   captions: string[];
-  /**
-   * Label on the pill overlaying the "after" screenshot in the drum. Names
-   * what changed between the two panels — `withMovar` ("After Movar") only
-   * marks which panel is which, not what Movar did.
-   */
-  declared: string;
 }
 
 interface OgStrings {
@@ -1014,8 +1009,6 @@ const en: Strings = {
     sectionTitle: 'Examples',
     sectionLead:
       "The same applies to every country version of Google. And on multilingual sites Movar finds the site's own language switcher and uses it — so it works on a site it has never seen.",
-    without: 'Before Movar',
-    withMovar: 'After Movar',
     entries: [
       {
         site: 'Google',
@@ -1069,12 +1062,11 @@ const en: Strings = {
         },
       },
     ],
-    declared: 'Movar declared your language',
     captions: [
-      'A Cyrillic search for "war news": Russian pages first, Ukrainian after Movar.',
-      'The query "God of War": knowledge panel in English, Ukrainian after Movar.',
-      'A search on YouTube: Russian channels in the results, Ukrainian creators after Movar.',
-      'A product page in a Ukrainian shop: opens in Russian, Ukrainian after Movar.',
+      'Movar added your language to the query.',
+      'Movar asked Google for the card in Ukrainian.',
+      'Movar told YouTube your language and country.',
+      'Movar switched the shop to its Ukrainian version.',
     ],
   },
   beforeAfter: {
@@ -1141,8 +1133,7 @@ const en: Strings = {
     technicalLinkLabel: 'Technical changelog on GitHub',
   },
   footer: {
-    invite:
-      "Found a site where Movar didn't work? Tell us. Movar is non-commercial — bug reports and a store review help most.",
+    invite: "Found a site where Movar didn't work? Tell us.",
     credits: 'Movar community · non-commercial · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
@@ -1921,8 +1912,6 @@ const uk: Strings = {
     sectionTitle: 'Приклади',
     sectionLead:
       'Так само це працює для Google будь-якої країни. А на багатомовних сайтах Мовар знаходить власний перемикач мови сайту й користується ним — тож працює й там, де ніколи не був.',
-    without: 'До Мовара',
-    withMovar: 'Після Мовара',
     entries: [
       {
         site: 'Google',
@@ -1976,12 +1965,11 @@ const uk: Strings = {
         },
       },
     ],
-    declared: 'Мовар заявив вашу мову',
     captions: [
-      'Кириличний запит «новини війни»: спершу російські сторінки, після Мовара — українські.',
-      'Запит «God of War»: картка-довідка англійською, після Мовара — українською.',
-      'Пошук на YouTube: у результатах російські канали, після Мовара — українські автори.',
-      'Товар в українському магазині: відкривається російською, після Мовара — українською.',
+      'Мовар додав до запиту вашу мову.',
+      'Мовар попросив Google показати картку українською.',
+      'Мовар назвав YouTube вашу мову й країну.',
+      'Мовар перемкнув магазин на українську версію.',
     ],
   },
   beforeAfter: {
@@ -2025,7 +2013,7 @@ const uk: Strings = {
       speed: 'Не сповільнює сторінки',
     },
     linkLabel: 'Повна політика приватності',
-    safeguardsLabel: 'Чому майбутня версія не змінить цього непомітно',
+    safeguardsLabel: 'Чому майбутня версія не може змінити цього непомітно',
   },
   close: {
     sectionTitle: 'Мовар розриває це коло. Встановлення за хвилину.',
@@ -2047,8 +2035,7 @@ const uk: Strings = {
     technicalLinkLabel: 'Технічний журнал змін на GitHub',
   },
   footer: {
-    invite:
-      'Знайшли сайт, де Мовар не спрацював? Розкажіть. Мовар некомерційний — повідомлення про помилки та відгук у магазині допомагають найбільше.',
+    invite: 'Знайшли сайт, де Мовар не спрацював? Повідомте нам.',
     credits: 'Спільнота Мовар · некомерційний проєкт · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',

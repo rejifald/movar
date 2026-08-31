@@ -18,19 +18,27 @@ import Footer from '../../components/Footer.astro';
     <Hero lang="uk" />
     <Coverage lang="uk" />
     <HowItWorks lang="uk" />
-    <Stakes lang="uk" />
     {/*
      * Ukrainian-only, because the guide it opens is (see `lib/guide.ts`), so
      * `/` renders one section fewer rather than linking an English reader to
      * twenty pages of Ukrainian prose.
      *
-     * Placed after Stakes and before the install CTA: Stakes is where the
-     * reader is told the problem is real, and this is where they are shown it
-     * in their own browser. `Close.astro` records that a second link *inside*
-     * its row competed with the install button and was moved out — a band of
-     * its own above that row is the version of this that does not.
+     * It sits here, and not in front of `Close`, because of what it argues.
+     * `HowItWorks` has just finished naming Movar's two steps; this names their
+     * boundary — the language list Movar does not set — which continues that
+     * section rather than interrupting the page. Its neighbours are the two
+     * longest blocks here (~1150px and ~950px), so a 350px band reads as a beat
+     * between them.
+     *
+     * Below Stakes it did the opposite. Stakes closes with the deep-dive link
+     * and `Close` opens with the install button, and dropping a third CTA into
+     * that 609px meant three asks in a row with the page's one conversion
+     * moment in the middle of them — the same mistake `Close.astro` records
+     * having already made once, when a second link inside its own row competed
+     * with the install button and had to be moved out.
      */}
     <GuideTeaser />
+    <Stakes lang="uk" />
     <Close lang="uk" />
     <Privacy lang="uk" />
     <Contribute lang="uk" />

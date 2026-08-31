@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3BA11E0B2FCE1FC200E8A5FF /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BA11E0A2FCE1FC200E8A5FF /* ScreenshotTests.swift */; };
 		3B701C552FCE1FC200E8A5FF /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C542FCE1FC200E8A5FF /* AppDelegate.swift */; };
 		3B701C572FCE1FC200E8A5FF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701C562FCE1FC200E8A5FF /* SceneDelegate.swift */; };
 		3B701C5A2FCE1FC200E8A5FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3B701C582FCE1FC200E8A5FF /* LaunchScreen.storyboard */; };
@@ -96,6 +97,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		3BA11E0D2FCE1FC200E8A5FF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3B701C3E2FCE1FC100E8A5FF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3B701C622FCE1FC200E8A5FF;
+			remoteInfo = "Movar (macOS)";
+		};
 		3B701C712FCE1FC200E8A5FF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 3B701C3E2FCE1FC100E8A5FF /* Project object */;
@@ -138,6 +146,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3BA11E022FCE1FC200E8A5FF /* MovarScreenshotsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MovarScreenshotsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3BA11E0A2FCE1FC200E8A5FF /* ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests.swift; sourceTree = "<group>"; };
 		3B701C452FCE1FC100E8A5FF /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
 		3B701C462FCE1FC100E8A5FF /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 		3B701D010000000000000001 /* host-app.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = host-app.js; sourceTree = "<group>"; };
@@ -197,6 +207,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		3BA11E072FCE1FC200E8A5FF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3B701C4E2FCE1FC200E8A5FF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -228,6 +245,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3BA11E082FCE1FC200E8A5FF /* ScreenshotsUITests */ = {
+			isa = PBXGroup;
+			children = (
+				3BA11E0A2FCE1FC200E8A5FF /* ScreenshotTests.swift */,
+			);
+			path = ScreenshotsUITests;
+			sourceTree = "<group>";
+		};
 		3B701C3D2FCE1FC100E8A5FF = {
 			isa = PBXGroup;
 			children = (
@@ -237,6 +262,7 @@
 				3B701C642FCE1FC200E8A5FF /* macOS (App) */,
 				3B701C732FCE1FC200E8A5FF /* iOS (Extension) */,
 				3B701C7D2FCE1FC200E8A5FF /* macOS (Extension) */,
+				3BA11E082FCE1FC200E8A5FF /* ScreenshotsUITests */,
 				3B701C522FCE1FC200E8A5FF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -298,6 +324,7 @@
 				3B701C632FCE1FC200E8A5FF /* Movar.app */,
 				3B701C6F2FCE1FC200E8A5FF /* Movar Extension.appex */,
 				3B701C792FCE1FC200E8A5FF /* Movar Extension.appex */,
+				3BA11E022FCE1FC200E8A5FF /* MovarScreenshotsUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -363,6 +390,25 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		3BA11E012FCE1FC200E8A5FF /* MovarScreenshotsUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3BA11E032FCE1FC200E8A5FF /* Build configuration list for PBXNativeTarget "MovarScreenshotsUITests" */;
+			buildPhases = (
+				3BA11E062FCE1FC200E8A5FF /* Sources */,
+				3BA11E072FCE1FC200E8A5FF /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3BA11E0C2FCE1FC200E8A5FF /* PBXTargetDependency */,
+			);
+			name = MovarScreenshotsUITests;
+			packageProductDependencies = (
+			);
+			productName = MovarScreenshotsUITests;
+			productReference = 3BA11E022FCE1FC200E8A5FF /* MovarScreenshotsUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		3B701C502FCE1FC200E8A5FF /* Movar (iOS) */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3B701C932FCE1FC200E8A5FF /* Build configuration list for PBXNativeTarget "Movar (iOS)" */;
@@ -465,6 +511,10 @@
 					3B701C782FCE1FC200E8A5FF = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					3BA11E012FCE1FC200E8A5FF = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 3B701C622FCE1FC200E8A5FF;
+					};
 				};
 			};
 			buildConfigurationList = 3B701C412FCE1FC100E8A5FF /* Build configuration list for PBXProject "Movar" */;
@@ -484,6 +534,7 @@
 			targets = (
 				3B701C502FCE1FC200E8A5FF /* Movar (iOS) */,
 				3B701C622FCE1FC200E8A5FF /* Movar (macOS) */,
+				3BA11E012FCE1FC200E8A5FF /* MovarScreenshotsUITests */,
 				3B701C6E2FCE1FC200E8A5FF /* Movar Extension (iOS) */,
 				3B701C782FCE1FC200E8A5FF /* Movar Extension (macOS) */,
 			);
@@ -563,6 +614,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		3BA11E062FCE1FC200E8A5FF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3BA11E0B2FCE1FC200E8A5FF /* ScreenshotTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3B701C4D2FCE1FC200E8A5FF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -637,6 +696,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		3BA11E0C2FCE1FC200E8A5FF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3B701C622FCE1FC200E8A5FF /* Movar (macOS) */;
+			targetProxy = 3BA11E0D2FCE1FC200E8A5FF /* PBXContainerItemProxy */;
+		};
 		3B701C722FCE1FC200E8A5FF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3B701C6E2FCE1FC200E8A5FF /* Movar Extension (iOS) */;
@@ -696,6 +760,40 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		3BA11E042FCE1FC200E8A5FF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RQSR4UU3VB;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.ScreenshotsUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "Movar (macOS)";
+			};
+			name = Debug;
+		};
+		3BA11E052FCE1FC200E8A5FF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RQSR4UU3VB;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.movar.safari.ScreenshotsUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "Movar (macOS)";
+			};
+			name = Release;
+		};
 		3B701C8D2FCE1FC200E8A5FF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1135,6 +1233,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3BA11E032FCE1FC200E8A5FF /* Build configuration list for PBXNativeTarget "MovarScreenshotsUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3BA11E042FCE1FC200E8A5FF /* Debug */,
+				3BA11E052FCE1FC200E8A5FF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		3B701C412FCE1FC100E8A5FF /* Build configuration list for PBXProject "Movar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

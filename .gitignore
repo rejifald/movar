@@ -62,7 +62,10 @@ _tmp_*
 # The .xcodeproj itself is committed; per-user state and build outputs are not.
 **/xcuserdata/
 **/*.xcuserstate
-apps/extension/safari/**/build/
+# `build*/` rather than `build/`: xcodebuild writes wherever -derivedDataPath
+# points, and every new variant so far (build-ios, build-uitest) has landed
+# outside a rule matching only the exact name.
+apps/extension/safari/**/build*/
 apps/extension/safari/**/DerivedData/
 apps/extension/safari/**/.swiftpm/
 

@@ -952,9 +952,9 @@ const en: Strings = {
     closeLine: 'The loop breaks where a page finally opens in your language.',
     diagram: {
       ariaLabel:
-        'Diagram of a closed loop: a site defaults to Russian, analytics reads that as your choice, Ukrainian content shrinks, and the site keeps choosing for you.',
+        'Diagram of a closed loop: you chose Ukrainian and the site serves Russian, analytics reads that as your choice, Ukrainian content shrinks, and the site keeps choosing for you.',
       nodes: [
-        { heading: ['A site defaults', 'to Russian'] },
+        { heading: ['You chose Ukrainian,', 'the site serves Russian'] },
         { heading: ['In analytics, this', 'looks like your choice'] },
         { heading: ['Less Ukrainian', 'content gets made'] },
         { heading: ['The site keeps', 'choosing for you'] },
@@ -1874,9 +1874,9 @@ const uk: Strings = {
     closeLine: 'Коло розривається там, де сторінка нарешті відкривається вашою мовою.',
     diagram: {
       ariaLabel:
-        'Схема замкненого кола: сайт віддає російську, аналітика читає це як ваш вибір, українського контенту стає менше, і сайт продовжує робити вибір за вас',
+        'Схема замкненого кола: ви обрали українську, а сайт віддає російську, аналітика читає це як ваш вибір, українського контенту стає менше, і сайт продовжує робити вибір за вас',
       nodes: [
-        { heading: ['Сайт віддає', 'російську'] },
+        { heading: ['Ви обрали українську,', 'сайт віддає російську'] },
         { heading: ['В аналітиці це', 'виглядає як ваш вибір'] },
         { heading: ['Українського', 'контенту менше'] },
         { heading: ['Сайт продовжує', 'робити вибір за вас'] },

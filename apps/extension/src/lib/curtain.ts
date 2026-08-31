@@ -221,7 +221,7 @@ const STYLES = `
      --bar-bg). Dark mode swaps values, not rules. */
   --movar-bg: rgba(255, 255, 255, 0.94);
   --movar-fg: var(--ink-strong, #1c1917);
-  --movar-muted: var(--ink-soft, #78716c);
+  --movar-muted: var(--ink-soft, #57534e);
   --movar-border: rgba(28, 25, 23, 0.08);
   --movar-shadow: 0 1px 2px rgba(20, 15, 5, 0.04), 0 6px 16px -8px rgba(20, 15, 5, 0.12);
   --movar-radius: 10px;

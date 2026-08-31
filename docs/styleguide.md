@@ -21,11 +21,11 @@ The single confident hue. Use only on elements that represent Movar acting on th
 | 50   | #F0FDF4 | `--accent-surface` — section wash, applied zone    |
 | 100  | #DCFCE7 | `--accent-soft` — subtle badge, row highlight      |
 | 200  | #BBF7D0 |                                                    |
-| 300  | #86EFAC |                                                    |
+| 300  | #86EFAC | `--accent-text` / `--accent-deep` (dark)           |
 | 500  | #22C55E |                                                    |
 | 600  | #16A34A |                                                    |
 | 700  | #15803D | **★ `--accent`** — correction applied, primary CTA |
-| 800  | #166534 |                                                    |
+| 800  | #166534 | `--accent-text` (light) — accent text, not fills   |
 | 900  | #14532D | `--accent-deep` — hover, text on accent-surface    |
 
 Forest sidesteps the obvious flag pairing — yellow + blue reads political; forest reads _principled_. Pair with stone for warmth.
@@ -40,8 +40,8 @@ Slightly warm slate. Reads modern but not sterile. Works against both light and 
 | 100  | #F5F5F4 | `--surface-2` (light)                       |
 | 200  | #E7E5E4 | `--border` (light)                          |
 | 300  | #D6D3D1 | `--border-strong` (light)                   |
-| 400  | #A8A29E | `--ink-faint` (light) / `--ink-soft` (dark) |
-| 500  | #78716C | `--ink-soft` (light)                        |
+| 400  | #A8A29E | `--ink-soft` (dark)                         |
+| 600  | #57534E | `--ink-soft` (light)                        |
 | 700  | #44403C | `--ink` (light) / `--border-strong` (dark)  |
 | 800  | #292524 | `--surface-2` (dark)                        |
 | 900  | #1C1917 | `--ink-strong` (light) / `--surface` (dark) |
@@ -51,25 +51,25 @@ Slightly warm slate. Reads modern but not sterile. Works against both light and 
 
 The product references semantic names, not raw stone steps. Light values from `:root`, dark from `[data-theme="dark"]` (or `prefers-color-scheme: dark`).
 
-| Token              | Light   | Dark    | Use                                          |
-| ------------------ | ------- | ------- | -------------------------------------------- |
-| `--bg`             | #FAFAF9 | #0C0A09 | Page background                              |
-| `--surface`        | #FFFFFF | #1C1917 | Popup body, options card                     |
-| `--surface-2`      | #F5F5F4 | #292524 | Inset surface, secondary chip                |
-| `--surface-3`      | #EDEAE6 | #322E2B | Tertiary surface, disabled glyph background  |
-| `--border`         | #E7E5E4 | #2E2A27 | Hairlines, dividers                          |
-| `--border-strong`  | #D6D3D1 | #44403C | Stronger border, toggle track                |
-| `--ink-faint`      | #737373 | #A3A3A3 | Captions, mono meta, faint hairline labels   |
-| `--ink-soft`       | #78716C | #A8A29E | Secondary copy, sub-labels                   |
-| `--ink-medium`     | #676159 | #B3ADA7 | Dim label/body on tinted surfaces (AA-safe)  |
-| `--ink`            | #44403C | #D6D3D1 | Body copy                                    |
-| `--ink-strong`     | #1C1917 | #FAFAF9 | Display type, wordmark, headings             |
-| `--accent`         | #15803D | #15803D | Correction applied, primary CTA — **a fill** |
-| `--accent-text`    | #15803D | #86EFAC | Accent-coloured **text** on ordinary chrome  |
-| `--accent-deep`    | #14532D | #86EFAC | Hover, text on accent-tinted surfaces        |
-| `--accent-soft`    | #DCFCE7 | #14532D | Subtle badge, row highlight                  |
-| `--accent-surface` | #F0FDF4 | #122A1D | "Applied" zone wash                          |
-| `--accent-on`      | #FFFFFF | #FFFFFF | Foreground over solid accent                 |
+| Token              | Light   | Dark    | Use                                             |
+| ------------------ | ------- | ------- | ----------------------------------------------- |
+| `--bg`             | #FAFAF9 | #0C0A09 | Page background                                 |
+| `--surface`        | #FFFFFF | #1C1917 | Popup body, options card                        |
+| `--surface-2`      | #F5F5F4 | #292524 | Inset surface, secondary chip                   |
+| `--surface-3`      | #EDEAE6 | #322E2B | Tertiary surface, disabled glyph background     |
+| `--border`         | #E7E5E4 | #2E2A27 | Hairlines, dividers                             |
+| `--border-strong`  | #D6D3D1 | #44403C | Stronger border, toggle track                   |
+| `--ink-faint`      | #525252 | #A3A3A3 | Captions, mono meta, faint hairline labels      |
+| `--ink-soft`       | #57534E | #A8A29E | Secondary copy, sub-labels                      |
+| `--ink-medium`     | #524D48 | #B3ADA7 | Dim body/label — the rung between soft and body |
+| `--ink`            | #44403C | #D6D3D1 | Body copy                                       |
+| `--ink-strong`     | #1C1917 | #FAFAF9 | Display type, wordmark, headings                |
+| `--accent`         | #15803D | #15803D | Correction applied, primary CTA — **a fill**    |
+| `--accent-text`    | #166534 | #86EFAC | Accent-coloured **text** on ordinary chrome     |
+| `--accent-deep`    | #14532D | #86EFAC | Hover, text on accent-tinted surfaces           |
+| `--accent-soft`    | #DCFCE7 | #14532D | Subtle badge, row highlight                     |
+| `--accent-surface` | #F0FDF4 | #122A1D | "Applied" zone wash                             |
+| `--accent-on`      | #FFFFFF | #FFFFFF | Foreground over solid accent                    |
 
 **Only `--accent` and `--accent-on` hold still between themes.** They are the _fill_ pair —
 a solid forest button with white on it reads correctly on light and dark chrome alike.
@@ -82,7 +82,34 @@ for accent-coloured text, `--accent-deep` for text sitting on an accent-tinted s
 reserve `--accent` for fills. `apps/e2e/src/marketing/marketing.contrast.spec.ts` enforces
 this on every page in both themes.
 
-### 1.4 Applied moment
+### 1.4 Contrast floors
+
+Two bars, and the difference between them is the point.
+
+| Bar     | Ratio | Applies to                                                          |
+| ------- | ----- | ------------------------------------------------------------------- |
+| `AA`    | 4.5:1 | Every text token, on every surface it is painted on, in both themes |
+| `PROSE` | 6.5:1 | The ink ramp and `--accent-text`, on `--bg` and `--surface`         |
+
+`AA` is the legal minimum. `PROSE` is the one that matters, because the muted end of the
+light ramp once sat _exactly_ on the legal minimum — `--ink-soft` at 4.58:1 against the same
+token's 7.83:1 in dark — and every check passed while the site rendered its body copy pale
+grey. **A floor is not a target.** Light and dark are now within 1.35× of each other on the
+muted rungs, and that parity is itself asserted.
+
+Enforced in two places, because neither alone is enough:
+
+- `packages/theme/src/tokens.test.ts` checks the token pairs directly. It needs no browser,
+  and it sees pairs that never render in a default page state — it is what caught
+  `--danger-on` (white) staying put while `--danger` flipped to a light red underneath it,
+  a 2.77:1 combination applied by script on a runtime event.
+- `apps/e2e/src/marketing/marketing.contrast.spec.ts` measures what actually paints, which
+  is what catches a component that opts out of the token system altogether.
+
+An **"on" colour is only theme-stable when the fill beneath it is.** `--accent-on` may hold
+still because `--accent` does; `--danger-on` may not, and no longer does.
+
+### 1.5 Applied moment
 
 The accent is allowed to speak. The pattern is a static accent marker (a filled dot or check) on `--accent-surface` with `--accent-deep` text:
 

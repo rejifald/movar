@@ -44,8 +44,12 @@ export const chartColor = {
   bg: 'var(--chart-bg, #FAFAF9)',
   ink: 'var(--chart-ink, #44403C)',
   inkStrong: 'var(--chart-ink-strong, #1C1917)',
-  inkSoft: 'var(--chart-ink-soft, #78716C)',
-  inkFaint: 'var(--chart-ink-faint, #A8A29E)',
+  inkSoft: 'var(--chart-ink-soft, #57534E)',
+  /* Was #A8A29E — stone-400, which is the DARK theme's `--ink-soft`. On the
+     light fallback background it scored 2.4:1, so a chart opened on its own
+     rendered its faintest labels effectively unreadable. Fallbacks have to
+     mirror the LIGHT value of the token they stand in for. */
+  inkFaint: 'var(--chart-ink-faint, #525252)',
   grid: 'var(--chart-grid, #E7E5E4)',
   /** The language the reader asked for. */
   ua: 'var(--chart-ua, #15803D)',

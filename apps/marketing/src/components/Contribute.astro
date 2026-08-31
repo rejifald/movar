@@ -11,9 +11,14 @@
  *
  * Each item links to where the action happens. "Розкажіть знайомим" is the
  * exception and stays plain text — telling someone happens off the page, and
- * there is nothing to point at. The store review goes to /install rather than
- * to one marketplace: the listing to review on is whichever the visitor
- * installed from, and that page is the only surface naming all of them.
+ * there is nothing to point at. That exception is why the titles rest in ink
+ * rather than in accent: a green heading beside three black ones reads as a
+ * fifth state rather than as "this one has nowhere to go". The arrow carries
+ * the affordance instead, and the whole title goes accent on hover — the same
+ * link-as-heading treatment as ForUkrainian's directory cards. The store
+ * review goes to /install rather than to one marketplace: the listing to
+ * review on is whichever the visitor installed from, and that page is the
+ * only surface naming all of them.
  */
 import { FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 import { Star, Megaphone, Bug, Github } from 'lucide-astro';
@@ -59,16 +64,16 @@ const actions = [
                 <Icon class="size-4" aria-hidden="true" />
               </span>
               <div class="min-w-0">
-                <p class="text-[15px] font-bold tracking-tight text-ink-strong">
+                <p class="text-ui-lg font-bold tracking-tight text-ink-strong">
                   {action?.href ? (
                     <a
                       href={action.href}
                       target={action.external ? '_blank' : undefined}
                       rel={action.external ? 'noopener noreferrer' : undefined}
-                      class="inline-flex items-center gap-1 text-accent-text hover:underline"
+                      class="inline-flex items-center gap-1 transition hover:text-accent-text hover:underline"
                     >
                       {item.title}
-                      <span aria-hidden="true">→</span>
+                      <span class="text-accent-text" aria-hidden="true">→</span>
                     </a>
                   ) : (
                     item.title

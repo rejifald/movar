@@ -958,15 +958,15 @@ const en: Strings = {
     closeLine: 'The loop breaks where a page finally opens in your language.',
     diagram: {
       ariaLabel:
-        'Diagram of a closed loop: a site defaults to Russian, analytics reads that as reader choice, Ukrainian content shrinks, and sites choose Russian for you more and more often.',
+        'Diagram of a closed loop: a site defaults to Russian, analytics reads that as your choice, Ukrainian content shrinks, and the site keeps choosing for you.',
       nodes: [
         { heading: ['A site defaults', 'to Russian'], detail: 'though you chose Ukrainian' },
-        { heading: ['In analytics, this', 'looks like a choice'], detail: 'no reader chose it' },
+        { heading: ['In analytics, this', 'looks like your choice'], detail: 'no reader chose it' },
         {
           heading: ['Less Ukrainian', 'content gets made'],
           detail: 'because demand looks smaller',
         },
-        { heading: ['The site chooses', 'for you more often'], detail: 'on the same data' },
+        { heading: ['The site keeps', 'choosing for you'], detail: 'on the same data' },
       ],
       loopLabel: 'and the loop closes',
       caption: 'The choice the site made comes back as proof that readers wanted it.',
@@ -1883,12 +1883,12 @@ const uk: Strings = {
     closeLine: 'Коло розривається там, де сторінка нарешті відкривається вашою мовою.',
     diagram: {
       ariaLabel:
-        'Схема замкненого кола: сайт віддає російську, аналітика читає це як вибір читачів, українського контенту стає менше, і сайти дедалі частіше обирають за вас',
+        'Схема замкненого кола: сайт віддає російську, аналітика читає це як ваш вибір, українського контенту стає менше, і сайт продовжує робити вибір за вас',
       nodes: [
         { heading: ['Сайт віддає', 'російську'], detail: 'хоч ви обрали українську' },
-        { heading: ['В аналітиці це', 'виглядає як вибір'], detail: 'обирав не читач' },
+        { heading: ['В аналітиці це', 'виглядає як ваш вибір'], detail: 'обирав не читач' },
         { heading: ['Українського', 'контенту менше'], detail: 'бо попит виглядає меншим' },
-        { heading: ['Сайт дедалі частіше', 'обирає за вас'], detail: 'на тих самих даних' },
+        { heading: ['Сайт продовжує', 'робити вибір за вас'], detail: 'на тих самих даних' },
       ],
       loopLabel: 'і коло замикається',
       caption: 'Вибір, який зробив сайт, повертається як доказ, що читачі саме цього й хотіли.',

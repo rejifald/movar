@@ -3,8 +3,7 @@ import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { Menu, X } from 'lucide-react';
 
-import { FEEDBACK_URL } from '@movar/brand';
-
+import { BLOG_INDEX_HREF, blogStrings } from '../lib/blog';
 import { FALLBACK_HREF } from '../lib/downloads';
 import { strings, localeHomeHref, localePrivacyHref } from '../i18n';
 import type { Locale } from '../i18n';
@@ -42,9 +41,13 @@ function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): J
   const privacy = localePrivacyHref(lang);
   const [open, setOpen] = useState(false);
   const links = [
-    { href: FALLBACK_HREF, label: t.nav.download, download: true },
-    { href: FEEDBACK_URL, label: t.nav.feedback, download: false },
+    // The blog is Ukrainian-only (see ../lib/blog), mirroring Header.astro.
+    // Contact lives in the footer only — see Header.astro.
+    ...(lang === 'uk'
+      ? [{ href: BLOG_INDEX_HREF, label: blogStrings.navLabel, download: false }]
+      : []),
     { href: privacy, label: t.nav.privacy, download: false },
+    { href: FALLBACK_HREF, label: t.nav.download, download: true },
   ];
   return (
     <header className="border-border/60 bg-bg/85 supports-[backdrop-filter]:bg-bg/70 sticky top-0 z-50 border-b backdrop-blur">

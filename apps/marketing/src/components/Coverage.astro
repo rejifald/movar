@@ -21,22 +21,24 @@
  *   search:      { title: string; body: string; sites?: string[] }
  *   switcher:    { title: string; body: string; sites?: string[] }
  *   perElement:  { title: string; body: string; sites?: string[] }
- * `sites` is omitted on `switcher`, which names no specific sites. The
- * names render as plain text: Bing has no CC0 mark in the Simple Icons set
- * (its logo is proprietary artwork), so glyphing the other three left one
- * name bare in a row of four. Either every name carries a mark or none does,
- * and only the second is available — a stand-in glyph for Bing would be
- * decoration that names nothing.
+ * `sites` is omitted on `switcher`, which names no specific sites. Where
+ * present, each name is matched case-insensitively against `brandIconPaths`
+ * (see ../lib/brand-icons) for its mark; that record is total, so every name
+ * carries one — Bing wears the Microsoft four-square.
  *
  * Responsive: 1 column at mobile, 2 at tablet (sm:), 3 at desktop (lg:) —
  * the same steps ForUkrainian.astro's card grid uses. At the 2-column
  * tablet step the third card (perElement) spans both columns instead of
- * sitting alone on its own row at half width; it carries its own site row
+ * sitting alone on its own row at half width; it carries its own brand row
  * so a full-width third row reads as a natural closer rather than an
- * orphan.
+ * orphan. Each card is `flex h-full flex-col` with a `flex-1` spacer before
+ * the brand row, so CSS Grid's default row-stretch keeps those rows aligned
+ * along the card footers whenever cards share a row (2- and 3-column steps),
+ * and costs nothing at 1 column where every card is alone in its row.
  */
 import { Search, ArrowLeftRight, Layers } from 'lucide-astro';
 
+import { brandIconPaths, type BrandId } from '../lib/brand-icons';
 import { strings, type Locale } from '../i18n';
 
 interface Props {
@@ -97,14 +99,33 @@ const cards: CoverageCard[] = [
 
             <p class="text-sm leading-relaxed text-ink-soft">{body}</p>
 
+            <div class="flex-1" />
+
             {sites && (
-              <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2.5">
-                {sites.map((name) => (
-                  <span class="whitespace-nowrap text-sm font-medium text-ink">{name}</span>
-                ))}
+              <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-border pt-4">
+                {sites.map((name) => {
+                  /* The cast is unchecked — `sites` is plain copy — so the
+                     guard stays as a runtime backstop even though the record
+                     is total over `BrandId`. */
+                  const path = brandIconPaths[name.toLowerCase() as BrandId];
+                  return (
+                    <span class="inline-flex items-center gap-2 whitespace-nowrap">
+                      {path && (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          class="size-[15px] shrink-0 text-ink-faint"
+                          aria-hidden="true"
+                        >
+                          <path d={path} />
+                        </svg>
+                      )}
+                      <span class="text-sm font-medium text-ink">{name}</span>
+                    </span>
+                  );
+                })}
               </div>
             )}
-
           </div>
         ))
       }

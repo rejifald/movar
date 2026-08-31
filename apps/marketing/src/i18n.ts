@@ -60,8 +60,6 @@ interface CoverageCard {
   title: string;
   /** What Movar does for this surface. */
   body: string;
-  /** Footnote below the divider at the bottom of the card. */
-  note: string;
   /** Brand-mark row naming the sites this card covers. Omitted on the
    *  switcher card, which names no specific sites. */
   sites?: string[];
@@ -230,12 +228,24 @@ interface LimitationsStrings {
   sourceLink: string;
 }
 
+interface PrivacyChips {
+  servers: string;
+  accounts: string;
+  analytics: string;
+  speed: string;
+  /** The build-time promise check — a full sentence, not a two-word claim,
+   *  so it wraps where the other four never do. */
+  verified: string;
+}
+
 interface PrivacyStrings {
   sectionTitle: string;
   sectionLead: string;
-  /** Short, checkable trust claims rendered as pills under the lead —
-   *  each one a fact a visitor could go verify, not a vague reassurance. */
-  chips: string[];
+  /** Short, checkable trust claims listed under the lead — each one a fact a
+   *  visitor could go verify, not a vague reassurance. Named rather than an
+   *  array because Privacy.astro pairs each with its own icon: an index would
+   *  silently mismatch the moment a claim is added or reordered. */
+  chips: PrivacyChips;
   /** Link label that takes readers to the full /privacy policy page. */
   linkLabel: string;
   /** Second link, to `/transparency#cant-spy`. "Nothing leaves your browser"
@@ -466,14 +476,6 @@ interface ExamplesStrings {
    * the matching entry's `scenario` where a locale is missing one.
    */
   captions: string[];
-  /**
-   * Fixed provenance note under the drum — shown on every slide rather than
-   * rotating with `captions`. The before/after PNGs are Storybook-rendered
-   * approximations with fictitious `.example` domains and redrawn wordmarks
-   * (apps/extension/store-assets/REQUIREMENTS.md, "No literal third-party
-   * logos"), so the note has to be readable whichever slide is open.
-   */
-  provenance: string;
   /**
    * Label on the pill overlaying the "after" screenshot in the drum. Names
    * what changed between the two panels — `withMovar` ("After Movar") only
@@ -890,18 +892,15 @@ const en: Strings = {
     search: {
       title: 'Search',
       body: 'Movar writes your language into the query itself, so results come back right the first time — not after you filter them yourself.',
-      note: 'Google — on any country domain, not just .com.',
       sites: ['Google', 'YouTube', 'Bing', 'DuckDuckGo'],
     },
     switcher: {
       title: 'Any multilingual site',
       body: "Switching once isn't enough — sites forget your choice. Movar remembers it for you.",
-      note: 'Works even on a site Movar has never seen before.',
     },
     perElement: {
       title: 'Element by element',
       body: 'Movar reads the structure of the page and hides individual elements — results in the wrong language, videos, posts.',
-      note: 'Just these two structures for now — each new one is its own rule. Turned on separately, see step 2.',
       sites: ['Google', 'YouTube'],
     },
   },
@@ -1010,11 +1009,8 @@ const en: Strings = {
     deepDiveLinkLabel: 'How Movar detects language',
     refusals: {
       eyebrow: "What Movar won't do to the page",
-      items: [
-        "Never translates content. That option doesn't exist.",
-        "Doesn't read language inside images, video, or audio.",
-      ],
-      sourceLink: 'Source code — check for yourself',
+      items: ['Never translates content', "Doesn't scan files — images, audio, or video"],
+      sourceLink: 'Source code — check it yourself, or have an AI scan it',
     },
   },
   examples: {
@@ -1076,7 +1072,6 @@ const en: Strings = {
         },
       },
     ],
-    provenance: 'Interfaces redrawn so no third-party logos are used.',
     declared: 'Movar declared your language',
     captions: [
       'A Cyrillic search for "war news": Russian pages first, Ukrainian after Movar.',
@@ -1119,19 +1114,19 @@ const en: Strings = {
   privacy: {
     sectionTitle: 'Stays in your browser',
     sectionLead:
-      'Movar has no servers, no accounts, no analytics. Nothing about your browsing, your queries, or your preferences ever leaves your browser.',
-    chips: [
-      'No servers',
-      'No accounts',
-      'No analytics',
-      "Doesn't slow pages down",
-      'Every promise checked against the code, every build',
-    ],
+      'Nothing about your browsing, your queries, or your preferences ever leaves your browser.',
+    chips: {
+      servers: 'No servers',
+      accounts: 'No accounts',
+      analytics: 'No analytics',
+      speed: "Doesn't slow pages down",
+      verified: 'Every promise checked against the code, every build',
+    },
     linkLabel: 'Read the full privacy policy',
     safeguardsLabel: "Why a future version can't change that quietly",
   },
   close: {
-    sectionTitle: 'Movar breaks this loop. Installing takes a minute.',
+    sectionTitle: 'Movar breaks this loop. One minute to install.',
     sectionLead:
       'Have a question, an idea, or a site where Movar missed? Join the Discord or drop a note. Movar is non-commercial — reviews and bug reports help most.',
     emailLabel: 'Email support@movar.fyi',
@@ -1809,18 +1804,15 @@ const uk: Strings = {
     search: {
       title: 'Пошук',
       body: 'Мовар вписує вашу мову в сам запит, тож видача приходить правильною одразу — а не після того, як ви її перефільтруєте.',
-      note: 'Google — у будь-якому національному домені, не лише .com.',
       sites: ['Google', 'YouTube', 'Bing', 'DuckDuckGo'],
     },
     switcher: {
       title: 'Будь-який багатомовний сайт',
       body: 'Одного перемикання мало — сайти забувають ваш вибір. Мовар його запамʼятовує.',
-      note: 'Працює й на сайті, якого Мовар ніколи не бачив.',
     },
     perElement: {
       title: 'Поелементно',
       body: 'Мовар розбирає структуру сторінки й ховає окремі елементи: результати не тією мовою, відео, дописи.',
-      note: 'Поки лише ці дві структури — кожна нова це окреме правило. Вмикається окремо, див. крок 2.',
       sites: ['Google', 'YouTube'],
     },
   },
@@ -1925,11 +1917,8 @@ const uk: Strings = {
     deepDiveLinkLabel: 'Як Мовар визначає мову',
     refusals: {
       eyebrow: 'Чого Мовар не робить зі сторінкою',
-      items: [
-        'Не перекладає вміст — ніколи. Такої опції просто немає.',
-        'Не читає мову всередині зображень, відео та звуку.',
-      ],
-      sourceLink: 'Вихідний код — перевірте самі',
+      items: ['Ніколи не перекладає вміст', 'Не сканує файли чи зображення, звук або відео'],
+      sourceLink: 'Вихідний код — перевірте самі або попросіть ШІ просканувати',
     },
   },
   examples: {
@@ -1991,7 +1980,6 @@ const uk: Strings = {
         },
       },
     ],
-    provenance: 'Інтерфейси відтворено, щоб не використовувати чужі логотипи.',
     declared: 'Мовар заявив вашу мову',
     captions: [
       'Кириличний запит «новини війни»: спершу російські сторінки, після Мовара — українські.',
@@ -2033,20 +2021,19 @@ const uk: Strings = {
   },
   privacy: {
     sectionTitle: 'Залишається у вашому браузері',
-    sectionLead:
-      'У Мовара немає ні серверів, ні акаунтів, ні аналітики. Ні ваші пошуки, ні відвідані сайти, ні налаштування не покидають ваш браузер.',
-    chips: [
-      'Без серверів',
-      'Без акаунтів',
-      'Без аналітики',
-      'Не сповільнює сторінки',
-      'Кожна обіцянка звіряється з кодом на кожній збірці',
-    ],
+    sectionLead: 'Ні ваші пошуки, ні відвідані сайти, ні налаштування не покидають ваш браузер.',
+    chips: {
+      servers: 'Без серверів',
+      accounts: 'Без акаунтів',
+      analytics: 'Без аналітики',
+      speed: 'Не сповільнює сторінки',
+      verified: 'Кожна обіцянка звіряється з кодом на кожній збірці',
+    },
     linkLabel: 'Повна політика приватності',
     safeguardsLabel: 'Чому майбутня версія не змінить цього непомітно',
   },
   close: {
-    sectionTitle: 'Мовар розриває це коло. Встановлення займає хвилину.',
+    sectionTitle: 'Мовар розриває це коло. Встановлення за хвилину.',
     sectionLead:
       'Маєте запитання, ідею чи сайт, де Мовар не спрацював? Приєднуйтеся до Discord або напишіть. Мовар некомерційний — відгук у магазині та повідомлення про помилки допомагають найбільше.',
     emailLabel: 'Написати на support@movar.fyi',

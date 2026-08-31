@@ -18,27 +18,25 @@
  * interfaces added to i18n.ts by a separate change (not authored here):
  *   sectionTitle: string   // small eyebrow, e.g. "Де це працює"
  *   sectionLead: string    // the big sentence, rendered as the h2
- *   search:      { title: string; body: string; note: string; sites?: string[] }
- *   switcher:    { title: string; body: string; note: string; sites?: string[] }
- *   perElement:  { title: string; body: string; note: string; sites?: string[] }
- * `sites` is omitted on `switcher`, which names no specific sites. Where
- * present, its names are matched case-insensitively against `brandIconPaths`
- * (see ../lib/brand-icons) to pick an icon; a name with no match (Bing)
- * renders as plain text, same as the mock.
+ *   search:      { title: string; body: string; sites?: string[] }
+ *   switcher:    { title: string; body: string; sites?: string[] }
+ *   perElement:  { title: string; body: string; sites?: string[] }
+ * `sites` is omitted on `switcher`, which names no specific sites. The
+ * names render as plain text: Bing has no CC0 mark in the Simple Icons set
+ * (its logo is proprietary artwork), so glyphing the other three left one
+ * name bare in a row of four. Either every name carries a mark or none does,
+ * and only the second is available — a stand-in glyph for Bing would be
+ * decoration that names nothing.
  *
  * Responsive: 1 column at mobile, 2 at tablet (sm:), 3 at desktop (lg:) —
  * the same steps ForUkrainian.astro's card grid uses. At the 2-column
  * tablet step the third card (perElement) spans both columns instead of
- * sitting alone on its own row at half width; it carries its own brand row
+ * sitting alone on its own row at half width; it carries its own site row
  * so a full-width third row reads as a natural closer rather than an
- * orphan. Each card is `flex h-full flex-col` with a `flex-1` spacer before
- * the note, so CSS Grid's default row-stretch keeps notes bottom-aligned
- * whenever cards share a row (2- and 3-column steps) and simply costs
- * nothing at 1 column, where every card is the only thing in its row.
+ * orphan.
  */
 import { Search, ArrowLeftRight, Layers } from 'lucide-astro';
 
-import { brandIconPaths, type BrandId } from '../lib/brand-icons';
 import { strings, type Locale } from '../i18n';
 
 interface Props {
@@ -52,7 +50,6 @@ interface CoverageCard {
   Icon: typeof Search;
   title: string;
   body: string;
-  note: string;
   /** Brand row under the body — omitted for the "switcher" card, which
    *  names no specific sites (it works on any of them). */
   sites?: string[];
@@ -84,7 +81,7 @@ const cards: CoverageCard[] = [
 
     <div class="mt-10 grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3">
       {
-        cards.map(({ Icon, title, body, note, sites }, i) => (
+        cards.map(({ Icon, title, body, sites }, i) => (
           <div
             class:list={[
               'flex h-full flex-col rounded-xl border border-border bg-surface p-6',
@@ -102,32 +99,12 @@ const cards: CoverageCard[] = [
 
             {sites && (
               <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2.5">
-                {sites.map((name) => {
-                  const path = brandIconPaths[name.toLowerCase() as BrandId];
-                  return (
-                    <span class="inline-flex items-center gap-2 whitespace-nowrap">
-                      {path && (
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          class="size-[15px] shrink-0 text-ink-faint"
-                          aria-hidden="true"
-                        >
-                          <path d={path} />
-                        </svg>
-                      )}
-                      <span class="text-sm font-medium text-ink">{name}</span>
-                    </span>
-                  );
-                })}
+                {sites.map((name) => (
+                  <span class="whitespace-nowrap text-sm font-medium text-ink">{name}</span>
+                ))}
               </div>
             )}
 
-            <div class="flex-1" />
-
-            <p class="mt-4 border-t border-border pt-3.5 text-xs leading-relaxed text-ink-faint">
-              {note}
-            </p>
           </div>
         ))
       }

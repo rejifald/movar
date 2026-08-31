@@ -24,7 +24,7 @@
  * width, so at the narrow end of its own (md-and-up) range it scrolls
  * instead of squashing past legibility.
  */
-import { strings, type Locale } from '../i18n';
+import { strings, type Locale, localeWhyThisHappensHref } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -34,6 +34,12 @@ const { lang = 'en' } = Astro.props;
 const t = strings[lang].stakes;
 
 const diagram = t.diagram;
+
+// "Why this keeps happening" closes this section rather than the final CTA
+// row: the four theses raise the question, and the deep dive is the answer.
+// Label and destination are the retired Problem section's, unchanged.
+const deepDiveLabel = strings[lang].problem.deepDiveLinkLabel;
+const deepDiveHref = localeWhyThisHappensHref(lang);
 
 /* ---- Wide diagram (md and up) ------------------------------------------ */
 const WIDE_BOX_W = 230;
@@ -377,5 +383,13 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
         })
       }
     </div>
+
+    <a
+      href={deepDiveHref}
+      class="mt-10 inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
+    >
+      {deepDiveLabel}
+      <span aria-hidden="true">→</span>
+    </a>
   </div>
 </section>

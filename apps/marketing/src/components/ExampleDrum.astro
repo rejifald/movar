@@ -184,7 +184,6 @@ const frameAfter =
             role="tabpanel"
             id={`drum-panel-${i}`}
             aria-labelledby={`drum-tab-${i}`}
-            data-caption={slide.caption}
             hidden={i !== 0}
           >
             {slide.images && (
@@ -203,13 +202,18 @@ const frameAfter =
               </div>
             )}
 
-            {/* No labels between the panels. They are stacked before-then-after,
-               which is the order the pair is read in, and the second frame's
-               accent border marks it as the result — naming them would only
-               repeat what the images already show. The caption under the card
-               carries the one thing they can't: what Movar did. Alt text keeps
-               the two distinguishable for anyone not seeing them. */}
-            <div class="my-4 h-px bg-border" />
+            {/* What Movar did, set between the two frames — the sentence names
+               the action that separates them, so it belongs at the transition
+               rather than under the whole card. It is also the only thing
+               marking which panel is which: they are stacked before-then-after,
+               the order the pair is read in, and the second frame's accent
+               border marks it as the result. Alt text keeps the two
+               distinguishable for anyone not seeing them.
+
+               Rendered per panel rather than swapped by script — each panel
+               owns its own line, so there is no shared node to keep in sync
+               with the visible slide. */}
+            <p class="my-4 text-center text-sm leading-relaxed text-ink-soft">{slide.caption}</p>
 
             {slide.images && (
               <div class={frameAfter}>
@@ -232,10 +236,6 @@ const frameAfter =
     </div>
   </div>
 
-  <p data-drum-caption class="mt-3.5 text-center text-sm text-ink-faint">
-    {slides[0]?.caption}
-  </p>
-
 </div>
 
 <script>
@@ -244,7 +244,6 @@ const frameAfter =
     const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-drum-tab]')];
     const panels = [...root.querySelectorAll<HTMLElement>('[data-drum-panel]')];
     const fills = [...root.querySelectorAll<HTMLElement>('[data-drum-fill]')];
-    const captionEl = root.querySelector<HTMLElement>('[data-drum-caption]');
 
     const ADVANCE_MS = 4500;
 
@@ -276,7 +275,6 @@ const frameAfter =
       panels.forEach((panel, n) => {
         panel.hidden = n !== next;
       });
-      if (captionEl) captionEl.textContent = panels[next]?.dataset['caption'] ?? '';
 
       fills.forEach((fill, n) => {
         if (n !== next) {

@@ -62,16 +62,16 @@ const inviteButtonClass =
 <footer class="mt-auto border-t border-border bg-surface px-6 py-10 text-sm text-ink-soft">
   <div class="mx-auto flex max-w-5xl flex-col gap-10">
     {/*
-     * 1. Invitation row. One sentence asking readers to report a site Movar
-     * missed, with the two channels that can act on it — Discord for a
-     * public report anyone can confirm, email for a private one. Stacks on
-     * a phone (sentence, then buttons); from `sm:` the buttons push right.
+     * 1. Contact row — Discord for a public report anyone can confirm, email
+     * for a private one. This is why the `contact` column is dropped from
+     * the grid below: these two buttons are it.
+     *
+     * The sentence that used to introduce them ("found a site where Movar
+     * didn't work?") moved into the Contribute section above, which makes
+     * the same ask with the context for why it helps.
      */}
-    <div
-      class="flex flex-col gap-4 border-b border-border pb-8 sm:flex-row sm:items-center sm:justify-between sm:gap-10"
-    >
-      <p class="max-w-xl">{t.invite}</p>
-      <div class="flex shrink-0 flex-wrap gap-2.5">
+    <div class="border-b border-border pb-8">
+      <div class="flex flex-wrap gap-2.5">
         <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" class={inviteButtonClass}>
           <svg
             viewBox="0 0 24 24"

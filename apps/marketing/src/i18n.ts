@@ -278,11 +278,24 @@ interface ChangelogStrings {
   technicalLinkLabel: string;
 }
 
+/** One way to help, in the closing "join in" section. */
+interface ContributeItem {
+  /** Names the action — one to three words. */
+  title: string;
+  /** Why it moves the needle. One or two sentences. */
+  body: string;
+}
+
+interface ContributeStrings {
+  sectionTitle: string;
+  sectionLead: string;
+  /** Exactly five, in decreasing order of how much they help. The tuple
+   *  length is fixed because Contribute.astro pairs each with an icon by
+   *  position — a sixth item would render with no mark. */
+  items: readonly [ContributeItem, ContributeItem, ContributeItem, ContributeItem, ContributeItem];
+}
+
 interface FooterStrings {
-  /** Bug-report invite shown above the footer's link columns — the
-   *  footer's own version of the ask in `close`, phrased for one row
-   *  instead of a full section. */
-  invite: string;
   credits: string;
   privacy: string;
   transparency: string;
@@ -765,6 +778,7 @@ export interface Strings {
   limitations: LimitationsStrings;
   privacy: PrivacyStrings;
   close: CloseStrings;
+  contribute: ContributeStrings;
   footer: FooterStrings;
   transparency: TransparencyStrings;
   changelog: ChangelogStrings;
@@ -1113,6 +1127,33 @@ const en: Strings = {
     linkLabel: 'Read the full privacy policy',
     safeguardsLabel: "Why a future version can't change that quietly",
   },
+  contribute: {
+    sectionTitle: 'Like the idea? Join in',
+    sectionLead:
+      'Movar is non-commercial: no paid tier, no premium features, no data for sale. There is one goal — more Ukrainian on the internet.',
+    items: [
+      {
+        title: 'A store review',
+        body: 'Stores decide who to show an extension to by its ratings. One honest review counts for more than it looks.',
+      },
+      {
+        title: 'Tell someone',
+        body: 'Everyone who switches Movar on is one more clean signal in the statistics localisation budgets grow from.',
+      },
+      {
+        title: 'Bug reports',
+        body: "A site where Movar missed, or fired where it shouldn't have. Each one becomes a test.",
+      },
+      {
+        title: 'Design',
+        body: "Icons, illustrations, store-page assets. This is what's in shortest supply.",
+      },
+      {
+        title: 'A star on GitHub',
+        body: 'The cheapest action there is: the more visible the project, the more people find it.',
+      },
+    ],
+  },
   close: {
     sectionTitle: 'Movar breaks this loop. One minute to install.',
     sectionLead:
@@ -1133,7 +1174,6 @@ const en: Strings = {
     technicalLinkLabel: 'Technical changelog on GitHub',
   },
   footer: {
-    invite: "Found a site where Movar didn't work? Tell us.",
     credits: 'Movar community · non-commercial · MIT license',
     privacy: 'Privacy',
     transparency: 'Transparency',
@@ -2015,6 +2055,33 @@ const uk: Strings = {
     linkLabel: 'Повна політика приватності',
     safeguardsLabel: 'Чому майбутня версія не може змінити цього непомітно',
   },
+  contribute: {
+    sectionTitle: 'Сподобалась ідея? Долучайтеся',
+    sectionLead:
+      'Мовар некомерційний: ні платної версії, ні преміум-функцій, ні даних на продаж. Мета одна — щоб української в інтернеті ставало більше.',
+    items: [
+      {
+        title: 'Відгук у магазині',
+        body: 'Магазини вирішують, кому показувати розширення, саме за оцінками. Один чесний відгук важить більше, ніж здається.',
+      },
+      {
+        title: 'Розкажіть знайомим',
+        body: 'Кожен, хто вмикає Мовар, — це ще один чистий сигнал у статистиці, з якої ростуть бюджети на локалізацію.',
+      },
+      {
+        title: 'Баг-репорти',
+        body: 'Сайт, де Мовар не спрацював — або спрацював там, де не мав. Кожен такий випадок стає тестом.',
+      },
+      {
+        title: 'Дизайн',
+        body: 'Іконки, ілюстрації, матеріали для сторінок у магазинах. Цього бракує найбільше.',
+      },
+      {
+        title: 'Зірочка на GitHub',
+        body: 'Найдешевша дія з усіх: що помітніший проєкт, то більше людей його знайде.',
+      },
+    ],
+  },
   close: {
     sectionTitle: 'Мовар розриває це коло. Встановлення за хвилину.',
     sectionLead:
@@ -2035,7 +2102,6 @@ const uk: Strings = {
     technicalLinkLabel: 'Технічний журнал змін на GitHub',
   },
   footer: {
-    invite: 'Знайшли сайт, де Мовар не спрацював? Повідомте нам.',
     credits: 'Спільнота Мовар · некомерційний проєкт · ліцензія MIT',
     privacy: 'Приватність',
     transparency: 'Прозорість',

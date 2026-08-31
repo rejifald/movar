@@ -47,11 +47,16 @@ const linkClass = '-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p
 <footer class="mt-auto border-t border-border bg-surface px-6 py-10 text-sm text-ink-soft">
   <div class="mx-auto flex max-w-5xl flex-col gap-10">
     {/*
-     * Link columns. Two-up through tablet (measured at 768px: two
-     * 344px tracks, room to spare for the longest label, "Як працює
-     * Мовар"), one row of four from `lg:` up.
+     * Link columns. Two-up through tablet (measured at 768px: two 344px
+     * tracks, room to spare for the longest label, "Як працює Мовар"), one
+     * row of five from `lg:` up — 172px per track at the container's 1024px,
+     * against ~105px for that same longest label.
+     *
+     * The count here tracks `footerColumns`: it was left at four when
+     * `contact` came back into the grid, which dropped the fifth column onto
+     * a row of its own and made the footer read as two stacked blocks.
      */}
-    <div class="grid grid-cols-2 gap-x-8 gap-y-8 lg:grid-cols-4 lg:gap-x-10">
+    <div class="grid grid-cols-2 gap-x-8 gap-y-8 lg:grid-cols-5 lg:gap-x-10">
       {
         columns.map((column) => (
           <nav aria-labelledby={`footer-${column.id}`}>

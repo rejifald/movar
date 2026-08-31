@@ -109,8 +109,6 @@ interface StakesDiagramNode {
  *  carry a local per-locale copy of the same shape, folded in here once this
  *  field existed. */
 interface StakesDiagramCopy {
-  /** "Fig. 1" caption beside the section heading. */
-  figureLabel: string;
   /** The whole argument in one sentence, for anyone who can't see the figure. */
   ariaLabel: string;
   /** The four boxes, in flow order. */
@@ -951,7 +949,6 @@ const en: Strings = {
     ],
     closeLine: 'The loop breaks where a page finally opens in your language.',
     diagram: {
-      figureLabel: 'Fig. 1',
       ariaLabel:
         'Diagram of a closed loop: a site defaults to Russian, analytics reads that as reader choice, Ukrainian content shrinks, and sites choose Russian for you more and more often.',
       nodes: [
@@ -1878,7 +1875,6 @@ const uk: Strings = {
     ],
     closeLine: 'Коло розривається там, де сторінка нарешті відкривається вашою мовою.',
     diagram: {
-      figureLabel: 'Рис. 1',
       ariaLabel:
         'Схема замкненого кола: сайт віддає російську, аналітика читає це як вибір читачів, українського контенту стає менше, і сайти дедалі частіше обирають за вас',
       nodes: [

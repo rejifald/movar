@@ -3,9 +3,8 @@ import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { Menu, X } from 'lucide-react';
 
-import { BLOG_INDEX_HREF, blogStrings } from '../lib/blog';
-import { FALLBACK_HREF } from '../lib/downloads';
-import { strings, localeHomeHref, localePrivacyHref } from '../i18n';
+import { headerLinks } from '../lib/header-links';
+import { strings, localeHomeHref } from '../i18n';
 import type { Locale } from '../i18n';
 import { browserIconPaths, githubIconPath } from '../lib/browser-icons';
 import type { BrowserId } from '../lib/downloads';
@@ -38,17 +37,8 @@ function DownloadGlyph({ browser }: Readonly<{ browser: Browser }>): JSX.Element
 function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): JSX.Element {
   const t = strings[lang];
   const home = localeHomeHref(lang);
-  const privacy = localePrivacyHref(lang);
   const [open, setOpen] = useState(false);
-  const links = [
-    // The blog is Ukrainian-only (see ../lib/blog), mirroring Header.astro.
-    // Contact lives in the footer only — see Header.astro.
-    ...(lang === 'uk'
-      ? [{ href: BLOG_INDEX_HREF, label: blogStrings.navLabel, download: false }]
-      : []),
-    { href: privacy, label: t.nav.privacy, download: false },
-    { href: FALLBACK_HREF, label: t.nav.download, download: true },
-  ];
+  const links = headerLinks(lang);
   return (
     <header className="border-border/60 bg-bg/85 supports-[backdrop-filter]:bg-bg/70 sticky top-0 z-50 border-b backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">

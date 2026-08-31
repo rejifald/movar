@@ -1,14 +1,7 @@
 ---
 import { Menu, X } from 'lucide-astro';
-import { BLOG_INDEX_HREF, blogStrings } from '../lib/blog';
-import { FALLBACK_HREF } from '../lib/downloads';
-import {
-  localeHomeHref,
-  localeInstallHref,
-  localePrivacyHref,
-  strings,
-  type Locale,
-} from '../i18n';
+import { headerLinks } from '../lib/header-links';
+import { localeHomeHref, localeInstallHref, strings, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -21,31 +14,8 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang];
 const home = localeHomeHref(lang);
-const privacy = localePrivacyHref(lang);
 const guideHref = localeInstallHref(lang);
-
-// The same links render in the desktop row and the mobile menu — each is an
-// action or an off-page destination. In-page section jumps were tried here
-// and removed: the page is a scroll-first narrative, and anchors to its own
-// sections earn nothing on the homepage while resolving to a different page
-// everywhere else the header renders. `download` flags the install link,
-// which the script below resolves to a browser-detected store, mirroring the
-// hero CTA.
-//
-// Contact lives in the footer only (its "contact" column) — the header is
-// for primary navigation, and the mailto is a low-frequency destination
-// that doesn't need a permanent slot in the sticky bar.
-//
-// The blog is Ukrainian-only (see ../lib/blog), so it's the one link here
-// that exists in one locale only — same reasoning as the footer's
-// "for-language" column.
-const links = [
-  ...(lang === 'uk'
-    ? [{ href: BLOG_INDEX_HREF, label: blogStrings.navLabel, download: false }]
-    : []),
-  { href: privacy, label: t.nav.privacy, download: false },
-  { href: FALLBACK_HREF, label: t.nav.download, download: true },
-];
+const links = headerLinks(lang);
 ---
 
 <header

@@ -266,7 +266,12 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-feature-settings: 'ss01', 'ss02', 'cv11';
+  /* Deliberately no `font-feature-settings`. The Manrope-era list
+   * ('ss01', 'ss02', 'cv11') means something else entirely in Fixel: ss01 is
+   * "Curved diagonals AMNVWY" and ss02 is "Curved diagonals XKYaZhe", which
+   * between them redraw А М У Ў Ж К Х Я — so it silently restyled every
+   * Cyrillic heading. 'cv11' does not exist in Fixel at all. Fixel's default
+   * forms are the ones we want; leave this off. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.55;

@@ -84,6 +84,23 @@ async function amo(path, { issuer, secret, method = 'GET', body } = {}) {
 }
 
 /**
+ * AMO's version-list filter. NOT a free-form "give me everything" flag: the
+ * endpoint accepts exactly `all_without_unlisted`, `all_with_unlisted`,
+ * `all_with_deleted` (admin only) and `enterprise_only`, and answers anything
+ * else with `400 ["Invalid \"filter\" parameter specified."]`. This script
+ * shipped with `filter=all` and therefore never once set a release note — it
+ * threw here on every run from at least v1.7.0, unnoticed because the workflow
+ * step is `continue-on-error`.
+ *
+ * A filter is required rather than optional: with none, AMO returns only
+ * PUBLIC versions, and the version this script exists to annotate was signed
+ * moments earlier and is still awaiting review. `all_with_unlisted` is the
+ * widest value a developer credential can use, so the lookup does not depend
+ * on the version's review state or listing.
+ */
+const VERSION_FILTER = 'all_with_unlisted';
+
+/**
  * Find the version AMO knows by this version string. `web-ext sign` has
  * already returned by the time we run, but AMO can take a moment to expose the
  * new version, so this waits rather than failing on a race.
@@ -91,14 +108,21 @@ async function amo(path, { issuer, secret, method = 'GET', body } = {}) {
 async function findVersion(addon, version, auth, pollMinutes) {
   const deadline = Date.now() + pollMinutes * 60_000;
   for (;;) {
-    const res = await amo(`/addons/addon/${addon}/versions/?filter=all&page_size=50`, auth);
+    const res = await amo(
+      `/addons/addon/${addon}/versions/?filter=${VERSION_FILTER}&page_size=50`,
+      auth,
+    );
     if (res.status === 401 || res.status === 403) {
       throw new Error(
         `AMO rejected the credentials (${res.status}). AMO_JWT_ISSUER / AMO_JWT_SECRET are the same pair web-ext signs with.`,
       );
     }
     if (res.status !== 200) {
-      throw new Error(`listing versions failed: ${res.status} ${res.text.slice(0, 200)}`);
+      const hint =
+        res.status === 400 && res.text.includes('filter')
+          ? ` — AMO accepts only all_without_unlisted / all_with_unlisted / all_with_deleted / enterprise_only for \`filter\`, and this asked for "${VERSION_FILTER}".`
+          : '';
+      throw new Error(`listing versions failed: ${res.status} ${res.text.slice(0, 200)}${hint}`);
     }
     const hit = (res.body?.results ?? []).find((v) => v.version === version);
     if (hit) return hit;

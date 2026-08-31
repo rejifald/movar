@@ -92,30 +92,48 @@ The accent is allowed to speak. The pattern is a static accent marker (a filled 
 
 ## 2. Typography
 
-| Family            | Weights                 | Used for                                                                                          |
-| ----------------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
-| **Manrope**       | 400, 500, 600, 700, 800 | Display, body, UI. Full Cyrillic + Latin coverage. Geometric DNA, reads at small UI sizes.        |
-| **IBM Plex Mono** | 400, 500, 600           | Locale codes, tokens, header meta, code. Carries the technical register without going industrial. |
+| Family            | Weights            | Used for                                                                                          |
+| ----------------- | ------------------ | ------------------------------------------------------------------------------------------------- |
+| **Fixel Display** | 700, 800           | Headings and hero. The display optical cut.                                                       |
+| **Fixel Text**    | 400, 500, 600, 700 | Body, UI, labels, eyebrows. The text optical cut.                                                 |
+| **IBM Plex Mono** | 400, 500, 600      | Locale codes, tokens, header meta, code. Carries the technical register without going industrial. |
+| **Manrope**       | 800                | The brand lockup only — the mark's cutout "r" and the wordmark. Nothing else.                     |
+
+Fixel is by MacPaw and AlfaBravo, under the SIL Open Font License; `@movar/fonts`
+ships it subset to Latin + Cyrillic. Manrope survives at one weight because the
+"r" is cut into artefacts no CSS token reaches — see `fontFamily.brand` in
+`@movar/theme` before touching it.
 
 ### 2.1 Roles
 
 | Role     | Family        | Size         | Weight          | Tracking       | Notes                                                  |
 | -------- | ------------- | ------------ | --------------- | -------------- | ------------------------------------------------------ |
-| Display  | Manrope       | 28 – 56 px   | 700 / 800       | −2 % to −4.5 % | Headings, wordmark, hero                               |
-| Body     | Manrope       | 17 – 18 px   | 400 / 500       | −0.5 %         | Marketing, long-form, options copy                     |
-| UI       | Manrope       | 12 – 15 px   | 400 / 500 / 600 | −0.5 %         | Popup labels, button copy                              |
+| Display  | Fixel Display | 28 – 56 px   | 700 / 800       | −2 % to −4.5 % | Headings, hero                                         |
+| Body     | Fixel Text    | 17 – 18 px   | 400 / 500       | −0.5 %         | Marketing, long-form, options copy                     |
+| UI       | Fixel Text    | 12 – 15 px   | 400 / 500 / 600 | −0.5 %         | Popup labels, button copy                              |
 | Mono     | IBM Plex Mono | 10.5 – 14 px | 400 / 500 / 600 | 0              | Locale codes, headers, meta                            |
 | Wordmark | Manrope 800   | 120 – 240 px | 800             | −4.5 %         | `line-height: 0.86` · accent dot ø = 0.18 em as period |
 
 ### 2.2 Font features
 
-- Body: `font-feature-settings: "ss01", "ss02", "cv11";`
-- Mono: `font-feature-settings: "ss02";`
+**Do not set `font-feature-settings` on body text.** Fixel's default forms are the
+ones we want. The Manrope-era list `"ss01", "ss02", "cv11"` shipped against Fixel
+by mistake and had to be removed: in Fixel `ss01` is "Curved diagonals AMNVWY" and
+`ss02` is "Curved diagonals XKYaZhe", which between them redraw **А М У Ў Ж К Х Я**
+— every Cyrillic heading quietly got alternate letterforms. `cv11` is not a Fixel
+feature at all.
+
+Fixel does carry 14 stylistic sets, `ss14` among them being the 18 Ukrainian
+pictograms. Enabling any of them is a deliberate design decision, per-element,
+never on `body`.
+
 - Numerals: `font-variant-numeric: tabular-nums;` on counters and metadata.
 
 ### 2.3 Bilingual samples
 
-The brand is bilingual UA/EN by default. Manrope's Cyrillic carries the same geometric character as the Latin — verify both renders before locking type at any new size.
+The brand is bilingual UA/EN by default. Fixel was drawn Cyrillic-first and its
+Ukrainian layout is complete (Ґ ґ Є є І і Ї ї, and the U+02BC apostrophe) —
+verify both renders before locking type at any new size.
 
 ```
 Тримай інтернет

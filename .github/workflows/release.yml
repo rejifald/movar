@@ -273,7 +273,8 @@ jobs:
       # above. A failure here costs release notes, not the release — and it is
       # re-runnable on its own, which matters because AMO can take a few
       # minutes to expose a freshly uploaded version.
-      - if: steps.check.outputs.skip != 'true'
+      - id: amo_notes
+        if: steps.check.outputs.skip != 'true'
         name: Set AMO release notes
         continue-on-error: true
         env:
@@ -282,6 +283,22 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         shell: bash
         run: node scripts/amo-release-notes.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # `continue-on-error` keeps the job green, which is the right call for a
+      # step that costs notes rather than the release — but it also meant this
+      # step could fail on EVERY release and nobody would see it. It did: the
+      # script asked AMO for an invalid `filter` value and set no notes at all
+      # from at least v1.7.0 through v1.8.0, behind a green check each time.
+      # An annotation costs nothing and makes the next such failure visible on
+      # the run itself.
+      - if: steps.amo_notes.outcome == 'failure'
+        name: Announce that AMO notes were not set
+        run: |
+          echo "::warning title=AMO release notes not set::\
+          Version ${{ needs.prepare.outputs.version }} reached AMO without release notes. \
+          The add-on itself uploaded fine — only the notes are missing. \
+          Re-run the 'AMO release notes' workflow (amo-notes.yml) for this version once fixed; \
+          it is idempotent and touches nothing else."
 
   release-chrome:
     needs: [prepare, e2e]

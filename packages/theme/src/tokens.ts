@@ -38,11 +38,22 @@ export const colorLight = {
   'surface-3': '#edeae6',
   border: '#e7e5e4',
   'border-strong': '#d6d3d1',
-  'ink-faint': '#737373' /* 5.5:1 on --bg, AA pass */,
-  'ink-soft': '#78716c',
-  'ink-medium': '#676159' /* dimmer body/label than ink that still clears AA on
-    tinted surfaces where ink-soft can't (5.6:1 on --surface-2, 5.1:1 on
-    --surface-3); fills the stone-500→600 gap. See styleguide §1.3. */,
+  /* The muted end of the ink scale sits one stone/neutral step DOWN from where
+   * it started (500 → 600). The 500s were picked to clear WCAG AA and did —
+   * by 0.09 — so every contrast check passed while the light theme shipped its
+   * secondary copy at 4.5:1 and the dark theme shipped the same token at 7.8:1.
+   * A floor is not a target: 542 text nodes on the marketing site rendered as
+   * pale grey, and nothing could see it because nothing was measuring intent.
+   * These values put light at parity with dark; `tokens.test.ts` now pins the
+   * floor so the scale cannot drift back down to the legal minimum. */
+  'ink-faint': '#525252' /* neutral-600 — 7.5:1 on --bg. Cooler than ink-soft at
+    the same lightness, exactly as in dark (#a3a3a3 vs #a8a29e, both 7.8:1):
+    faint and soft are one step apart in ROLE, not in luminance. */,
+  'ink-soft': '#57534e' /* stone-600 — 7.3:1 on --bg, 6.4:1 on --surface-3 */,
+  'ink-medium': '#524d48' /* dimmer body/label than ink; 8.0:1 on --bg, 7.7:1 on
+    --surface-2, 7.0:1 on --surface-3. It was introduced because ink-soft could
+    not clear AA on tinted surfaces — ink-soft now clears them comfortably, so
+    what is left is the role: the rung between soft and body. See styleguide §1.3. */,
   ink: '#44403c',
   'ink-strong': '#1c1917',
 
@@ -55,7 +66,10 @@ export const colorLight = {
    * flips instead, the way the danger family already does. Use `text-accent-text`
    * for any accent-coloured text on ordinary chrome; `accent-deep` remains the
    * emphasis colour for text sitting on accent-tinted surfaces. */
-  'accent-text': '#15803d' /* 4.8:1 on --bg, 4.6:1 on --accent-soft, AA pass */,
+  'accent-text': '#166534' /* forest-800 — 6.8:1 on --bg, 6.5:1 on --accent-soft.
+    Was forest-700, the same hex as the `accent` fill, which scored 4.8:1: an AA
+    pass against a dark-mode twin at 14:1. Deepening it to 800 keeps the hue and
+    leaves `accent` itself untouched, so `bg-accent` CTAs are unaffected. */,
   'accent-deep': '#14532d',
   'accent-soft': '#dcfce7',
   'accent-surface': '#f0fdf4',
@@ -79,11 +93,21 @@ export type ColorToken = keyof typeof colorLight;
 
 /**
  * Dark-theme overrides. Only the tokens that actually change between themes are
- * listed — `accent`, `accent-on`, and `danger-on` are intentionally
- * theme-stable: `accent` is a *fill*, and the forest reads correctly as a fill
- * on both light and dark chrome. Accent-coloured *text* is a different job with
- * a different contrast floor, so it has its own token — `accent-text` — which
- * does flip. The generator emits exactly these keys into the
+ * listed — `accent` and `accent-on` are intentionally theme-stable: `accent` is
+ * a *fill*, and the forest reads correctly as a fill on both light and dark
+ * chrome, so the white it is paired with holds in both too. Accent-coloured
+ * *text* is a different job with a different contrast floor, so it has its own
+ * token — `accent-text` — which does flip.
+ *
+ * `danger-on` was on that stable list too, and should never have been: `danger`
+ * DOES flip (#b91c1c → #f87171), so a companion pinned to white followed a deep
+ * red into a light one and landed at 2.77:1. `bg-danger text-danger-on` is live
+ * in the guide checklist's "bad" badge and the diagnostics count badge; the
+ * first is applied by script on a runtime event, so the rendered-page contrast
+ * suite never reached the state that fails. **An "on" colour is only
+ * theme-stable when the fill beneath it is.**
+ *
+ * The generator emits exactly these keys into the
  * `prefers-color-scheme: dark` block, so the CSS stays as small as the design
  * intends.
  *
@@ -106,11 +130,13 @@ export const colorDarkOverrides = {
   ink: '#d6d3d1',
   'ink-strong': '#fafaf9',
   'accent-text': '#86efac' /* 14.1:1 on --bg, 10.9:1 on --accent-surface; the
-    light-mode #15803d scores 3.9:1 and 3.1:1 there, hence the flip */,
+    light-mode forest scores 2.8:1 and 2.1:1 there, hence the flip */,
   'accent-deep': '#86efac' /* light green for text on dark accent surfaces */,
   'accent-soft': '#14532d' /* deep forest tint, used as solid backgrounds */,
   'accent-surface': '#122a1d' /* dark green-tinted panel bg */,
   danger: '#f87171' /* lighter red for borders/text on dark (~5.5:1 on --surface) */,
+  'danger-on': '#0c0a09' /* 7.1:1 on the light-red fill above. Follows `danger`
+    the way `brand-letter` follows the tile it sits on — white scored 2.77:1. */,
   'danger-deep': '#fca5a5' /* emphasis text on --danger-surface */,
   'danger-soft': '#7f1d1d' /* deep red, solid backgrounds */,
   'danger-surface': '#2a1414' /* dark red-tinted panel bg */,
@@ -164,7 +190,7 @@ export const colorDark = {
   'danger-deep': '#fca5a5',
   'danger-soft': '#7f1d1d',
   'danger-surface': '#2a1414',
-  'danger-on': '#ffffff',
+  'danger-on': '#0c0a09',
   'brand-letter': '#0c0a09',
 } as const satisfies Record<ColorToken, string>;
 

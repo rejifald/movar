@@ -33,67 +33,7 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].stakes;
 
-/**
- * Copy for the closed-loop diagram: the four box labels, the return-path
- * pill, the figure caption, and the SVG's own aria-label.
- *
- * These are short, diagram-specific strings with no home in `StakesStrings`
- * yet — apps/marketing/src/i18n.ts is owned by a parallel change right now,
- * so this lives here as a typed, per-locale constant instead of a new field
- * there. TODO(i18n): once that change lands, fold this shape into
- * `StakesStrings.diagram` and replace `DIAGRAM_COPY[lang]` below with
- * `t.diagram` — the field names (`nodes`, `loopLabel`, `figureLabel`,
- * `ariaLabel`) were picked so the move is a straight cut-and-paste.
- */
-interface DiagramNode {
-  /** Two-line heading set inside the box. */
-  heading: readonly [string, string];
-  /** Small line under the heading. */
-  detail: string;
-}
-
-interface StakesDiagramCopy {
-  /** "Fig. 1" caption beside the section heading. */
-  figureLabel: string;
-  /** The whole argument in one sentence, for anyone who can't see the figure. */
-  ariaLabel: string;
-  /** The four boxes, in flow order. */
-  nodes: readonly [DiagramNode, DiagramNode, DiagramNode, DiagramNode];
-  /** Label on the pill sitting on the return path. */
-  loopLabel: string;
-}
-
-const DIAGRAM_COPY: Record<Locale, StakesDiagramCopy> = {
-  en: {
-    figureLabel: 'Fig. 1',
-    ariaLabel:
-      'Diagram of a closed loop: a site defaults to Russian, analytics reads that as reader choice, Ukrainian content shrinks, and sites choose Russian for you more and more often.',
-    nodes: [
-      { heading: ['A site defaults', 'to Russian'], detail: 'though you chose Ukrainian' },
-      {
-        heading: ['In analytics, this', 'looks like a choice'],
-        detail: "of readers, not the site's",
-      },
-      { heading: ['Less Ukrainian', 'content gets made'], detail: 'less audience last year' },
-      { heading: ['The site chooses', 'for you more often'], detail: 'and the signal repeats' },
-    ],
-    loopLabel: 'and the loop closes',
-  },
-  uk: {
-    figureLabel: 'Рис. 1',
-    ariaLabel:
-      'Схема замкненого кола: сайт віддає російську, аналітика читає це як вибір читачів, українського контенту стає менше, і сайти дедалі частіше обирають за вас',
-    nodes: [
-      { heading: ['Сайт віддає', 'російську'], detail: 'хоч ви обрали українську' },
-      { heading: ['В аналітиці це', 'виглядає як вибір'], detail: 'читачів, а не сайту' },
-      { heading: ['Українського', 'контенту менше'], detail: 'менше аудиторії торік' },
-      { heading: ['Сайт дедалі частіше', 'обирає за вас'], detail: 'і сигнал повторюється' },
-    ],
-    loopLabel: 'і коло замикається',
-  },
-};
-
-const diagram = DIAGRAM_COPY[lang];
+const diagram = t.diagram;
 
 /* ---- Wide diagram (md and up) ------------------------------------------ */
 const WIDE_BOX_W = 230;
@@ -400,8 +340,8 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
       </div>
     </div>
 
-    <p class="mt-6 font-display text-xl font-bold text-ink-strong sm:text-2xl">
-      {t.closeLine}
+    <p class="mt-4 max-w-3xl text-sm leading-relaxed text-ink-faint">
+      {diagram.caption}
     </p>
 
     <div class="mt-14 grid grid-cols-1 md:grid-cols-2">

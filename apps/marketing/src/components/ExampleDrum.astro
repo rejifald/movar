@@ -209,7 +209,19 @@ const frameAfter =
               </div>
             )}
 
-            <div class="my-4 flex items-center gap-3">
+            {/* Names what actually changed between the two panels. The `✓`
+               chip below only marks which panel is which; this says why the
+               second one differs. Mirrors HowItWorks' claim pill. */}
+            <div class="mt-4 flex justify-center">
+              <span
+                class="inline-flex min-w-0 items-center gap-2 rounded-full border border-accent/30 bg-accent-surface py-1 pl-1 pr-3"
+              >
+                <img src="/icon.svg" alt="" width="18" height="18" class="shrink-0 rounded-[5px]" />
+                <span class="min-w-0 text-xs font-semibold text-accent-deep">{t.declared}</span>
+              </span>
+            </div>
+
+            <div class="mb-4 mt-3 flex items-center gap-3">
               <span class="h-px flex-1 bg-border" />
               <span
                 class:list={[chipBase, 'border border-accent/30 bg-accent-surface text-accent-deep']}

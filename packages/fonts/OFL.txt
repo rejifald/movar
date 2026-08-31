@@ -1,18 +1,40 @@
 Fixel — SIL Open Font License, Version 1.1
 ==========================================
 
-Copyright (c) 2023 MacPaw Inc. (Authors: Alfabravo + MacPaw)
-https://macpaw.com/  ·  https://alfabravo.design/
+Copyright (c) 2023 MacPaw Inc., (https://macpaw.com)
 
-Designers: Kyrylo Tkachov, Marchela Mozhyna, Serhii Makarenko,
-Maria Weinstein, Zakhar Kryvoshyya.
+No Reserved Font Name is declared.
 
-Version 1.211. No Reserved Font Name is declared.
+Version 1.211. Commissioned by MacPaw, drawn at AlfaBravo / АльфаБраво
+(https://alfabravo.design/). Authors:
 
-The upstream archive (https://fonts.macpaw.com/fonts/FixelAll.zip) ships no
-licence file; the notice above is transcribed verbatim from the `name` table of
-FixelText-Regular.otf, and the licence body below is the canonical OFL 1.1 text
-from https://openfontlicense.org/documents/OFL.txt.
+  Кирило Ткачов      Kyrylo Tkachov
+  Марчела Можина     Marchela Mozhyna
+  Сергій Макаренко   Serhii Makarenko
+  Захар Кривошия     Zakhar Kryvoshyia
+  Марія Вайнштейн    Mariia Vainshtein
+
+The Latin forms are transliterated from the Ukrainian, and are the ones
+MacPaw's own AUTHORS.txt uses. The font's `name` table (ID 8) anglicises two of
+them — "Zakhar Kryvoshyya" and "Maria Weinstein" — and its ID 0 notice reads
+"© 2023 MacPaw Inc. (Authors: Alfabravo + MacPaw)". Where upstream disagrees
+with itself this file follows AUTHORS.txt: it is the copyright-holder's own
+list of authors, and it spells them from Ukrainian.
+
+Provenance of the notice above, in descending order of authority:
+
+  * FixelText-Regular.otf declares the licence in its own `name` table — ID 13,
+    "This Font Software is licensed under the SIL Open Font License, Version
+    1.1 …", and ID 14, http://scripts.sil.org/OFL.
+  * MacPaw publishes the canonical OFL.txt, AUTHORS.txt and CONTRIBUTORS.txt at
+    https://github.com/MacPaw/Fixel. The copyright line above is that OFL.txt's,
+    verbatim, and it declares no Reserved Font Name.
+  * https://fixel.macpaw.com/ states the same licence.
+
+The release these subsets are cut from — https://fonts.macpaw.com/fonts/
+FixelAll.zip, v1.211 — ships no licence file of its own, which is why this file
+transcribes one. The licence body below is the canonical OFL 1.1 text from
+https://openfontlicense.org/documents/OFL.txt.
 
 The woff2 files in ./files are subsets of that release, cut to Latin + Cyrillic
 by scripts/subset-fixel.mts. Subsetting is a Modified Version under §2 of this

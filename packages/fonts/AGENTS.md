@@ -38,9 +38,16 @@ Manrope (`fontFamily.brand` in `@movar/theme`), and that comes from
 - **Ґ/ґ (U+0490–0491) is inside the subset range** and must stay there. A
   Russian-centric Cyrillic subset drops it; on this product that would be a
   visible, and pointed, defect.
-- **No Reserved Font Name applies**, so the subsets keep the name Fixel.
-  `OFL.txt` carries the copyright notice transcribed from the font's own `name`
-  table, because the upstream archive ships no licence file.
+- **No Reserved Font Name applies**, so the subsets keep the name Fixel. The
+  font declares OFL 1.1 in its own `name` table (ID 13/14) and MacPaw ships the
+  canonical `OFL.txt` in its repo; `OFL.txt` here records both, because the
+  archive the outlines come from ships no licence file.
+- **The outlines come from `FixelAll.zip`, not from MacPaw's GitHub repo.** Both
+  are official, but they are different releases, and the more canonical-looking
+  one is the worse choice: `github.com/MacPaw/Fixel` is still v1.000 (680
+  glyphs) and **has no U+02BC**, the Ukrainian apostrophe, while the zip is
+  v1.211 (1,196 glyphs) and does. Re-cutting from the repo would drop it
+  silently. Take the licence text from the repo, the outlines from the zip.
 
 ## Public API
 
@@ -66,6 +73,10 @@ None at runtime. `scripts/subset-fixel.mts` (repo root) uses `subset-font`.
 `@fontsource/manrope` 800 for the lockup.
 
 ## Working on it
+
+The committed subsets are reproducible: re-running `scripts/subset-fixel.mts`
+against a freshly downloaded `FixelAll.zip` regenerates all six byte-for-byte,
+which is how to prove what is in `files/` is really upstream Fixel.
 
 Adding a weight means: subset it (`scripts/subset-fixel.mts`), add its CSS
 entry, then import it from the surfaces that need it — and check that something

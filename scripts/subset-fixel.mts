@@ -2,7 +2,7 @@
  * Subset Fixel to Latin + Cyrillic and emit the woff2 files `@movar/fonts` ships.
  *
  * Fixel is distributed as one woff2 per weight carrying the *whole* typeface —
- * 11,000+ glyphs across 40+ languages, ~80 KB per cut. Six cuts unsubsetted is
+ * 1,196 glyphs across 40+ languages, ~80 KB per cut. Six cuts unsubsetted is
  * 483 KB on every surface that loads the brand font, against 107 KB for the
  * Manrope subsets it replaces. The extension popup pays that on every open, for
  * glyph coverage this product will never render.

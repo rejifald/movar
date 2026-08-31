@@ -763,7 +763,7 @@ list the majors and point at the index.
 
 | Project                        | Note                                                                                                                      |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Fixel (MacPaw × AlphaBravo)    | Open Font License, free, complete Ukrainian layout, 18 Ukrainian decorative glyphs                                        |
+| Fixel (MacPaw × AlfaBravo)     | Open Font License, free, complete Ukrainian layout, 18 Ukrainian decorative glyphs                                        |
 | Kyiv Type / Dmytro Rastvortsev | Free city-branding typefaces (Kyiv, Kyiv Region, Vinnytsia). Licence terms to be confirmed with the author before listing |
 
 ### Технології

@@ -63,8 +63,9 @@ fixes" use cases — they just deliver them in different shapes:
   in `screenshots/{en,uk}/`.
 - **Marketing** ships two single-half PNGs per pair (each captured
   light + `-dark`, at natural content height); the Astro layer
-  ([apps/marketing/src/components/Examples.astro](../../marketing/src/components/Examples.astro))
-  composes them at runtime — full-width and stacked — swapping
+  ([apps/marketing/src/components/ExampleDrum.astro](../../marketing/src/components/ExampleDrum.astro))
+  composes them at runtime — stacked inside the hero's tabbed drum, one
+  pair visible at a time — swapping
   light↔dark with `<picture>` + `prefers-color-scheme`.
 
 **The rule: every new use case is wired into BOTH surfaces unless the
@@ -98,9 +99,12 @@ checklist):
    scenes. Export `English` and `Ukrainian` stories — or document, in
    the file header, why one locale is intentionally skipped and use
    `tags: ['skip-capture']` (or omit the export entirely).
-4. Wire the pair into `Examples.astro`'s `imagePairs` (keyed by the
+4. Wire the pair into `ExampleDrum.astro`'s `imagePairs` (keyed by the
    matching `examples.entries` index in `i18n.ts`), gated on PNG
-   existence; the `-dark` siblings are picked up automatically.
+   existence; the `-dark` siblings are picked up automatically. The drum
+   builds exactly four slides from a hardcoded `[0, 1, 2, 3]`, so a fifth
+   use case needs that list widened and a fifth `examples.captions` entry
+   — a new pair alone will not appear.
 5. Add a row to the §"Required shots" table here, a row to
    §5 of [`REQUIREMENTS.md`](./REQUIREMENTS.md), entries to §6's asset
    table, and a row to

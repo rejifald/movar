@@ -139,10 +139,10 @@ const stepsUpdated = formatUpdated(
   >
     <p
       data-count
-      class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-ink-faint"
+      class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-ink-medium"
     >
     </p>
-    <p class="font-mono text-[10.5px] tracking-wide text-ink-faint">
+    <p class="font-mono text-[10.5px] tracking-wide text-ink-medium">
       {t.stepsUpdated} {stepsUpdated}
     </p>
   </div>
@@ -157,7 +157,7 @@ const stepsUpdated = formatUpdated(
       so it reads as the last row of the diagnosis rather than as an ad
       parked beneath it. */}
   <div class="border-t border-accent-soft bg-accent-surface px-6 py-6">
-    <p class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent">
+    <p class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent-text">
       {t.beyond.label}
     </p>
     <h3 class="mt-2 font-display text-xl font-extrabold tracking-display text-ink-strong">
@@ -260,7 +260,7 @@ const stepsUpdated = formatUpdated(
     <div data-fix class="ml-10 flex flex-col gap-3 border-l-2 border-accent-soft pl-5">
       <p
         data-fix-label
-        class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent"
+        class="font-mono text-[10.5px] font-semibold uppercase tracking-label text-accent-text"
       >
       </p>
       <div data-fix-mockup class="max-w-full overflow-x-auto"></div>
@@ -289,7 +289,7 @@ const stepsUpdated = formatUpdated(
       <a
         data-fix-link
         href="#"
-        class="self-start text-[13px] font-bold text-accent transition hover:text-ink-strong"></a>
+        class="self-start text-[13px] font-bold text-accent-text transition hover:text-ink-strong"></a>
     </div>
   </article>
 </template>
@@ -456,7 +456,7 @@ const stepsUpdated = formatUpdated(
           if (language.role === 'target') {
             chip.className =
               'inline-flex items-center gap-2 rounded-[10px] border border-accent-soft bg-accent-surface px-3 py-2';
-            rank.className = 'font-mono text-[11px] font-medium tabular-nums text-accent';
+            rank.className = 'font-mono text-[11px] font-medium tabular-nums text-accent-text';
             name.className = 'text-sm font-semibold tracking-tight text-accent-deep';
           } else if (language.role === 'blocked') {
             chip.className =

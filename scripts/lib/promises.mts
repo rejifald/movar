@@ -210,7 +210,7 @@ function verifyNetworkSilent(repoRoot: string): PromiseCheck {
   const kept = reasons.length === 0;
   return {
     claim: 'Nothing leaves your browser',
-    source: 'hero badge + OG card + privacy section + limitations',
+    source: 'hero badge + OG card + privacy section',
     kept,
     detail: kept
       ? "manifest declares data collection 'none', no analytics dependency, and no fetch/XHR/WebSocket/sendBeacon in the extension runtime"
@@ -228,7 +228,7 @@ function verifyContentFilterOff(repoRoot: string): PromiseCheck {
   const off = /contentModification:\s*false\b/.test(literal);
   return {
     claim: 'On-page filtering stays off until you turn it on',
-    source: 'how-it-works step 2 + limitations',
+    source: 'how-it-works step 2 + its refusals block',
     kept: off,
     detail: off
       ? '`defaultSettings.contentModification` is false in @movar/settings — DOM filtering ships opt-in'

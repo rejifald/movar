@@ -1,18 +1,20 @@
 @import 'tailwindcss';
 
 /*
- * Per-subset @fontsource imports — Latin + Cyrillic only. Manrope/IBM Plex Mono
+ * Font imports — Fixel (Latin + Cyrillic subsets from @movar/fonts), Manrope 800
+ * for the brand lockup only, and IBM Plex Mono
  * publish Greek/Vietnamese/Latin-ext too; UA+EN extension UI does not need
  * them, and bundling all of them blows up the extension package.
  */
-@import '@fontsource/manrope/latin-400.css';
-@import '@fontsource/manrope/cyrillic-400.css';
-@import '@fontsource/manrope/latin-500.css';
-@import '@fontsource/manrope/cyrillic-500.css';
-@import '@fontsource/manrope/latin-600.css';
-@import '@fontsource/manrope/cyrillic-600.css';
-@import '@fontsource/manrope/latin-700.css';
-@import '@fontsource/manrope/cyrillic-700.css';
+@import '@movar/fonts/fixel-text-400.css';
+@import '@movar/fonts/fixel-text-500.css';
+@import '@movar/fonts/fixel-text-600.css';
+@import '@movar/fonts/fixel-text-700.css';
+@import '@movar/fonts/fixel-display-700.css';
+@import '@movar/fonts/fixel-display-800.css';
+
+/* Manrope at 800 and nothing else: `--font-brand`, i.e. the mark's "r" and the
+ * wordmark. The rest of the product is Fixel. */
 @import '@fontsource/manrope/latin-800.css';
 @import '@fontsource/manrope/cyrillic-800.css';
 @import '@fontsource/ibm-plex-mono/latin-400.css';
@@ -58,7 +60,12 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-feature-settings: 'ss01', 'ss02', 'cv11';
+  /* Deliberately no `font-feature-settings`. The Manrope-era list
+   * ('ss01', 'ss02', 'cv11') means something else entirely in Fixel: ss01 is
+   * "Curved diagonals AMNVWY" and ss02 is "Curved diagonals XKYaZhe", which
+   * between them redraw А М У Ў Ж К Х Я — so it silently restyled every
+   * Cyrillic heading. 'cv11' does not exist in Fixel at all. Fixel's default
+   * forms are the ones we want; leave this off. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.55;

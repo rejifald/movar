@@ -22,6 +22,7 @@
     "@movar/audit": "workspace:*",
     "@movar/audit-engine": "workspace:*",
     "@movar/brand": "workspace:*",
+    "@movar/fonts": "workspace:*",
     "@movar/i18n": "workspace:*",
     "@movar/lang-detect": "workspace:*",
     "@movar/options-ui": "workspace:*",

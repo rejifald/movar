@@ -56,6 +56,7 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 | [`packages/brand`](packages/brand/AGENTS.md)                 | Zero-dep brand constants leaf (`SUPPORT_EMAIL`, `FEEDBACK_URL`, `SOURCE_URL`)                                    |
 | [`packages/settings`](packages/settings/AGENTS.md)           | Settings types/defaults + locked-language policy (`MovarSettings`, `defaultSettings`, `enforceLockedLanguages`)  |
 | [`packages/events`](packages/events/AGENTS.md)               | Correction-event types (`CorrectionMechanism`, `CorrectionEvent`)                                                |
+| [`packages/fonts`](packages/fonts/AGENTS.md)                 | Zero-dep font leaf — Fixel (Ukrainian, OFL) subset to Latin + Cyrillic as per-cut `@font-face` CSS + woff2       |
 | [`packages/theme`](packages/theme/AGENTS.md)                 | Zero-dep design-token leaf — typed source of truth (colors/space/fonts/radii/breakpoints/sizes) → generated CSS  |
 | [`packages/ui`](packages/ui/AGENTS.md)                       | React design-system primitives (+ pure `./tooltip-position`) consuming `@movar/theme`, for extension + marketing |
 | [`packages/browser-ui`](packages/browser-ui/AGENTS.md)       | Framework-free mockups of real Chrome/Firefox/Safari/iOS UI for the install guidance (shares no theme tokens)    |

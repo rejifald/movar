@@ -41,14 +41,15 @@
 @import '@movar/theme/motion.css';
 
 /* Brand type — the same per-subset weights the extension bundles. */
-@import '@fontsource/manrope/latin-400.css';
-@import '@fontsource/manrope/cyrillic-400.css';
-@import '@fontsource/manrope/latin-500.css';
-@import '@fontsource/manrope/cyrillic-500.css';
-@import '@fontsource/manrope/latin-600.css';
-@import '@fontsource/manrope/cyrillic-600.css';
-@import '@fontsource/manrope/latin-700.css';
-@import '@fontsource/manrope/cyrillic-700.css';
+@import '@movar/fonts/fixel-text-400.css';
+@import '@movar/fonts/fixel-text-500.css';
+@import '@movar/fonts/fixel-text-600.css';
+@import '@movar/fonts/fixel-text-700.css';
+@import '@movar/fonts/fixel-display-700.css';
+@import '@movar/fonts/fixel-display-800.css';
+
+/* Manrope at 800 and nothing else: `--font-brand`, i.e. the mark's "r" and the
+ * wordmark. The rest of the product is Fixel. */
 @import '@fontsource/manrope/latin-800.css';
 @import '@fontsource/manrope/cyrillic-800.css';
 @import '@fontsource/ibm-plex-mono/latin-400.css';
@@ -71,15 +72,22 @@
  * Semantic color utilities (bg-surface, text-ink-strong, …), shadows, and the
  * UI type scale are wired by the imported `@movar/theme` set files. This
  * screen only overrides the type faces: it prefers Apple's system stack as the
- * fallback behind Manrope (this @theme block wins over the shared one for
- * `--font-sans`/`--font-display` because it's declared after the import).
+ * fallback behind the brand faces (this @theme block wins over the shared one
+ * because it's declared after the import).
+ *
+ * These three MUST be restated whenever `fontFamily` moves in @movar/theme —
+ * a local override does not follow the token. That is exactly what made the
+ * Fixel swap a three-file change here rather than one.
  */
 @theme {
-  /* Brand type — Manrope (bundled above), same as the extension + marketing.
-   * `--font-display` drives the app-bar brand mark's `r` glyph. */
-  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  /* Brand type — Fixel (bundled above), same as the extension + marketing. */
+  --font-sans:
+    'Fixel Text', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   --font-display:
-    'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+    'Fixel Display', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  /* The app-bar mark's `r` — Manrope, and deliberately not the display face.
+   * See `fontFamily.brand` in @movar/theme and BrandBar in HostLayout.tsx. */
+  --font-brand: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
 /*

@@ -106,11 +106,11 @@ export function renderTypographyCss(): string {
     ...Object.keys(letterSpacing).map((k) => `  --tracking-${k}: var(--tracking-${k});`),
     ...Object.keys(lineHeight).map((k) => `  --leading-${k}: var(--leading-${k});`),
   ];
-  const fonts = [
-    `  --font-sans: ${fontFamily.sans};`,
-    `  --font-display: ${fontFamily.display};`,
-    `  --font-mono: ${fontFamily.mono};`,
-  ];
+  /* Derived from `fontFamily`, not listed. The three families used to be spelled
+   * out here, so adding a fourth (`brand`) emitted nothing and left
+   * `type-wordmark`'s `var(--font-brand)` resolving to no value — a silent
+   * fallback to the browser default, in the one role that renders the logo. */
+  const fonts = Object.entries(fontFamily).map(([key, stack]) => `  --font-${key}: ${stack};`);
   return `${GENERATED_BANNER}
 
 ${raw}

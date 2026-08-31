@@ -1,7 +1,51 @@
 ---
-import { Filter, Globe } from 'lucide-astro';
-
-import FeatureIcon from './FeatureIcon.astro';
+/*
+ * "How it works" — the one deliberately dark section on an otherwise light
+ * site. Two panels read as two positions of the same switch: panel 1 shows it
+ * ON (Movar declares your language up front, on by default), panel 2 shows it
+ * OFF (the per-element filter, opt-in in settings). Getting the ON/OFF switch
+ * drawing right is the whole point of the section — everything else supports
+ * that one visual argument.
+ *
+ * Fixed-tone band, not a semantic surface: `bg-surface`/`text-ink` etc. flip
+ * with the visitor's theme, which would turn this section light in dark mode —
+ * the opposite of "the only dark section on the page." So this file never
+ * touches a semantic color token. Instead it uses Tailwind's own default
+ * `stone-*` scale for neutrals and the `forest-*` scale from `@movar/theme`
+ * (tokens.ts: "Stone neutrals are left at Tailwind's defaults, which match the
+ * design's steps") for the green accent — both are static hexes, identical in
+ * light and dark builds, which is exactly what a pinned-dark band needs. Two
+ * recurring tints sit between curated steps (a near-black green well and a
+ * dark accent-tinted panel fill) and are pinned with arbitrary-value utilities
+ * instead of rounding to the nearest named step, so the two switch states,
+ * the dialogue box, and the callout keep the exact contrast the mock draws.
+ *
+ * Per the "`type-*` utilities are product-UI only" rule, this file sticks to
+ * plain `font-*`/`text-*`/`tracking-*` utilities, same as every other
+ * marketing section. And per the mono rule: `font-mono` appears exactly once,
+ * on the `&hl=uk` tail — every eyebrow and label here is the sans face.
+ *
+ * i18n note: `strings[lang].howItWorks` is being extended by a parallel change
+ * to add the copy this design needs (status lines, dialogue rows, callout,
+ * refusals). This file is written against that upcoming shape rather than the
+ * shorter one currently in `i18n.ts`:
+ *
+ *   steps: [
+ *     { title, status,                                   // step 1 (ON)
+ *       dialogue: { label, text }[],                      // Браузер/Сайт/Пошук
+ *       dialogueNote, claim, queryLabel, query, sentLabel, callout },
+ *     { title, status, scope, body,                       // step 2 (OFF)
+ *       examples: { text, hidden? }[], hiddenLabel, note },
+ *   ],
+ *   refusals: { eyebrow, items: string[], sourceLink },
+ *
+ * `dialogue`/`examples` are shown to everyone, sighted or not, because they
+ * carry information ("Google, YouTube, Bing, and DuckDuckGo answer in the
+ * right one" isn't said in plain prose anywhere else in this section) rather
+ * than restating a paragraph that already exists.
+ */
+import { Ban, Globe } from 'lucide-astro';
+import { SOURCE_URL } from '@movar/brand';
 import { localeHowMovarWorksHref, strings, type Locale } from '../i18n';
 
 interface Props {
@@ -11,51 +55,190 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].howItWorks;
 const deepDiveHref = localeHowMovarWorksHref(lang);
+
+// Two structurally different panels, not a repeatable card — destructured by
+// position rather than `.map()`-ed.
+const [step1, step2] = t.steps;
+
+/** Google's query-string chrome. Not copy — the syntax doesn't change between
+ *  locales — so it lives here rather than in `strings`; only the example
+ *  query term itself (`step1.query`) is localized. */
+const SEARCH_URL_BASE = 'google.com/search?q=';
 ---
 
-<section id="how-it-works" class="border-t border-border bg-surface px-6 py-20">
-  <div class="mx-auto max-w-3xl">
-    <h2 class="font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl">
-      {t.sectionTitle}
-    </h2>
-    <p class="mt-3 text-ink-soft">
-      {t.sectionLead}
-    </p>
-
-    <div class="mt-12 space-y-10">
-      {
-        t.steps.map((step, i) => (
-          <div class="flex items-start gap-5">
-            <FeatureIcon class="mt-1">
-              {i === 0 ? <Globe class="size-6" /> : <Filter class="size-6" />}
-            </FeatureIcon>
-            <div>
-              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h3 class="font-display text-xl font-bold text-ink-strong">{step.title}</h3>
-                {step.badge && (
-                  <span class="rounded-full border border-border bg-bg px-3 py-1 text-xs font-semibold text-ink-soft">
-                    {step.badge}
-                  </span>
-                )}
-              </div>
-              <p class="mt-2 leading-relaxed text-ink-soft">{step.body}</p>
-              {step.note && (
-                <p class="mt-3 text-sm italic text-ink-soft">* {step.note}</p>
-              )}
-            </div>
-          </div>
-        ))
-      }
-    </div>
-
-    <p class="mt-10">
+<section id="how-it-works" class="border-t border-stone-800 bg-stone-950 px-6 py-20 text-stone-300">
+  <div class="mx-auto max-w-5xl">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-12">
+      <div>
+        <p class="font-display text-xs font-bold uppercase tracking-label text-stone-400">
+          {t.sectionTitle}
+        </p>
+        <h2 class="mt-3 font-display text-3xl font-extrabold tracking-display text-stone-50 sm:text-4xl">
+          {t.sectionLead}
+        </h2>
+      </div>
       <a
         href={deepDiveHref}
-        class="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+        class="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-forest-300 transition hover:text-white"
       >
         {t.deepDiveLinkLabel}
         <span aria-hidden="true">→</span>
       </a>
-    </p>
+    </div>
+
+    <div class="mt-10 grid gap-7 md:grid-cols-2">
+      {/* Panel 1 — declared up front, switch ON. Taller by design: it carries
+         the dialogue, both address pills and the callout, panel 2 doesn't. */}
+      <div class="flex flex-col rounded-xl border border-stone-800 bg-stone-900 p-6 sm:p-7">
+        <h3 class="text-[15px] font-bold tracking-tight text-stone-50">{step1.title}</h3>
+
+        {/* Decorative switch, ON: green track, knob to the right. Not a
+           control — no button, no handler — so the graphic itself is
+           aria-hidden and the label beside it is a plain, readable span. */}
+        <div class="mt-4 flex items-center gap-3 rounded-lg border border-forest-900 bg-[#122a1d] px-4 py-3">
+          <span aria-hidden="true" class="relative h-[22px] w-10 shrink-0 rounded-full bg-forest-700">
+            <span class="absolute left-5 top-0.5 size-[18px] rounded-full bg-white"></span>
+          </span>
+          <span class="min-w-0 text-[13.5px] font-semibold tracking-tight text-forest-100">
+            {step1.status}
+          </span>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2.5 rounded-lg border border-stone-800 bg-stone-950 px-4 py-3.5">
+          {
+            step1.dialogue.map((row) => (
+              <div class="flex items-baseline gap-3">
+                <span class="w-[70px] shrink-0 font-display text-[11px] font-semibold uppercase tracking-label text-stone-400">
+                  {row.label}
+                </span>
+                <span class="min-w-0 text-sm text-stone-400">{row.text}</span>
+              </div>
+            ))
+          }
+          <p class="mt-1 border-t border-stone-800 pt-2.5 text-xs leading-relaxed text-stone-400">
+            {step1.dialogueNote}
+          </p>
+        </div>
+
+        <div class="mt-4 flex items-center gap-3">
+          <span class="hidden h-px flex-1 bg-stone-800 sm:block" aria-hidden="true"></span>
+          <span class="inline-flex min-w-0 items-center gap-2 rounded-full border border-forest-900 bg-[#122a1d] py-1 pl-1 pr-3">
+            <img src="/icon.svg" alt="" width="18" height="18" class="shrink-0 rounded-[5px]" />
+            <span class="min-w-0 text-xs font-semibold text-forest-300">{step1.claim}</span>
+          </span>
+          <span class="hidden h-px flex-1 bg-stone-800 sm:block" aria-hidden="true"></span>
+        </div>
+
+        <p class="mt-4 font-display text-[11px] font-semibold uppercase tracking-label text-stone-400">
+          {step1.queryLabel}
+        </p>
+        <div class="mt-2 flex items-start gap-2.5 rounded-full border border-stone-800 bg-stone-950 px-4 py-2.5">
+          <Globe class="mt-0.5 size-[15px] shrink-0 text-stone-400" aria-hidden="true" />
+          <span class="min-w-0 flex-1 break-all text-xs text-stone-400">
+            {SEARCH_URL_BASE}
+            <span class="text-stone-300">{step1.query}</span>
+          </span>
+        </div>
+
+        <p class="mt-3.5 font-display text-[11px] font-semibold uppercase tracking-label text-forest-300">
+          {step1.sentLabel}
+        </p>
+        <div class="mt-2 flex items-start gap-2.5 rounded-full border border-forest-900 bg-stone-950 px-4 py-2.5">
+          <Globe class="mt-0.5 size-[15px] shrink-0 text-forest-300" aria-hidden="true" />
+          <span class="min-w-0 flex-1 break-all text-xs text-stone-400">
+            {SEARCH_URL_BASE}
+            <span class="text-stone-300">{step1.query}</span>
+            {/* The one monospace moment in this section: the literal query
+               parameter, set off like an inline code token. */}
+            <span class="ml-0.5 rounded bg-[#122a1d] px-1 py-0.5 font-mono text-forest-300">
+              &amp;hl=uk
+            </span>
+          </span>
+        </div>
+
+        <div class="mt-4 rounded-lg border border-forest-900 bg-[#122a1d] px-4 py-3.5">
+          <p class="text-sm leading-relaxed text-forest-300">{step1.callout}</p>
+        </div>
+      </div>
+
+      {/* Panel 2 — filtered afterward, switch OFF. Trailing paragraph pins to
+         the bottom via mt-auto, which only does anything once the grid
+         stretches this panel to panel 1's height at md: and up; stacked below
+         md there's no shared height to pin against, so mt-4 there keeps the
+         same rhythm as every other gap in the panel instead of collapsing. */}
+      <div class="flex flex-col rounded-xl border border-stone-800 bg-stone-900 p-6 sm:p-7">
+        <h3 class="text-[15px] font-bold tracking-tight text-stone-50">{step2.title}</h3>
+        <p class="mt-3 text-[13.5px] leading-relaxed text-stone-400">{step2.body}</p>
+
+        {/* Decorative switch, OFF: grey track, knob to the left. Same rule as
+           the ON switch above — aria-hidden graphic, plain readable label. */}
+        <div class="mt-4 flex items-center gap-3 rounded-lg border border-stone-700 bg-[#16130f] px-4 py-3">
+          <span aria-hidden="true" class="relative h-[22px] w-10 shrink-0 rounded-full bg-stone-700">
+            <span class="absolute left-0.5 top-0.5 size-[18px] rounded-full bg-stone-400"></span>
+          </span>
+          <span class="min-w-0">
+            <span class="block text-[13.5px] font-semibold tracking-tight text-stone-50">
+              {step2.status}
+            </span>
+            <span class="mt-0.5 block text-xs leading-snug text-stone-400">{step2.scope}</span>
+          </span>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2.5 rounded-lg border border-stone-800 bg-stone-950 p-4">
+          {
+            step2.examples.map((row) =>
+              row.hidden ? (
+                <div class="flex items-center gap-3 rounded-md border border-dashed border-stone-700 bg-[#16130f] px-3 py-2.5">
+                  <span class="size-1.5 shrink-0 rounded-full bg-stone-700" aria-hidden="true" />
+                  <span
+                    class="h-[9px] min-w-0 flex-1 rounded bg-gradient-to-r from-stone-700 to-stone-800"
+                    aria-hidden="true"
+                  />
+                  <span class="shrink-0 font-display text-[10px] font-semibold uppercase tracking-label text-stone-400">
+                    {step2.hiddenLabel}
+                  </span>
+                </div>
+              ) : (
+                <div class="flex items-center gap-3 rounded-md border border-stone-800 bg-[#16130f] px-3 py-2.5">
+                  <span class="size-1.5 shrink-0 rounded-full bg-forest-700" aria-hidden="true" />
+                  <span class="min-w-0 text-[13px] text-stone-300">{row.text}</span>
+                </div>
+              ),
+            )
+          }
+        </div>
+
+        <p class="mt-4 border-t border-stone-800 pt-4 text-sm leading-relaxed text-stone-400 md:mt-auto">
+          {step2.note}
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-8 border-t border-stone-800 pt-8">
+      <h3 class="font-display text-xs font-bold uppercase tracking-label text-stone-400">
+        {t.refusals.eyebrow}
+      </h3>
+      <div class="mt-5 grid gap-x-7 gap-y-4 md:grid-cols-2">
+        {
+          t.refusals.items.map((line) => (
+            <div class="flex gap-3">
+              <Ban class="mt-0.5 size-[15px] shrink-0 text-stone-400" aria-hidden="true" />
+              <p class="min-w-0 text-sm leading-relaxed text-stone-400">{line}</p>
+            </div>
+          ))
+        }
+      </div>
+      <p class="mt-5">
+        <a
+          href={SOURCE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1 text-sm font-semibold text-forest-300 transition hover:text-white"
+        >
+          {t.refusals.sourceLink}
+          <span aria-hidden="true">→</span>
+        </a>
+      </p>
+    </div>
   </div>
 </section>

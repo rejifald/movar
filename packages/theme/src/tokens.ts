@@ -49,6 +49,13 @@ export const colorLight = {
   /* Forest accent — the single confident hue; reserved for moments Movar acted
    * on the user's behalf. */
   accent: '#15803d',
+  /* Accent as TEXT. Split from `accent` because that one is a *fill* (paired
+   * with `--accent-on`) and must stay theme-stable for `bg-accent` CTAs — which
+   * left accent-coloured text at 3.0-3.9:1 on every dark surface. This token
+   * flips instead, the way the danger family already does. Use `text-accent-text`
+   * for any accent-coloured text on ordinary chrome; `accent-deep` remains the
+   * emphasis colour for text sitting on accent-tinted surfaces. */
+  'accent-text': '#15803d' /* 4.8:1 on --bg, 4.6:1 on --accent-soft, AA pass */,
   'accent-deep': '#14532d',
   'accent-soft': '#dcfce7',
   'accent-surface': '#f0fdf4',
@@ -73,9 +80,12 @@ export type ColorToken = keyof typeof colorLight;
 /**
  * Dark-theme overrides. Only the tokens that actually change between themes are
  * listed — `accent`, `accent-on`, and `danger-on` are intentionally
- * theme-stable (the forest reads correctly on both light and dark chrome). The
- * generator emits exactly these keys into the `prefers-color-scheme: dark`
- * block, so the CSS stays as small as the design intends.
+ * theme-stable: `accent` is a *fill*, and the forest reads correctly as a fill
+ * on both light and dark chrome. Accent-coloured *text* is a different job with
+ * a different contrast floor, so it has its own token — `accent-text` — which
+ * does flip. The generator emits exactly these keys into the
+ * `prefers-color-scheme: dark` block, so the CSS stays as small as the design
+ * intends.
  *
  * Two families role-flip in dark: `--accent-deep`/`--danger-deep` become the
  * *brighter* emphasis text, and the two accent/danger *surfaces* flip from pale
@@ -95,6 +105,8 @@ export const colorDarkOverrides = {
     light-only) */,
   ink: '#d6d3d1',
   'ink-strong': '#fafaf9',
+  'accent-text': '#86efac' /* 14.1:1 on --bg, 10.9:1 on --accent-surface; the
+    light-mode #15803d scores 3.9:1 and 3.1:1 there, hence the flip */,
   'accent-deep': '#86efac' /* light green for text on dark accent surfaces */,
   'accent-soft': '#14532d' /* deep forest tint, used as solid backgrounds */,
   'accent-surface': '#122a1d' /* dark green-tinted panel bg */,
@@ -143,6 +155,7 @@ export const colorDark = {
   ink: '#d6d3d1',
   'ink-strong': '#fafaf9',
   accent: '#15803d',
+  'accent-text': '#86efac',
   'accent-deep': '#86efac',
   'accent-soft': '#14532d',
   'accent-surface': '#122a1d',
@@ -165,15 +178,28 @@ export const color = { light: colorLight, dark: colorDark } as const;
 /* -------------------------------------------------------------------------- */
 
 /**
- * Font-family stacks (the *names* — the `@fontsource` weight/subset imports
- * that actually load the faces are a per-app bundling decision and stay in each
- * app's CSS). Manrope carries display, body, and UI; IBM Plex Mono carries
- * locale codes, tokens, and meta.
+ * Font-family stacks (the *names* — the weight imports that actually load the
+ * faces are a per-app bundling decision and stay in each app's CSS, now from
+ * `@movar/fonts`). Fixel carries display, body and UI in two optical cuts —
+ * Display for headings, Text for everything else. IBM Plex Mono is the
+ * technical face: inline code and URL strings, where character cells mean
+ * something. Labels and eyebrows are Fixel Text, not mono.
  */
 export const fontFamily = {
-  sans: "'Manrope', ui-sans-serif, system-ui, sans-serif",
-  display: "'Manrope', ui-sans-serif, system-ui, sans-serif",
+  sans: "'Fixel Text', ui-sans-serif, system-ui, sans-serif",
+  display: "'Fixel Display', ui-sans-serif, system-ui, sans-serif",
   mono: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+  /**
+   * The brand lockup only — the mark's cutout "r" and the wordmark.
+   *
+   * It is deliberately NOT `--font-display`. The "r" is cut into artefacts no
+   * CSS token reaches: the toolbar icon rasterised through fontconfig by
+   * `apps/extension/scripts/generate-icons.mts`, the Safari host's inline SVG,
+   * and a committed e2e visual snapshot. Pinning the lockup here let the rest of
+   * the product move to Fixel without redrawing the logo and re-shooting four
+   * stores' icons. Change this only as a deliberate rebrand.
+   */
+  brand: "'Manrope', ui-sans-serif, system-ui, sans-serif",
 } as const;
 
 /**
@@ -244,7 +270,7 @@ export const lineHeight = {
  * (`--font-*`, `--text-ui-*`, `--tracking-*`, `--leading-*` from
  * `typography.css`), so a role flips with the theme and can never disagree with
  * the scale. **Color is deliberately NOT a role property** — it stays semantic
- * and explicit at the call site (`text-ink-strong`, `text-accent`, …), which is
+ * and explicit at the call site (`text-ink-strong`, `text-accent-text`, …), which is
  * where it already lived and where it legitimately varies per instance.
  *
  * `render.ts` emits each role as a Tailwind v4 `@utility type-<role>` into
@@ -259,7 +285,7 @@ export const lineHeight = {
 export const typeRoles = {
   /** Mono micro-label / eyebrow — uppercase kicker over a heading (§6.1). */
   eyebrow: {
-    'font-family': 'var(--font-mono)',
+    'font-family': 'var(--font-sans)',
     'font-size': 'var(--text-ui-micro)',
     'font-weight': '500',
     'letter-spacing': 'var(--tracking-label)',
@@ -321,7 +347,7 @@ export const typeRoles = {
    *  with a size utility and, for the tall lockup, the `leading-wordmark`
    *  utility (kept off the role so a paired size utility's leading can't clash). */
   wordmark: {
-    'font-family': 'var(--font-display)',
+    'font-family': 'var(--font-brand)',
     'font-weight': '800',
     'letter-spacing': 'var(--tracking-wordmark)',
   },

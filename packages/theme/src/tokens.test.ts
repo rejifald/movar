@@ -226,8 +226,12 @@ describe('per-set CSS renderers', () => {
   it('the two per-surface-sized roles omit font-size; the fixed ones bake it', () => {
     const sizeless = new Set(['display', 'wordmark']);
     for (const [role, decls] of Object.entries(typeRoles)) {
-      // Every role names a face — a role with no font-family is a bug.
-      expect(decls['font-family']).toMatch(/^var\(--font-(sans|display|mono)\)$/);
+      // Every role names a face — a role with no font-family is a bug, and so is
+      // one naming a family that isn't declared (the var would resolve to nothing).
+      // Derived from `fontFamily` rather than spelled out: the hardcoded list
+      // here is what let `--font-brand` ship unemitted.
+      const declared = Object.keys(fontFamily).join('|');
+      expect(decls['font-family']).toMatch(new RegExp(String.raw`^var\(--font-(${declared})\)$`));
       const hasSize = 'font-size' in decls;
       expect(hasSize).toBe(!sizeless.has(role));
     }

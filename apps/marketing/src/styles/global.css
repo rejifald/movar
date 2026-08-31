@@ -5,12 +5,32 @@
  * Mirrors the extension's font subset choice (see apps/extension/src/styles/globals.css)
  * so the typeface matches across surfaces.
  */
-@import '@fontsource/manrope/latin-400.css';
-@import '@fontsource/manrope/cyrillic-400.css';
-@import '@fontsource/manrope/latin-600.css';
-@import '@fontsource/manrope/cyrillic-600.css';
+@import '@movar/fonts/fixel-text-400.css';
+@import '@movar/fonts/fixel-text-500.css';
+@import '@movar/fonts/fixel-text-600.css';
+@import '@movar/fonts/fixel-text-700.css';
+@import '@movar/fonts/fixel-display-700.css';
+@import '@movar/fonts/fixel-display-800.css';
+
+/* Manrope at 800 and nothing else: `--font-brand`, i.e. the mark's "r" and the
+ * wordmark. The rest of the product is Fixel. */
 @import '@fontsource/manrope/latin-800.css';
 @import '@fontsource/manrope/cyrillic-800.css';
+
+/*
+ * IBM Plex Mono carries `--font-mono` — every eyebrow, locale code and inline
+ * `code` on this site. It was a declared dependency and AGENTS.md listed it as
+ * self-hosted, but nothing ever imported it, so all of that quietly rendered in
+ * whatever `ui-monospace` resolves to: SF Mono on macOS, Consolas on Windows,
+ * DejaVu on Linux. Cyrillic eyebrows («До Мовара») were the most visible casualty.
+ *
+ * 400 for `code` and captions, 500 for the `eyebrow` and `mono` type roles
+ * (see typeRoles in @movar/theme) — the two weights the site actually asks for.
+ */
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/cyrillic-500.css';
 
 /*
  * Design tokens — one `@import` per token set from `@movar/theme` (generated
@@ -86,7 +106,12 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-feature-settings: 'ss01', 'ss02', 'cv11';
+  /* Deliberately no `font-feature-settings`. The Manrope-era list
+   * ('ss01', 'ss02', 'cv11') means something else entirely in Fixel: ss01 is
+   * "Curved diagonals AMNVWY" and ss02 is "Curved diagonals XKYaZhe", which
+   * between them redraw А М У Ў Ж К Х Я — so it silently restyled every
+   * Cyrillic heading. 'cv11' does not exist in Fixel at all. Fixel's default
+   * forms are the ones we want; leave this off. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.55;
@@ -373,7 +398,9 @@ body {
 
 .article-prose a {
   font-weight: 500;
-  color: var(--accent);
+  /* --accent-text, not --accent: the latter is a fill token and is deliberately
+     theme-stable, which left prose links at 3.9:1 on the dark theme. */
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 4px;
   transition: color 150ms;

@@ -1,6 +1,30 @@
 ---
-import { strings, type Locale } from '../i18n';
-import { Unlink } from 'lucide-astro';
+/*
+ * "Why this matters": the closed-loop diagram (Fig. 1) plus the four theses
+ * that unpack it. Rebuilt from the reference mock's sections 4 and 5.
+ *
+ * The diagram is drawn twice, swapped with Tailwind visibility utilities:
+ * - `wideBoxes`/the `md:block` SVG below: four boxes left-to-right with the
+ *   return path looping underneath, geometry lifted verbatim from the mock
+ *   (box width 230, 262px pitch) but generated from `diagram.nodes` instead
+ *   of retyped four times. It carries the figure's `role="img"` + aria-label.
+ * - `narrowBoxes`/the `md:hidden` SVG: the same four nodes stacked
+ *   top-to-bottom with the return path looping up a right-hand gutter
+ *   instead of underneath. The wide geometry can't survive a 375px screen —
+ *   scaled down it's unreadable, and a horizontal scroller would hide the
+ *   return path, which is the whole point of the figure — so this is a
+ *   different composition of the same argument, not a squashed copy. It's
+ *   carries the SAME `role="img"` + aria-label as the wide one. That is not a
+ *   duplicate: `hidden` is `display: none`, which drops an element from the
+ *   accessibility tree, so exactly one of the two is ever exposed. Labelling
+ *   only one leaves whichever breakpoint hides it with no figure description
+ *   at all — which is what happened here before this comment existed.
+ *   figures should ever expose an accessible name.
+ * The wide SVG also sits in a horizontally-scrolling wrapper with a min
+ * width, so at the narrow end of its own (md-and-up) range it scrolls
+ * instead of squashing past legibility.
+ */
+import { strings, type Locale, localeWhyThisHappensHref } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -8,35 +32,355 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].stakes;
+
+const diagram = t.diagram;
+
+/** Columns the thesis grid runs at `md:` and up — see `md:grid-cols-2`. */
+const COLS = 2;
+
+// "Why this keeps happening" closes this section rather than the final CTA
+// row: the four theses raise the question, and the deep dive is the answer.
+// Label and destination are the retired Problem section's, unchanged.
+const deepDiveLabel = strings[lang].problem.deepDiveLinkLabel;
+const deepDiveHref = localeWhyThisHappensHref(lang);
+
+/* ---- Wide diagram (md and up) ------------------------------------------ */
+const WIDE_BOX_W = 230;
+const WIDE_BOX_H = 84;
+const WIDE_BOX_Y = 24;
+const WIDE_PITCH = 262;
+
+const wideBoxes = diagram.nodes.map((node, i) => ({ node, x: i * WIDE_PITCH }));
+const wideArrows = wideBoxes.slice(0, 3).map(({ x }) => {
+  const right = x + WIDE_BOX_W;
+  const midY = WIDE_BOX_Y + WIDE_BOX_H / 2;
+  return {
+    line: `M${right + 4} ${midY} L${right + 24} ${midY}`,
+    chevron: `M${right + 18} ${midY - 5} L${right + 24} ${midY} L${right + 18} ${midY + 5}`,
+  };
+});
+// The return path's two ends are the horizontal centres of box 1 and box 4.
+const wideLoopEnd = WIDE_BOX_W / 2; // 115
+const wideLoopStart = 3 * WIDE_PITCH + WIDE_BOX_W / 2; // 901
+const wideLoopPath =
+  `M${wideLoopStart} ${WIDE_BOX_Y + WIDE_BOX_H} L${wideLoopStart} 208 ` +
+  `Q${wideLoopStart} 232 ${wideLoopStart - 24} 232 L${wideLoopEnd + 24} 232 ` +
+  `Q${wideLoopEnd} 232 ${wideLoopEnd} 208 L${wideLoopEnd} 138`;
+const wideArrowIntoFirst = `M${wideLoopEnd - 6} 146 L${wideLoopEnd} 136 L${wideLoopEnd + 6} 146`;
+
+/* ---- Narrow diagram (below md) ------------------------------------------ */
+const NARROW_BOX_W = 230;
+const NARROW_BOX_H = 84;
+const NARROW_GAP = 70;
+const NARROW_TOP = 20;
+const NARROW_GUTTER_X = 278;
+const NARROW_TURN_R = 24;
+const NARROW_VIEW_W = 300;
+
+const narrowBoxY = (i: number) => NARROW_TOP + i * (NARROW_BOX_H + NARROW_GAP);
+const narrowBoxes = diagram.nodes.map((node, i) => ({ node, y: narrowBoxY(i) }));
+const NARROW_VIEW_H = narrowBoxY(3) + NARROW_BOX_H + NARROW_TOP;
+
+const narrowArrows = [0, 1, 2].map((i) => {
+  const cx = NARROW_BOX_W / 2;
+  const bottom = narrowBoxY(i) + NARROW_BOX_H + 10;
+  const tip = narrowBoxY(i + 1) - 10;
+  return {
+    line: `M${cx} ${bottom} L${cx} ${tip}`,
+    chevron: `M${cx - 5} ${tip - 6} L${cx} ${tip} L${cx + 5} ${tip - 6}`,
+  };
+});
+
+const narrowExitY = narrowBoxY(3) + NARROW_BOX_H / 2;
+const narrowEntryY = narrowBoxY(0) + NARROW_BOX_H / 2;
+const narrowLoopPath = [
+  `M${NARROW_BOX_W} ${narrowExitY}`,
+  `L${NARROW_BOX_W + NARROW_TURN_R} ${narrowExitY}`,
+  `Q${NARROW_GUTTER_X} ${narrowExitY} ${NARROW_GUTTER_X} ${narrowExitY - NARROW_TURN_R}`,
+  `L${NARROW_GUTTER_X} ${narrowEntryY + NARROW_TURN_R}`,
+  `Q${NARROW_GUTTER_X} ${narrowEntryY} ${NARROW_GUTTER_X - NARROW_TURN_R} ${narrowEntryY}`,
+  `L${NARROW_BOX_W + 4} ${narrowEntryY}`,
+].join(' ');
+const narrowArrowIntoFirst = `M${NARROW_BOX_W + 4} ${narrowEntryY - 6} L${NARROW_BOX_W - 6} ${narrowEntryY} L${NARROW_BOX_W + 4} ${narrowEntryY + 6}`;
+// Pill sits centred on the gutter's straight vertical run, rotated so its
+// text reads parallel to the return path it's labelling.
+const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_TURN_R)) / 2;
 ---
 
 <section id="why-it-matters" class="border-t border-border bg-bg px-6 py-20">
-  <div class="mx-auto max-w-3xl">
-    <p class="font-display text-xs font-bold uppercase tracking-label text-accent">
-      {t.sectionTitle}
-    </p>
-    <h2
-      class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
-    >
-      {t.sectionLead}
-    </h2>
+  <div class="mx-auto max-w-5xl">
+    <div class="max-w-3xl">
+      <p class="font-display text-xs font-bold uppercase tracking-label text-accent-text">
+        {t.sectionTitle}
+      </p>
+      <h2
+        class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+      >
+        {t.sectionLead}
+      </h2>
+    </div>
 
-    <ul class="mt-10 space-y-6">
+    <div class="mt-9 border border-border-strong bg-surface">
+      {/* Wide (md and up): four boxes left-to-right, loop underneath.
+          Scrolls horizontally rather than squashing below a legible size. */}
+      <div class="hidden overflow-x-auto p-8 md:block">
+        <svg
+          viewBox="0 0 1040 300"
+          width="100%"
+          class="min-w-[700px]"
+          role="img"
+          aria-label={diagram.ariaLabel}
+        >
+          <g
+            font-family="var(--font-mono)"
+            font-size="11"
+            letter-spacing="1.1"
+            fill="var(--ink-faint)"
+          >
+            {wideBoxes.map(({ x }, i) => (
+              <text x={x + 16} y="14">
+                {i + 1}
+              </text>
+            ))}
+          </g>
+
+          <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
+            {wideBoxes.map(({ x }) => (
+              <rect x={x} y={WIDE_BOX_Y} width={WIDE_BOX_W} height={WIDE_BOX_H} rx="10" />
+            ))}
+          </g>
+
+          <g
+            font-family="var(--font-sans)"
+            font-size="15"
+            font-weight="600"
+            letter-spacing="-0.2"
+            fill="var(--ink-strong)"
+          >
+            {wideBoxes.map(({ x, node }) => (
+              <>
+                <text x={x + 20} y={WIDE_BOX_Y + 36}>
+                  {node.heading[0]}
+                </text>
+                <text x={x + 20} y={WIDE_BOX_Y + 56}>
+                  {node.heading[1]}
+                </text>
+              </>
+            ))}
+          </g>
+          <g
+            stroke="var(--ink-faint)"
+            stroke-width="1.4"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            {wideArrows.map((arrow) => (
+              <>
+                <path d={arrow.line} />
+                <path d={arrow.chevron} />
+              </>
+            ))}
+          </g>
+
+          <path
+            d={wideLoopPath}
+            stroke="var(--accent)"
+            stroke-width="1.6"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d={wideArrowIntoFirst}
+            stroke="var(--accent)"
+            stroke-width="1.6"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <rect
+            x="424"
+            y="218"
+            width="180"
+            height="28"
+            rx="14"
+            fill="var(--accent-surface)"
+            stroke="var(--accent-soft)"
+            stroke-width="1"
+          />
+          <text
+            x="514"
+            y="236"
+            text-anchor="middle"
+            font-family="var(--font-sans)"
+            font-size="13"
+            font-weight="700"
+            letter-spacing="-0.2"
+            fill="var(--accent-deep)"
+          >
+            {diagram.loopLabel}
+          </text>
+        </svg>
+      </div>
+
+      {/* Below md: same four nodes stacked, return path up the right
+          gutter. Decorative — see the file header for why only one of the
+          two figures carries the accessible name. */}
+      <div class="p-4 sm:p-6 md:hidden">
+        <svg
+          viewBox={`0 0 ${NARROW_VIEW_W} ${NARROW_VIEW_H}`}
+          width="100%"
+          role="img"
+          aria-label={diagram.ariaLabel}
+        >
+          <g
+            font-family="var(--font-mono)"
+            font-size="11"
+            letter-spacing="1.1"
+            fill="var(--ink-faint)"
+          >
+            {narrowBoxes.map(({ y }, i) => (
+              <text x="16" y={y - 10}>
+                {i + 1}
+              </text>
+            ))}
+          </g>
+
+          <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
+            {narrowBoxes.map(({ y }) => (
+              <rect x="0" y={y} width={NARROW_BOX_W} height={NARROW_BOX_H} rx="10" />
+            ))}
+          </g>
+
+          <g
+            font-family="var(--font-sans)"
+            font-size="15"
+            font-weight="600"
+            letter-spacing="-0.2"
+            fill="var(--ink-strong)"
+          >
+            {narrowBoxes.map(({ y, node }) => (
+              <>
+                <text x="20" y={y + 36}>
+                  {node.heading[0]}
+                </text>
+                <text x="20" y={y + 56}>
+                  {node.heading[1]}
+                </text>
+              </>
+            ))}
+          </g>
+          <g
+            stroke="var(--ink-faint)"
+            stroke-width="1.4"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            {narrowArrows.map((arrow) => (
+              <>
+                <path d={arrow.line} />
+                <path d={arrow.chevron} />
+              </>
+            ))}
+          </g>
+
+          <path
+            d={narrowLoopPath}
+            stroke="var(--accent)"
+            stroke-width="1.6"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d={narrowArrowIntoFirst}
+            stroke="var(--accent)"
+            stroke-width="1.6"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <g transform={`rotate(-90 ${NARROW_GUTTER_X} ${narrowPillCenterY})`}>
+            <rect
+              x={NARROW_GUTTER_X - 70}
+              y={narrowPillCenterY - 14}
+              width="140"
+              height="28"
+              rx="14"
+              fill="var(--accent-surface)"
+              stroke="var(--accent-soft)"
+              stroke-width="1"
+            />
+            <text
+              x={NARROW_GUTTER_X}
+              y={narrowPillCenterY + 4.5}
+              text-anchor="middle"
+              font-family="var(--font-sans)"
+              font-size="12"
+              font-weight="700"
+              letter-spacing="-0.2"
+              fill="var(--accent-deep)"
+            >
+              {diagram.loopLabel}
+            </text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <p class="mt-4 max-w-3xl text-sm leading-relaxed text-ink-faint">
+      {diagram.caption}
+    </p>
+
+    <div class="mt-14 grid grid-cols-1 md:grid-cols-2">
       {
-        t.facts.map((fact) => (
-          <li>
-            <p class="font-display text-lg font-bold text-ink-strong">{fact.heading}</p>
-            <p class="mt-1 text-ink-soft leading-relaxed">{fact.body}</p>
-          </li>
-        ))
+        t.facts.map((fact, i) => {
+          /* Derived from the list length rather than assuming four. The rules
+             do double duty: stacked, `border-b` separates consecutive items;
+             two-up, it becomes the divider between rows, so the last row drops
+             it. A single row (two facts) therefore has no horizontal rule at
+             all, only the vertical one between the columns. */
+          const isLeftCol = i % COLS === 0;
+          const isFirstRow = i < COLS;
+          const isLastRow = i >= t.facts.length - (t.facts.length % COLS || COLS);
+          return (
+            <div
+              class:list={[
+                'py-8 md:py-0',
+                i < t.facts.length - 1 ? 'border-b border-border' : '',
+                isLastRow ? 'md:border-b-0' : 'md:pb-9',
+                isFirstRow ? '' : 'md:pt-9',
+                isLeftCol ? 'md:border-r md:border-border md:pr-11' : 'md:pl-11',
+              ]}
+            >
+              <div class="flex gap-5">
+                <span
+                  class="shrink-0 pt-1 font-mono text-sm text-ink-faint"
+                  aria-hidden="true"
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <div>
+                  <h3 class="font-display text-xl font-bold leading-snug text-ink-strong">
+                    {fact.heading}
+                  </h3>
+                  <p class="mt-2.5 leading-relaxed text-ink-soft">{fact.body}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })
       }
-    </ul>
+    </div>
 
-    <p
-      class="mt-12 flex items-start gap-3 font-display text-xl font-bold text-ink-strong sm:text-2xl"
+    <a
+      href={deepDiveHref}
+      class="mt-10 inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
     >
-      <Unlink class="mt-1 size-6 shrink-0 text-accent" aria-hidden="true" />
-      <span>{t.closeLine}</span>
-    </p>
+      {deepDiveLabel}
+      <span aria-hidden="true">→</span>
+    </a>
   </div>
 </section>

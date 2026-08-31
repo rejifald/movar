@@ -34,7 +34,7 @@ function HeroMock({ lang = 'en' as Locale }): JSX.Element {
         <div className="border-border bg-surface text-ink-soft mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-full border px-4 py-2 text-xs font-medium shadow-sm">
           {claims.map(({ label, Icon }) => (
             <span key={label} className="inline-flex items-center gap-2 whitespace-nowrap">
-              <Icon className="text-accent size-4 shrink-0" aria-hidden="true" />
+              <Icon className="text-accent-text size-4 shrink-0" aria-hidden="true" />
               {label}
             </span>
           ))}
@@ -42,7 +42,7 @@ function HeroMock({ lang = 'en' as Locale }): JSX.Element {
 
         <h1 className="font-display text-ink-strong text-5xl font-extrabold tracking-tight sm:text-6xl">
           {t.headlineLine1}
-          <span className="text-accent block">{t.headlineLine2}</span>
+          <span className="text-accent-text block">{t.headlineLine2}</span>
         </h1>
 
         <p className="text-ink-soft mx-auto mt-6 max-w-2xl text-lg sm:text-xl">{t.subhead}</p>
@@ -59,7 +59,7 @@ function HeroMock({ lang = 'en' as Locale }): JSX.Element {
         </div>
 
         <p className="text-ink-soft mt-4 text-sm">
-          <a href="#" className="text-accent font-medium hover:underline">
+          <a href="#" className="text-accent-text font-medium hover:underline">
             {installLabel} →
           </a>
         </p>

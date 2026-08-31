@@ -62,7 +62,7 @@ function markPending(link: HTMLAnchorElement): void {
   if (soonLabel === '') return;
   const chip = document.createElement('span');
   chip.className =
-    'rounded bg-accent-surface px-2 py-1 text-ui-micro font-semibold uppercase tracking-label text-accent';
+    'rounded bg-accent-surface px-2 py-1 text-ui-micro font-semibold uppercase tracking-label text-accent-text';
   chip.textContent = soonLabel;
   link.append(chip);
 }

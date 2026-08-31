@@ -11,7 +11,7 @@ description: |
   README must follow. Also use when manually auditing README.md for drift from
   the product or marketing site. Do NOT use for before/after screenshot use
   cases (that's add-before-after-case) or for editing marketing copy itself —
-  the README mirrors the marketing app, not the other way around.
+  the README mirrors the marketing app, not the other way around — see movar-copy.
 ---
 
 # Keep README.md in sync with marketing + the workspace
@@ -68,7 +68,7 @@ four machine-checkable mismatches:
 The guard can't catch prose drift. While you're in the README, confirm:
 
 - **Feature list matches reality.** Off-by-default capabilities (e.g.
-  `contentModification` in `packages/settings`) must say "Beta, off by default".
+  `contentModification` in `packages/settings`) must say "off by default".
   Don't list features that were removed (the old "usefulness dashboard" was).
 - **Tech stack lists only real deps.** If a library isn't in any
   `package.json` / lockfile (Tremor was a stale entry), drop it.

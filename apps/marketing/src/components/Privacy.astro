@@ -21,6 +21,8 @@
  * — rather than adding a new string for a label that only needs to name the
  * section.
  */
+import { ServerOff, UserX, EyeOff, Gauge } from 'lucide-astro';
+
 import { strings, type Locale, localePrivacyHref, localeTransparencyHref } from '../i18n';
 
 interface Props {
@@ -30,65 +32,67 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].privacy;
 const eyebrow = strings[lang].nav.privacy;
+
+// Same treatment as the hero's trust checklist: one icon per claim, each
+// mapping to the thing it asserts rather than decorating it. Paired by name,
+// not by index — see `PrivacyChips` in i18n.ts.
+const chips = [
+  { Icon: ServerOff, label: t.chips.servers },
+  { Icon: UserX, label: t.chips.accounts },
+  { Icon: EyeOff, label: t.chips.analytics },
+  { Icon: Gauge, label: t.chips.speed },
+];
 ---
 
 <section id="privacy-callout" class="border-t border-accent-soft bg-accent-surface px-6 py-20">
-  <div class="mx-auto flex max-w-5xl flex-col gap-8 md:flex-row md:items-start md:gap-10">
-    <div class="md:w-72 md:shrink-0">
-      <p class="font-mono text-xs font-semibold uppercase tracking-label text-accent-text">
-        {eyebrow}
-      </p>
-      <h2
-        class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+  {/* One column: the heading used to sit in a fixed side column, where
+     «Залишається у вашому браузері» broke to three lines. Full width it sets
+     on one, and the reading measure below it is held by `max-w-2xl` rather
+     than by the column. */}
+  <div class="mx-auto max-w-5xl">
+    <p class="font-mono text-xs font-semibold uppercase tracking-label text-accent-text">
+      {eyebrow}
+    </p>
+    <h2
+      class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+    >
+      {t.sectionTitle}
+    </h2>
+
+    <p class="mt-5 max-w-2xl leading-relaxed text-ink-soft">
+      {t.sectionLead}
+    </p>
+
+    {/* A row, not a column: the four claims measure ~590px together, so they
+       sit on one line inside this block's `max-w-2xl` and fall to two around
+       phone width. `whitespace-nowrap` makes each claim wrap as a unit, so a
+       break never lands inside «Не сповільнює сторінки». */}
+    <ul class="mt-6 flex max-w-2xl flex-wrap gap-x-6 gap-y-3 border-t border-accent-soft pt-6">
+      {
+        chips.map(({ Icon, label }) => (
+          <li class="flex items-center gap-2.5 whitespace-nowrap text-sm text-ink-soft">
+            <Icon class="size-4 shrink-0 text-accent-text" aria-hidden="true" />
+            {label}
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <a
+        href={localePrivacyHref(lang)}
+        class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
       >
-        {t.sectionTitle}
-      </h2>
-    </div>
-
-    <div class="min-w-0 flex-1">
-      <p class="max-w-2xl leading-relaxed text-ink-soft">
-        {t.sectionLead}
-      </p>
-
-      {/*
-       * `t.chips` — short pill claims (no servers / no accounts / no
-       * analytics / doesn't slow pages down / every promise checked against
-       * the code on every build). Added by a parallel i18n change alongside
-       * this component; rendered in whatever order the array holds, so the
-       * copy stays the sole source of what claims appear and in what order.
-       *
-       * No `whitespace-nowrap` and no `shrink-0` on the chip: the last claim
-       * is a full sentence, and at a phone width it needs to wrap onto a
-       * second line inside its own pill rather than pushing the row wider
-       * than the screen. `max-w-full` backstops that so a chip can never
-       * force the wrapping row itself past the viewport.
-       */}
-      <ul class="mt-6 flex flex-wrap gap-3">
-        {
-          t.chips.map((chip) => (
-            <li class="max-w-full rounded-full border border-accent-soft bg-surface px-3.5 py-1.5 text-sm font-medium text-accent-deep">
-              {chip}
-            </li>
-          ))
-        }
-      </ul>
-
-      <p class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <a
-          href={localePrivacyHref(lang)}
-          class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
-        >
-          {t.linkLabel}
-          <span aria-hidden="true">→</span>
-        </a>
-        <a
-          href={`${localeTransparencyHref(lang)}#cant-spy`}
-          class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
-        >
-          {t.safeguardsLabel}
-          <span aria-hidden="true">→</span>
-        </a>
-      </p>
-    </div>
+        {t.linkLabel}
+        <span aria-hidden="true">→</span>
+      </a>
+      <a
+        href={`${localeTransparencyHref(lang)}#cant-spy`}
+        class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
+      >
+        {t.safeguardsLabel}
+        <span aria-hidden="true">→</span>
+      </a>
+    </p>
   </div>
 </section>

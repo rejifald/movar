@@ -90,15 +90,7 @@ const SEARCH_URL_BASE = 'google.com/search?q=';
       {/* Panel 1 — declared up front, switch ON. Taller by design: it carries
          the dialogue, both address pills and the callout, panel 2 doesn't. */}
       <div class="flex flex-col rounded-xl border border-stone-800 bg-stone-900 p-6 sm:p-7">
-        <div class="flex items-center gap-2.5">
-          <span
-            class="flex size-6 shrink-0 items-center justify-center rounded-md bg-[#122a1d] font-display text-xs font-bold tabular-nums text-forest-300"
-            aria-hidden="true"
-          >
-            1
-          </span>
-          <h3 class="min-w-0 text-[15px] font-bold tracking-tight text-stone-50">{step1.title}</h3>
-        </div>
+        <h3 class="text-[15px] font-bold tracking-tight text-stone-50">{step1.title}</h3>
 
         {/* Decorative switch, ON: green track, knob to the right. Not a
            control — no button, no handler — so the graphic itself is
@@ -175,15 +167,7 @@ const SEARCH_URL_BASE = 'google.com/search?q=';
          md there's no shared height to pin against, so mt-4 there keeps the
          same rhythm as every other gap in the panel instead of collapsing. */}
       <div class="flex flex-col rounded-xl border border-stone-800 bg-stone-900 p-6 sm:p-7">
-        <div class="flex items-center gap-2.5">
-          <span
-            class="flex size-6 shrink-0 items-center justify-center rounded-md bg-stone-800 font-display text-xs font-bold tabular-nums text-stone-400"
-            aria-hidden="true"
-          >
-            2
-          </span>
-          <h3 class="min-w-0 text-[15px] font-bold tracking-tight text-stone-50">{step2.title}</h3>
-        </div>
+        <h3 class="text-[15px] font-bold tracking-tight text-stone-50">{step2.title}</h3>
         <p class="mt-3 text-[13.5px] leading-relaxed text-stone-400">{step2.body}</p>
 
         {/* Decorative switch, OFF: grey track, knob to the left. Same rule as

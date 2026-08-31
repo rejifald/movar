@@ -18,22 +18,17 @@
  * id (same pattern as GuideCallout.astro / GuideChecklist.astro /
  * GuideChecker.astro).
  *
- * The deep-dive link reuses `problem.deepDiveLinkLabel` +
- * `localeWhyThisHappensHref`: the mock's closing line repeats the exact
- * "why this keeps happening" link the retired Problem.astro used to place mid-page,
- * rather than inventing a second label for the same destination.
- * Hero.astro reaches across namespaces the same way for its own
- * install-guide link (`strings[lang].installGuide.linkLabel`), so this
- * isn't a new pattern.
+ * The "why this keeps happening" deep-dive link used to sit here beside the
+ * install CTA. It now closes the Stakes section instead: this row's one job
+ * is to get people installing, and a second link competing with the CTA at
+ * the page's last beat sent readers away at exactly the wrong moment. Stakes
+ * is also where the question it answers is raised.
  *
- * Open item: `close.sectionTitle` (and the now-unused sectionLead /
- * emailLabel / discordLabel) still hold pre-redesign "Have feedback? Join
- * the Discord" copy as of this writing — i18n.ts is owned by a parallel
- * change. Once that lands, `sectionTitle` should read as a standalone
- * headline (e.g. "Movar breaks this loop. Installing takes a minute.") —
- * this layout has no separate lead paragraph under it.
+ * `close.sectionLead`, `emailLabel` and `discordLabel` are no longer read by
+ * anything — that ask lives in the Footer's contact row now. They are left in
+ * i18n.ts rather than deleted in the same change that moved the layout.
  */
-import { strings, type Locale, localeWhyThisHappensHref } from '../i18n';
+import { strings, type Locale } from '../i18n';
 import DownloadButtons from './DownloadButtons.astro';
 
 interface Props {
@@ -42,8 +37,6 @@ interface Props {
 
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].close;
-const deepDiveLabel = strings[lang].problem.deepDiveLinkLabel;
-const deepDiveHref = localeWhyThisHappensHref(lang);
 ---
 
 <section id="close" class="border-t border-border bg-surface px-6 py-20">
@@ -57,13 +50,6 @@ const deepDiveHref = localeWhyThisHappensHref(lang);
     </h2>
     <div class="flex flex-col items-start gap-4 md:shrink-0">
       <DownloadButtons lang={lang} align="start" anchor={false} />
-      <a
-        href={deepDiveHref}
-        class="inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
-      >
-        {deepDiveLabel}
-        <span aria-hidden="true">→</span>
-      </a>
     </div>
   </div>
 </section>

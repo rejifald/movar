@@ -24,7 +24,7 @@
  * width, so at the narrow end of its own (md-and-up) range it scrolls
  * instead of squashing past legibility.
  */
-import { strings, type Locale } from '../i18n';
+import { strings, type Locale, localeWhyThisHappensHref } from '../i18n';
 
 interface Props {
   lang?: Locale;
@@ -33,78 +33,27 @@ interface Props {
 const { lang = 'en' } = Astro.props;
 const t = strings[lang].stakes;
 
-/**
- * Copy for the closed-loop diagram: the four box labels, the return-path
- * pill, the figure caption, and the SVG's own aria-label.
- *
- * These are short, diagram-specific strings with no home in `StakesStrings`
- * yet — apps/marketing/src/i18n.ts is owned by a parallel change right now,
- * so this lives here as a typed, per-locale constant instead of a new field
- * there. TODO(i18n): once that change lands, fold this shape into
- * `StakesStrings.diagram` and replace `DIAGRAM_COPY[lang]` below with
- * `t.diagram` — the field names (`nodes`, `loopLabel`, `figureLabel`,
- * `ariaLabel`) were picked so the move is a straight cut-and-paste.
- */
-interface DiagramNode {
-  /** Two-line heading set inside the box. */
-  heading: readonly [string, string];
-  /** Small line under the heading. */
-  detail: string;
-}
+const diagram = t.diagram;
 
-interface StakesDiagramCopy {
-  /** "Fig. 1" caption beside the section heading. */
-  figureLabel: string;
-  /** The whole argument in one sentence, for anyone who can't see the figure. */
-  ariaLabel: string;
-  /** The four boxes, in flow order. */
-  nodes: readonly [DiagramNode, DiagramNode, DiagramNode, DiagramNode];
-  /** Label on the pill sitting on the return path. */
-  loopLabel: string;
-}
+/** Columns the thesis grid runs at `md:` and up — see `md:grid-cols-2`. */
+const COLS = 2;
 
-const DIAGRAM_COPY: Record<Locale, StakesDiagramCopy> = {
-  en: {
-    figureLabel: 'Fig. 1',
-    ariaLabel:
-      'Diagram of a closed loop: a site defaults to Russian, analytics reads that as reader choice, Ukrainian content shrinks, and sites choose Russian for you more and more often.',
-    nodes: [
-      { heading: ['A site defaults', 'to Russian'], detail: 'though you chose Ukrainian' },
-      {
-        heading: ['In analytics, this', 'looks like a choice'],
-        detail: "of readers, not the site's",
-      },
-      { heading: ['Less Ukrainian', 'content gets made'], detail: 'less audience last year' },
-      { heading: ['The site chooses', 'for you more often'], detail: 'and the signal repeats' },
-    ],
-    loopLabel: 'and the loop closes',
-  },
-  uk: {
-    figureLabel: 'Рис. 1',
-    ariaLabel:
-      'Схема замкненого кола: сайт віддає російську, аналітика читає це як вибір читачів, українського контенту стає менше, і сайти дедалі частіше обирають за вас',
-    nodes: [
-      { heading: ['Сайт віддає', 'російську'], detail: 'хоч ви обрали українську' },
-      { heading: ['В аналітиці це', 'виглядає як вибір'], detail: 'читачів, а не сайту' },
-      { heading: ['Українського', 'контенту менше'], detail: 'менше аудиторії торік' },
-      { heading: ['Сайт дедалі частіше', 'обирає за вас'], detail: 'і сигнал повторюється' },
-    ],
-    loopLabel: 'і коло замикається',
-  },
-};
-
-const diagram = DIAGRAM_COPY[lang];
+// "Why this keeps happening" closes this section rather than the final CTA
+// row: the four theses raise the question, and the deep dive is the answer.
+// Label and destination are the retired Problem section's, unchanged.
+const deepDiveLabel = strings[lang].problem.deepDiveLinkLabel;
+const deepDiveHref = localeWhyThisHappensHref(lang);
 
 /* ---- Wide diagram (md and up) ------------------------------------------ */
 const WIDE_BOX_W = 230;
-const WIDE_BOX_H = 100;
+const WIDE_BOX_H = 84;
 const WIDE_BOX_Y = 24;
 const WIDE_PITCH = 262;
 
 const wideBoxes = diagram.nodes.map((node, i) => ({ node, x: i * WIDE_PITCH }));
 const wideArrows = wideBoxes.slice(0, 3).map(({ x }) => {
   const right = x + WIDE_BOX_W;
-  const midY = WIDE_BOX_Y + 50;
+  const midY = WIDE_BOX_Y + WIDE_BOX_H / 2;
   return {
     line: `M${right + 4} ${midY} L${right + 24} ${midY}`,
     chevron: `M${right + 18} ${midY - 5} L${right + 24} ${midY} L${right + 18} ${midY + 5}`,
@@ -121,7 +70,7 @@ const wideArrowIntoFirst = `M${wideLoopEnd - 6} 146 L${wideLoopEnd} 136 L${wideL
 
 /* ---- Narrow diagram (below md) ------------------------------------------ */
 const NARROW_BOX_W = 230;
-const NARROW_BOX_H = 100;
+const NARROW_BOX_H = 84;
 const NARROW_GAP = 70;
 const NARROW_TOP = 20;
 const NARROW_GUTTER_X = 278;
@@ -160,18 +109,15 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
 
 <section id="why-it-matters" class="border-t border-border bg-bg px-6 py-20">
   <div class="mx-auto max-w-5xl">
-    <div class="flex flex-wrap items-end justify-between gap-6">
-      <div class="max-w-3xl">
-        <p class="font-display text-xs font-bold uppercase tracking-label text-accent-text">
-          {t.sectionTitle}
-        </p>
-        <h2
-          class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
-        >
-          {t.sectionLead}
-        </h2>
-      </div>
-      <p class="font-mono text-xs text-ink-faint">{diagram.figureLabel}</p>
+    <div class="max-w-3xl">
+      <p class="font-display text-xs font-bold uppercase tracking-label text-accent-text">
+        {t.sectionTitle}
+      </p>
+      <h2
+        class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+      >
+        {t.sectionLead}
+      </h2>
     </div>
 
     <div class="mt-9 border border-border-strong bg-surface">
@@ -222,14 +168,6 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
               </>
             ))}
           </g>
-          <g font-family="var(--font-sans)" font-size="12.5" fill="var(--ink-soft)">
-            {wideBoxes.map(({ x, node }) => (
-              <text x={x + 20} y={WIDE_BOX_Y + 80}>
-                {node.detail}
-              </text>
-            ))}
-          </g>
-
           <g
             stroke="var(--ink-faint)"
             stroke-width="1.4"
@@ -333,14 +271,6 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
               </>
             ))}
           </g>
-          <g font-family="var(--font-sans)" font-size="12.5" fill="var(--ink-soft)">
-            {narrowBoxes.map(({ y, node }) => (
-              <text x="20" y={y + 80}>
-                {node.detail}
-              </text>
-            ))}
-          </g>
-
           <g
             stroke="var(--ink-faint)"
             stroke-width="1.4"
@@ -400,21 +330,28 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
       </div>
     </div>
 
-    <p class="mt-6 font-display text-xl font-bold text-ink-strong sm:text-2xl">
-      {t.closeLine}
+    <p class="mt-4 max-w-3xl text-sm leading-relaxed text-ink-faint">
+      {diagram.caption}
     </p>
 
     <div class="mt-14 grid grid-cols-1 md:grid-cols-2">
       {
         t.facts.map((fact, i) => {
-          const isLeftCol = i % 2 === 0;
-          const isTopRow = i < 2;
+          /* Derived from the list length rather than assuming four. The rules
+             do double duty: stacked, `border-b` separates consecutive items;
+             two-up, it becomes the divider between rows, so the last row drops
+             it. A single row (two facts) therefore has no horizontal rule at
+             all, only the vertical one between the columns. */
+          const isLeftCol = i % COLS === 0;
+          const isFirstRow = i < COLS;
+          const isLastRow = i >= t.facts.length - (t.facts.length % COLS || COLS);
           return (
             <div
               class:list={[
                 'py-8 md:py-0',
-                i < 3 ? 'border-b border-border' : '',
-                isTopRow ? 'md:pb-9' : 'md:border-b-0 md:pt-9',
+                i < t.facts.length - 1 ? 'border-b border-border' : '',
+                isLastRow ? 'md:border-b-0' : 'md:pb-9',
+                isFirstRow ? '' : 'md:pt-9',
                 isLeftCol ? 'md:border-r md:border-border md:pr-11' : 'md:pl-11',
               ]}
             >
@@ -437,5 +374,13 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
         })
       }
     </div>
+
+    <a
+      href={deepDiveHref}
+      class="mt-10 inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
+    >
+      {deepDiveLabel}
+      <span aria-hidden="true">→</span>
+    </a>
   </div>
 </section>

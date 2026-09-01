@@ -602,6 +602,22 @@ test.describe('guide — homepage section', () => {
     await expect(section).toContainText('поки ви читаєте цю сторінку');
     await expect(section).toContainText('не бачить');
 
+    /*
+     * The order is part of the claim, not a caption on it. It used to be a
+     * separate «У порядку пріоритету» label above the rows; folding it into
+     * the heading is what lets the list sit directly under the sentence it
+     * completes. A later edit trimming the heading back to the languages alone
+     * would drop the whole point of the section — the arrows say «then», and
+     * nothing in them says the first entry is the one the reader gets.
+     *
+     * Matched on the concept, not the sentence: the wording is allowed to
+     * change, its absence from the heading is not.
+     */
+    await expect(
+      section.getByRole('heading', { level: 2 }),
+      'the heading must still say the list is ordered',
+    ).toContainText(/порядк/i);
+
     // No verdict, in any of the hub's three forms, and no count of faults.
     const body = (await section.textContent()) ?? '';
     expect(body).not.toMatch(/проблем/i);

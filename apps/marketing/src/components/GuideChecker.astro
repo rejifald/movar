@@ -45,7 +45,7 @@
  * the plain link list below rather than a box stuck on «Перевіряємо…».
  */
 import { getCollection } from 'astro:content';
-import { AppWindow, Laptop, Monitor, ShieldCheck, Smartphone } from 'lucide-astro';
+import { AppWindow, ChevronDown, Laptop, Monitor, ShieldCheck, Smartphone } from 'lucide-astro';
 import { formatUpdated, guideStrings } from '../lib/guide';
 import { diagnosisStrings } from '../lib/guide-diagnosis';
 import DownloadButtons from './DownloadButtons.astro';
@@ -126,7 +126,26 @@ const stepsUpdated = formatUpdated(
       >
         {t.languagesLabel}
       </p>
-      <ol data-languages class="flex list-none flex-wrap items-center gap-2 p-0"></ol>
+      {/* A column, not a wrapping row. A site walks this list from the top and
+          serves the first language it has, so the rank is the whole content of
+          the field — and a wrapped row of pills is the tag idiom, which reads
+          as an unordered set. `GuideTeaser` made the same move on the home
+          page for the same reason; this is that argument applied to the
+          surface that grades the list.
+
+          The rail through the markers is the walk, and the chevron under it is
+          where the walk runs out. Both are `aria-hidden` scenery: the `<ol>`
+          already carries the order for anyone not seeing them. */}
+      <div class="flex flex-col">
+        <ol data-languages class="flex list-none flex-col p-0"></ol>
+        <ChevronDown
+          data-languages-flow
+          hidden
+          size={14}
+          aria-hidden="true"
+          class="-mt-1 ml-[0.3125rem] shrink-0 text-border-strong"
+        />
+      </div>
     </div>
 
     <p data-explain class="max-w-[var(--measure-lg)] text-base leading-relaxed text-ink"></p>
@@ -180,14 +199,26 @@ const stepsUpdated = formatUpdated(
   That is also why each state's badge is rendered here and *hidden*, rather than
   swapped by concatenating a colour class at runtime.
 */}
-<template data-tpl-chip>
+{/*
+  One row of the ranked list. The rail is a `::before` on the row rather than
+  one line drawn behind the whole `<ol>`, so it survives a row that wraps — a
+  fixed inset measured off a 40px row would come apart the moment one did. It
+  starts at the first marker's centre (`first:before:top-1/2`) and runs off the
+  bottom of the last row into the chevron below the list.
+
+  `left-[0.71875rem]` is 11.5px: the centre of a 24px marker, less half of the
+  1px rail. It is derived geometry rather than a grid step — see the marker's
+  own `size-6` for the number it is derived from.
+*/}
+<template data-tpl-language>
   <li
-    data-chip
-    class="inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-border bg-surface px-3 py-2"
+    class="relative flex items-center gap-3 py-2 before:absolute before:bottom-0 before:left-[0.71875rem] before:top-0 before:w-px before:bg-border-strong before:content-[''] first:before:top-1/2"
   >
-    <span data-chip-rank class="font-mono text-ui-2xs font-medium tabular-nums text-ink-faint"
+    <span
+      data-language-rank
+      class="relative flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-ui-2xs font-medium tabular-nums text-ink-faint"
     ></span>
-    <span data-chip-name class="text-sm font-semibold tracking-tight text-ink"></span>
+    <span data-language-name class="text-sm font-semibold tracking-tight text-ink-soft"></span>
   </li>
 </template>
 
@@ -348,7 +379,7 @@ const stepsUpdated = formatUpdated(
     guideLanguages,
     resolveFixTarget,
   } from '../lib/guide-diagnosis';
-  import type { GuideFixTarget } from '../lib/guide-diagnosis';
+  import type { GuideFixTarget, GuideLanguage } from '../lib/guide-diagnosis';
 
   const t = diagnosisStrings;
 
@@ -426,46 +457,85 @@ const stepsUpdated = formatUpdated(
 
     /* ------------------------------------------------------------ the list */
 
-    const chipTpl = document.querySelector<HTMLTemplateElement>('[data-tpl-chip]');
+    /*
+     * The rank-1 marker, per role. Written out per role rather than composed,
+     * because Tailwind only generates a class it can see literally in a source
+     * file — the same constraint that keeps every state's badge in the markup
+     * above. Everything a marker shares with its hollow siblings is repeated
+     * here for the same reason.
+     */
+    const FIRST_MARKER: Record<GuideLanguage['role'], string> = {
+      target:
+        'relative flex size-6 shrink-0 items-center justify-center rounded-full border border-accent-soft bg-accent-surface font-mono text-ui-2xs font-semibold tabular-nums text-accent-text',
+      blocked:
+        'relative flex size-6 shrink-0 items-center justify-center rounded-full border border-danger-soft bg-danger-surface font-mono text-ui-2xs font-semibold tabular-nums text-danger',
+      other:
+        'relative flex size-6 shrink-0 items-center justify-center rounded-full border border-border-strong bg-surface-2 font-mono text-ui-2xs font-semibold tabular-nums text-ink-medium',
+    };
+
+    const rowTpl = document.querySelector<HTMLTemplateElement>('[data-tpl-language]');
     const list = root.querySelector<HTMLElement>('[data-languages]');
 
-    if (chipTpl && list) {
+    if (rowTpl && list) {
       if (!known) {
         const li = document.createElement('li');
         li.className =
-          'inline-flex items-center rounded-[var(--corner-chip)] border border-dashed border-border-strong bg-surface-2 px-3 py-2 text-sm font-medium text-ink-soft';
+          'inline-flex self-start items-center rounded-[var(--corner-chip)] border border-dashed border-border-strong bg-surface-2 px-3 py-2 text-sm font-medium text-ink-soft';
         li.textContent = t.languagesEmpty;
         list.append(li);
         text('[data-languages-label]', t.languagesLabelUnavailable);
       } else {
         for (const language of languages) {
-          const node = chipTpl.content.cloneNode(true) as DocumentFragment;
-          const chip = node.querySelector<HTMLElement>('[data-chip]');
-          const rank = node.querySelector<HTMLElement>('[data-chip-rank]');
-          const name = node.querySelector<HTMLElement>('[data-chip-name]');
-          if (!chip || !rank || !name) continue;
+          const node = rowTpl.content.cloneNode(true) as DocumentFragment;
+          const rank = node.querySelector<HTMLElement>('[data-language-rank]');
+          const name = node.querySelector<HTMLElement>('[data-language-name]');
+          if (!rank || !name) continue;
 
           rank.textContent = String(language.rank);
           name.textContent = language.name;
 
           /*
-           * The reader's own list, in the product's own language-row vocabulary:
-           * the options page paints its primary row on `--accent-surface` and its
-           * blocked row on the danger mirror, so this needs no new idiom.
+           * Two facts, one visual channel each — which is the whole reason this
+           * stopped being a row of pills, where a single tinted capsule had to
+           * carry both and carried neither.
+           *
+           * The MARKER says position: filled on rank 1, hollow below it,
+           * because a site takes the first language it has and the rest are
+           * only reached if it does not have that one. It is a statement about
+           * the list, not about the language, so it stays true for a reader
+           * whose first row is Russian — that row is filled, and the fill is
+           * the bad news.
+           *
+           * The NAME says role, in the product's own language-row vocabulary:
+           * the options page paints its primary row on `--accent-surface` and
+           * its blocked row on the danger mirror, so this needs no new idiom.
+           * Colouring the name rather than the whole row is what lets Ukrainian
+           * read as present-but-third instead of as a row that looks settled.
+           *
+           * A row with no role of its own takes the position channel too — full
+           * ink at the top, a step back below it, which is the rule
+           * `GuideTeaser` states on the home page. The tinted roles need no
+           * such branch: their deep ink already is the strong version.
            */
+          if (language.rank === 1) rank.className = FIRST_MARKER[language.role];
+
           if (language.role === 'target') {
-            chip.className =
-              'inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-accent-soft bg-accent-surface px-3 py-2';
-            rank.className = 'font-mono text-ui-2xs font-medium tabular-nums text-accent-text';
             name.className = 'text-sm font-semibold tracking-tight text-accent-deep';
           } else if (language.role === 'blocked') {
-            chip.className =
-              'inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-danger-soft bg-danger-surface px-3 py-2';
-            rank.className = 'font-mono text-ui-2xs font-medium tabular-nums text-danger';
             name.className = 'text-sm font-semibold tracking-tight text-danger-deep';
+          } else if (language.rank === 1) {
+            name.className = 'text-sm font-semibold tracking-tight text-ink-strong';
           }
 
           list.append(node);
+        }
+
+        /*
+         * The chevron is the walk running out, so it only means anything where
+         * there is a walk: a one-language list has no order to read down.
+         */
+        if (languages.length > 1) {
+          root.querySelector<HTMLElement>('[data-languages-flow]')?.removeAttribute('hidden');
         }
       }
     }

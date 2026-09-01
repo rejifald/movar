@@ -252,8 +252,34 @@ export const guideStrings = {
      * «хочете читати» and not «віддаєте перевагу контенту»: the second is the
      * literal sense of the header and is also канцелярит (§4.12), which the
      * plain verb says better.
+     *
+     * The clause after the dash is where the ranking is stated, and it used to
+     * be a separate label over the list (`listRule`, «У порядку пріоритету»).
+     * Two lines said one thing: the heading named the languages, the label
+     * named their order, and the reader had to join them. Folding the order
+     * into the sentence that already names the languages is what this
+     * section's own note below asks for — the heading ends on the phrase the
+     * rows complete, with nothing standing between the two.
+     *
+     * «саме» is load-bearing, not emphasis for its own sake. Without it the
+     * clause only labels the list; with it, the order becomes the thing being
+     * asserted — which is the point, because a reader whose second row is
+     * Russian should find the sentence uncomfortable. The extension says it
+     * the same way on the options page («ці мови саме в такому порядку»,
+     * `packages/i18n/src/messages-uk.ts`), so this is the product's existing
+     * phrasing rather than a new one.
+     *
+     * «в цьому», not «у цьому»: «мовами» ends in a vowel, so euphony takes
+     * «в». (After a consonant — as in the discarded «мов у цьому» — «у».)
+     *
+     * What the arrows still cannot say, and no longer have to: arrows alone
+     * mean «then», and nothing in them marks the first entry as the one the
+     * reader actually gets. That reads acceptably at three languages and falls
+     * apart at eight, which is an ordinary list — Chrome adds a regional
+     * variant per keyboard layout. The consequence itself stays the guide's
+     * subject, one link below.
      */
-    heading: 'Ваш браузер каже сайтам, що ви хочете читати цими мовами',
+    heading: 'Ваш браузер каже сайтам, що ви хочете читати цими мовами — саме в цьому порядку',
     /*
      * No `linkLabel`. The section closes on {@link guideStrings.index.title},
      * read from the hub rather than restated here, so a reader arrives at a
@@ -285,29 +311,6 @@ export const guideStrings = {
      * cannot see this. Whatever else these words become, they must never
      * acquire a first-person recipient.
      */
-    /*
-     * The row's label, and the thing that turns it from a sequence into a
-     * ranking. Arrows alone say «then»: nothing in them says the first entry
-     * is the one the reader actually gets. That reads acceptably at three
-     * languages and falls apart at eight, which is an ordinary list — Chrome
-     * adds a regional variant per keyboard layout.
-     *
-     * «У», not «В»: sentence-initial before a consonant cluster.
-     *
-     * It names the ordering rather than its consequence, and the draft before
-     * it («Сайт бере першу, яку має») did the reverse. Naming it is the
-     * shorter of the two and matches how the systems that own such a list
-     * label it — the reference for this row was Binance's «Payment Priority
-     * Order», which is this line's four words in another language. The
-     * consequence is the guide's subject, one link below.
-     *
-     * The extension states both halves in one sentence on the options page
-     * («Мовар просить у кожного сайту ці мови саме в такому порядку і бере
-     * першу, яка там є», `packages/i18n/src/messages-uk.ts`). That is the right
-     * length THERE, above a list the reader is about to reorder. Here it would
-     * be a third variant of a claim already made twice on this page.
-     */
-    listRule: 'У порядку пріоритету',
     listSource:
       'Прочитано у вашому браузері, поки ви читаєте цю сторінку. Мовар цих даних не бачить.',
   },

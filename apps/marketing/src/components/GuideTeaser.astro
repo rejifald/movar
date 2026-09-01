@@ -82,6 +82,10 @@ const t = guideStrings.teaser;
      * here can be reordered or removed — an affordance the section cannot
      * honour.
      *
+     * The rule sits above the row rather than the row carrying rank glyphs of
+     * its own: see `guideStrings.teaser.listRule` for why words beat a numeral
+     * here. Everything below is about the row itself.
+     *
      * So: inline, no box, reading on from the heading. The arrow is the rank,
      * and it is the mechanism rather than decoration — a site walks the list
      * and serves the first language it has, which is what «українська →
@@ -95,7 +99,11 @@ const t = guideStrings.teaser;
      * `guideStrings.teaser` on what this section is not allowed to become.
      */}
     <div data-guide-list hidden class="mt-6">
-      <ol data-guide-languages class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"></ol>
+      <p class="text-sm font-semibold text-ink-medium">{t.listRule}</p>
+      <ol
+        data-guide-languages
+        class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"
+      ></ol>
       <p class="mt-4 text-sm text-ink-medium">{t.listSource}</p>
     </div>
 
@@ -139,21 +147,25 @@ const t = guideStrings.teaser;
            in it. No role colouring anywhere: marking Russian would put back the
            alarm this section was rebuilt to remove, and the reader can see
            perfectly well what is in their own list. */
-        const name = document.createElement('span');
-        name.className =
-          language.rank === 1 ? 'font-semibold text-ink-strong' : 'text-ink-soft';
-        name.textContent = language.name;
-        item.append(name);
-
-        /* Between items only, and decorative: the `<ol>` is what states the
-           order to anything not looking at the page. */
-        if (language.rank < languages.length) {
+        /* The arrow LEADS its item rather than trailing the one before it, and
+           the difference only shows when the row wraps: with trailing arrows a
+           wrapped line ends on an arrow pointing at empty space, where a
+           leading one opens the next line as the continuation it is. Found at
+           390px with eight languages, which is an ordinary list — Chrome adds a
+           regional variant per keyboard layout. */
+        if (language.rank > 1) {
           const arrow = document.createElement('span');
           arrow.className = 'text-ink-faint';
           arrow.setAttribute('aria-hidden', 'true');
           arrow.textContent = '→';
           item.append(arrow);
         }
+
+        const name = document.createElement('span');
+        name.className =
+          language.rank === 1 ? 'font-semibold text-ink-strong' : 'text-ink-soft';
+        name.textContent = language.name;
+        item.append(name);
 
         list.append(item);
       }

@@ -66,8 +66,9 @@ const t = guideStrings.teaser;
      * guide and still says what the guide is for.
      *
      * No rule above the list and no label on it: the heading directly above
-     * ends on «цими мовами» and these rows are what it means, so the two are
-     * one sentence and a small-caps label between them would interrupt it.
+     * names both the languages and their order, and these rows are what both
+     * halves of it point at, so the two are one sentence and a label between
+     * them would interrupt it.
      *
      * ## Why it is inline, and an ordered list
      *
@@ -75,16 +76,20 @@ const t = guideStrings.teaser;
      * and filters: a set, unordered, each one equal and usually removable,
      * where this is ranked and the rank is the entire point. Then it was a
      * bordered card of stacked rows, which fixed the rank and broke two other
-     * things. A card interrupts the sentence: the heading ends on «цими
-     * мовами» and these ARE that phrase, so a boxed widget between the two
-     * halves stops the reader mid-clause. And a bordered list of rows with
+     * things. A card interrupts the sentence: these rows ARE the «цими
+     * мовами» the heading names, so a boxed widget between the two halves
+     * stops the reader mid-clause. And a bordered list of rows with
      * dividers is what an editable settings control looks like, while nothing
      * here can be reordered or removed — an affordance the section cannot
      * honour.
      *
-     * The rule sits above the row rather than the row carrying rank glyphs of
-     * its own: see `guideStrings.teaser.listRule` for why words beat a numeral
-     * here. Everything below is about the row itself.
+     * The ranking is stated in the heading rather than by rank glyphs on the
+     * row — see `guideStrings.teaser.heading`, which absorbed the separate
+     * «У порядку пріоритету» label that used to sit here. That label is why
+     * the list has no rule line of its own any more: the sentence the reader
+     * has just read already carries it, and re-stating it directly above the
+     * rows put a caption between a heading and the phrase completing it.
+     * Everything below is about the row itself.
      *
      * So: inline, no box, reading on from the heading. The arrow is the rank,
      * and it is the mechanism rather than decoration — a site walks the list
@@ -99,10 +104,9 @@ const t = guideStrings.teaser;
      * `guideStrings.teaser` on what this section is not allowed to become.
      */}
     <div data-guide-list hidden class="mt-6">
-      <p class="text-sm font-semibold text-ink-medium">{t.listRule}</p>
       <ol
         data-guide-languages
-        class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"
+        class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"
       ></ol>
       <p class="mt-4 text-sm text-ink-medium">{t.listSource}</p>
     </div>

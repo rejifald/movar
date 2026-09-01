@@ -32,14 +32,14 @@
  * hub's own count strip is untoned mono for the same reason; the red was
  * invented here and had no precedent.
  *
- * ## Why the two lines around the list are this section's own
+ * ## Why the line under the list is this section's own
  *
  * Everything else here defers to `guide-diagnosis`, and the reckoning still
- * does. The words do not, because the hub's label describes the list from the
- * site's side and sits under a widget that has already named this reader's
- * browser — context this page has none of. Without it, three chips read as an
- * illustration rather than as your list, read a second ago. `guideStrings.teaser`
- * carries the reasoning, including the one thing these words must never say.
+ * does. The words do not: the hub's privacy line says «на вашому пристрої»,
+ * which is a different claim from «прочитано тут, поки ви читаєте» — and
+ * without the second one, three chips read as an illustration rather than as
+ * your list, read a second ago. `guideStrings.teaser` carries the reasoning,
+ * including the one thing these words must never say.
  */
 import { GUIDE_INDEX_HREF, guideStrings } from '../lib/guide';
 
@@ -57,20 +57,45 @@ const t = guideStrings.teaser;
       >
         {t.heading}
       </h2>
-      <p class="mt-5 text-lg text-ink-soft">{t.body}</p>
     </div>
 
     {/*
      * Empty and `hidden` until the script fills it. Without JavaScript — and in
      * the private windows and Safari builds that hide the list from the page on
-     * purpose — the section is its heading, its paragraph and its link, which
-     * is the whole argument minus the reader's own copy of the evidence.
+     * purpose — the section is its heading and its link, which still names the
+     * guide and still says what the guide is for.
+     *
+     * No rule above the list and no label on it: the heading directly above
+     * ends on «цими мовами» and these rows are what it means, so the two are
+     * one sentence and a small-caps label between them would interrupt it.
+     *
+     * ## Why it is inline, and an ordered list
+     *
+     * It was a row of chips first, which is the wrong family — chips are tags
+     * and filters: a set, unordered, each one equal and usually removable,
+     * where this is ranked and the rank is the entire point. Then it was a
+     * bordered card of stacked rows, which fixed the rank and broke two other
+     * things. A card interrupts the sentence: the heading ends on «цими
+     * мовами» and these ARE that phrase, so a boxed widget between the two
+     * halves stops the reader mid-clause. And a bordered list of rows with
+     * dividers is what an editable settings control looks like, while nothing
+     * here can be reordered or removed — an affordance the section cannot
+     * honour.
+     *
+     * So: inline, no box, reading on from the heading. The arrow is the rank,
+     * and it is the mechanism rather than decoration — a site walks the list
+     * and serves the first language it has, which is what «українська →
+     * російська» describes and why a reader with Russian second should find it
+     * uncomfortable. It is `aria-hidden`; the `<ol>` carries the order for
+     * anyone not seeing it.
+     *
+     * The first item takes the strong ink because it is factually the one
+     * sites take. That is position, not praise, so it stays true for a reader
+     * whose first is not Ukrainian, and nothing marks any item as bad — see
+     * `guideStrings.teaser` on what this section is not allowed to become.
      */}
-    <div data-guide-list hidden class="mt-9 border-t border-border pt-6">
-      <p class="font-mono text-ui-micro font-semibold uppercase tracking-label text-ink-faint">
-        {t.listLabel}
-      </p>
-      <ul data-guide-languages class="mt-3 flex flex-wrap gap-2"></ul>
+    <div data-guide-list hidden class="mt-6">
+      <ol data-guide-languages class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"></ol>
       <p class="mt-4 text-sm text-ink-medium">{t.listSource}</p>
     </div>
 
@@ -78,7 +103,7 @@ const t = guideStrings.teaser;
       href={GUIDE_INDEX_HREF}
       class="mt-10 inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
     >
-      {t.linkLabel}
+      {guideStrings.index.title}
       <span aria-hidden="true">→</span>
     </a>
   </div>
@@ -107,21 +132,29 @@ const t = guideStrings.teaser;
     if (languages.length > 0) {
       for (const language of languages) {
         const item = document.createElement('li');
-        /* No role colouring. Marking Russian in red here would put the alarm
-           back that the neutral chip was chosen to avoid — the list is evidence,
-           and the reader can see what is in it. */
-        item.className =
-          'inline-flex items-center gap-2 rounded-[var(--corner-chip)] border border-border bg-surface px-3 py-1.5';
+        item.className = 'flex items-baseline gap-3';
 
-        const rank = document.createElement('span');
-        rank.className = 'font-mono text-ui-2xs tabular-nums text-ink-faint';
-        rank.textContent = String(language.rank);
-
+        /* The first item carries the weight because it is the one sites take —
+           a statement about position, which stays true whichever language is
+           in it. No role colouring anywhere: marking Russian would put back the
+           alarm this section was rebuilt to remove, and the reader can see
+           perfectly well what is in their own list. */
         const name = document.createElement('span');
-        name.className = 'text-sm text-ink-strong';
+        name.className =
+          language.rank === 1 ? 'font-semibold text-ink-strong' : 'text-ink-soft';
         name.textContent = language.name;
+        item.append(name);
 
-        item.append(rank, name);
+        /* Between items only, and decorative: the `<ol>` is what states the
+           order to anything not looking at the page. */
+        if (language.rank < languages.length) {
+          const arrow = document.createElement('span');
+          arrow.className = 'text-ink-faint';
+          arrow.setAttribute('aria-hidden', 'true');
+          arrow.textContent = '→';
+          item.append(arrow);
+        }
+
         list.append(item);
       }
       block.hidden = false;

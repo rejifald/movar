@@ -17,27 +17,25 @@ import Footer from '../../components/Footer.astro';
   <main id="main" tabindex="-1" class="flex-1">
     <Hero lang="uk" />
     <Coverage lang="uk" />
-    <HowItWorks lang="uk" />
     {/*
      * Ukrainian-only, because the guide it opens is (see `lib/guide.ts`), so
      * `/` renders one section fewer rather than linking an English reader to
      * twenty pages of Ukrainian prose.
      *
-     * It sits here, and not in front of `Close`, because of what it argues.
-     * `HowItWorks` has just finished naming Movar's two steps; this names their
-     * boundary — the language list Movar does not set — which continues that
-     * section rather than interrupting the page. Its neighbours are the two
-     * longest blocks here (~1150px and ~950px), so a 350px band reads as a beat
-     * between them.
+     * Placed here after two earlier positions, and the constraint is the same
+     * one both times: this section's only link leaves the home page, so it must
+     * not stand next to a call to action it can take readers away from.
      *
-     * Below Stakes it did the opposite. Stakes closes with the deep-dive link
-     * and `Close` opens with the install button, and dropping a third CTA into
-     * that 609px meant three asks in a row with the page's one conversion
-     * moment in the middle of them — the same mistake `Close.astro` records
-     * having already made once, when a second link inside its own row competed
-     * with the install button and had to be moved out.
-     */}
+     * Below `Stakes` it sat in a 609px run of three consecutive asks with the
+     * install CTA in the middle of them. Directly under `Hero` it would do the
+     * same thing to the hero's own install button, one scroll in, before a
+     * reader knows what Movar is. `Coverage` is the one section on the page
+     * with no links of its own, so the exit here is uncontested — and this is
+     * ~1150px higher than the Stakes seam it gave up, which is the point of the
+     * whole change.
+     */
     <GuideTeaser />
+    <HowItWorks lang="uk" />
     <Stakes lang="uk" />
     <Close lang="uk" />
     <Privacy lang="uk" />

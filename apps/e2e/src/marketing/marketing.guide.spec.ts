@@ -595,7 +595,10 @@ test.describe('guide — homepage section', () => {
     // Whose list, where it was read, and who did not see it — the three claims
     // that separate this from what it could be mistaken for, so they are
     // asserted rather than assumed.
-    await expect(section).toContainText('ваш браузер');
+    // Case-insensitive: the phrase moved from mid-sentence to the head of the
+    // heading when it gained its predicate, and a literal would have started
+    // failing on the capital alone.
+    await expect(section).toContainText(/ваш браузер/i);
     await expect(section).toContainText('поки ви читаєте цю сторінку');
     await expect(section).toContainText('не бачить');
 
@@ -624,9 +627,15 @@ test.describe('guide — homepage section', () => {
     expect(words.has('нам'), 'the section must not put this site on the receiving end').toBe(false);
     expect(words.has('нас')).toBe(false);
 
-    // And one link out, not a button — the section closes the way its
-    // neighbours do.
-    await expect(section.locator(`a[href="${INDEX}"]`)).toHaveCount(1);
+    /*
+     * And one link out, not a button — the section closes the way its
+     * neighbours do, on the hub's own h1 rather than on a verb. «Відкрити
+     * інструкцію» named the click and nothing about the destination; a reader
+     * should be able to see where they are going before they go.
+     */
+    const out = section.locator(`a[href="${INDEX}"]`);
+    await expect(out).toHaveCount(1);
+    await expect(out).toHaveText(/Як зробити українську мовою за замовчуванням/);
     await expect(section.locator('button')).toHaveCount(0);
   });
 

@@ -221,47 +221,70 @@ export const guideStrings = {
    * for why that one departure from `diagnosisStrings` is deliberate.
    */
   teaser: {
-    /* `diagnosisStrings.heading` says this on the hub, about the same three
-       facts. Repeated as a literal rather than imported because this is the
-       eyebrow of a homepage band, and tying a marketing heading to a widget's
-       label would make either one unmovable. */
-    eyebrow: 'Що бачать сайти',
-    heading: 'Перш ніж віддати сторінку, сайт читає ваш список мов',
-    /* The second sentence is the load-bearing one, and the first draft of it
-       («Мовар працює з тим, що сайт уже віддав») was false: the extension ships
-       a declarativeNetRequest rule that sends its own `Accept-Language`, which
-       `guideStrings.cta` already states in these words. What Movar does NOT do
-       is write the system's language, a Google account's settings, or a
-       service's own list — which is the whole subject of this guide, and the
-       honest reason a reader should open it. */
-    body: 'Мовар передає вашу мову сайтам. Але сам список живе в системі, у браузері та в акаунтах — там його змінюєте тільки ви.',
-    /** Closes the section, naming what the reader is about to open. */
-    linkLabel: 'Відкрити інструкцію',
+    /* Names the subject rather than echoing the heading. It was «Що бачать
+       сайти» — the hub's own section name — until the heading below started
+       naming sites too, and two lines running on «сайти» read as a stutter. */
+    eyebrow: 'Ваш список мов',
     /*
-     * The two lines around the list, and the one place this section does NOT
-     * borrow `diagnosisStrings`.
+     * The heading and the list are one sentence: this states what the browser
+     * tells sites, and the rows below it are the «цими мовами» it ends on.
+     * Nothing sits between them, and nothing labels the rows, because the
+     * heading a reader has just read is the label.
      *
-     * The hub's label («Сайти бачать ці мови як пріоритетні») describes the
-     * same list from the site's side, which works there: it sits inside a
-     * widget that has already named the reader's browser and system directly
-     * above it. Lifted onto a marketing page with nothing around it, three
-     * language chips under that label read as an illustration of what sites
-     * see in general — not as this reader's own list, read a second ago.
+     * That is why it is not «Що про вас каже ваш браузер», which was the
+     * version before this one. A heading with no predicate left three language
+     * names under it and no stated relation between them and the reader — the
+     * browser does not report three names, it reports that this reader wants
+     * content in these languages, in this order. The list cannot supply a verb
+     * the heading never offered.
      *
-     * So the label speaks to the reader about their own browser, and the line
-     * under the list says where the reading happened and who did not see it.
+     * Two earlier drafts are also gone: «Перш ніж віддати сторінку, сайт читає
+     * ваш список мов» with a paragraph under it, and a separate small-caps
+     * label over the list. Between them they established whose data this is
+     * three times.
+     *
+     * What went with the paragraph, and is worth knowing was deliberate: it
+     * said Movar passes your language to sites but does not write your system,
+     * Google or per-service settings. True, and the honest reason to open the
+     * guide — but the link now carries the guide's own title, which says the
+     * same thing in the place a reader is deciding whether to click.
+     *
+     * «хочете читати» and not «віддаєте перевагу контенту»: the second is the
+     * literal sense of the header and is also канцелярит (§4.12), which the
+     * plain verb says better.
+     */
+    heading: 'Ваш браузер каже сайтам, що ви хочете читати цими мовами',
+    /*
+     * No `linkLabel`. The section closes on {@link guideStrings.index.title},
+     * read from the hub rather than restated here, so a reader arrives at a
+     * page whose h1 is the words they clicked and a retitle cannot leave the
+     * homepage advertising a heading the guide no longer has.
+     *
+     * It said «Відкрити інструкцію» first, which named the act of clicking and
+     * not one thing about the destination — «інструкція» on its own could be
+     * four sentences or forty pages, about this extension or about the reader's
+     * own settings. Every other closing link on the site names its subject
+     * («Чому так стається — докладніше», «Як Мовар визначає мову»), and this
+     * was the only one that did not.
+     */
+    /*
+     * The line under the list, and the one place this section does NOT borrow
+     * `diagnosisStrings`.
+     *
      * The hub's privacy sentence says «на вашому пристрої», which is true and
      * is not the same claim: a device is where a file could sit, and the point
-     * here is that this ran in the page and stopped there.
+     * here is that this ran in the page and stopped there. Naming the browser
+     * and the moment is what stops three chips reading as an illustration of
+     * what sites see in general, rather than as this reader's own list, read a
+     * second ago.
      *
-     * On «розповідає про вас» and not «розповідає про вас нам»: the browser
-     * tells SITES, and Movar is not among them. A line that put this site on
+     * On «каже про вас» and not «каже про вас нам»: the browser tells SITES,
+     * and Movar is not among them. A line that put this site on
      * the receiving end would be false, and false in the exact direction the
      * whole product is a claim against — the sentence beside it says Movar
      * cannot see this. Whatever else these words become, they must never
      * acquire a first-person recipient.
      */
-    listLabel: 'Ось що про вас каже ваш браузер',
     listSource:
       'Прочитано у вашому браузері, поки ви читаєте цю сторінку. Мовар цих даних не бачить.',
   },

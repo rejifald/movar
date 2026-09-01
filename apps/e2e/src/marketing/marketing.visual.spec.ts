@@ -214,6 +214,41 @@ async function settlePage(page: Page, isUk: boolean): Promise<void> {
 
   const height = await page.evaluate(() => document.body.scrollHeight);
   expect(height, 'page looks blank — did it error?').toBeGreaterThan(300);
+
+  await assertDrumPinned(page);
+}
+
+/**
+ * The hero drum must be showing its FIRST scenario when the shutter opens.
+ *
+ * `ExampleDrum.astro` auto-advances every 4500ms and is stopped here by the
+ * config's `reducedMotion: 'reduce'`, which the component honours. That gate
+ * working is an assumption this suite silently depends on, and the failure
+ * mode when it does not hold is the worst kind: the capture still succeeds,
+ * `toHaveScreenshot` still passes its two-identical-shots handshake as long as
+ * both land inside the same 4.5s window, and a *different scenario* is written
+ * into the baseline. Nothing is red; the committed PNG is simply wrong, and
+ * the next regeneration on a differently-loaded machine flips it back — read
+ * as an unexplained ~1.2% diff in the hero's right column, which is exactly
+ * how this was found (2026-09-01, both `marketing-home-uk` baselines).
+ *
+ * So assert it rather than assume it. This is a settled-ONLY signal: the drum
+ * is on tab 0 from its first paint, so the check cannot pass on a page whose
+ * island never ran — such a page has no `aria-selected` attribute at all and
+ * fails on the `null` instead.
+ *
+ * Pages with no drum (every page but the home ones) opt out by having no tabs.
+ */
+async function assertDrumPinned(page: Page): Promise<void> {
+  const tabs = page.locator('[data-drum-tab]');
+  const count = await tabs.count();
+  if (count === 0) return;
+
+  await expect(
+    tabs.first(),
+    'hero drum advanced past its first scenario — prefers-reduced-motion did not hold, ' +
+      'and the capture would bake whichever scenario was showing into the baseline',
+  ).toHaveAttribute('aria-selected', 'true');
 }
 
 /**

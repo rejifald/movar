@@ -259,12 +259,25 @@ const frameAfter =
 
     const ADVANCE_MS = 4500;
 
-    let reduceMotion = false;
+    /*
+     * The reduced-motion gate, held live rather than read once.
+     *
+     * A single boolean sampled at init is wrong twice. For a reader it strands
+     * whoever turns the preference on mid-session: the drum keeps advancing
+     * under a setting that says it must not. And it makes the gate depend on
+     * the media query already being resolved when this module happens to run,
+     * which is not something a page script can promise — a capture harness
+     * that sets the preference for the run gets a drum that spins anyway, and
+     * then bakes whichever scenario was showing into a screenshot. So track
+     * the query and act on the change.
+     */
+    let media: MediaQueryList | null = null;
     try {
-      reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      media = window.matchMedia('(prefers-reduced-motion: reduce)');
     } catch {
-      reduceMotion = false;
+      media = null;
     }
+    let reduceMotion = media?.matches ?? false;
 
     let index = 0;
     /* `ReturnType<typeof window.setInterval>` resolves to Node's `Timeout` here —
@@ -337,5 +350,17 @@ const frameAfter =
 
     setActive(0);
     start();
+
+    /*
+     * Turning the preference ON stops the drum where it stands rather than
+     * rewinding it — the reader is looking at that scenario, and yanking it
+     * back to the first one is itself a motion they did not ask for. Turning
+     * it OFF resumes from there.
+     */
+    media?.addEventListener('change', () => {
+      reduceMotion = media.matches;
+      if (reduceMotion) stop();
+      else start();
+    });
   }
 </script>

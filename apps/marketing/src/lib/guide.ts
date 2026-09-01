@@ -204,15 +204,23 @@ export const guideStrings = {
    *
    * `GuideChecker` on the hub ships `hidden` and reveals itself, because the
    * page underneath it is the whole guide. Here there is nothing underneath —
-   * this band is the homepage's only route into the guide — so it renders
-   * complete and the verdict is the part that appears. A no-JS visitor gets the
-   * claim and the link, which is the whole job minus the flourish.
+   * this section is the homepage's only route into the guide — so it renders
+   * complete, and only the reader's own language list appears. A no-JS visitor
+   * gets the claim and the link, which is the argument minus its evidence.
    *
-   * ## Why the verdict borrows the checker's words
+   * ## What is deliberately NOT here
    *
-   * The count strings come from `diagnosisStrings.count`, not from copies here.
-   * Two surfaces reading the same browser must not describe it in two
-   * vocabularies, and the reader meets them minutes apart.
+   * No verdict, no fault count, and no word for how wrong the list is. The
+   * section shows the list and says what decides it; grading it is
+   * `GuideChecker`'s job, on a page the reader chose to open. See
+   * `components/GuideTeaser.astro` for why that line matters — a page that
+   * announces problems it found on your device, in red, beside one button, is
+   * a shape this site cannot afford to borrow.
+   *
+   * The label over the list and the on-device line come from
+   * `diagnosisStrings`, not from copies here: two surfaces reading the same
+   * browser must not describe it in two vocabularies, and the reader meets them
+   * minutes apart.
    */
   teaser: {
     /* `diagnosisStrings.heading` says this on the hub, about the same three
@@ -229,11 +237,8 @@ export const guideStrings = {
        service's own list — which is the whole subject of this guide, and the
        honest reason a reader should open it. */
     body: 'Мовар передає вашу мову сайтам. Але сам список живе в системі, у браузері та в акаунтах — там його змінюєте тільки ви.',
-    /** Sits under the verdict, naming what the reader is about to open. */
+    /** Closes the section, naming what the reader is about to open. */
     linkLabel: 'Відкрити інструкцію',
-    /** Screen-reader name for the verdict region, which is otherwise a bare
-     *  count chip and reads as a stray number out of context. */
-    verdictLabel: 'Стан вашого списку мов',
   },
   /**
    * The mono line beside every install button in this section — the diagnosis

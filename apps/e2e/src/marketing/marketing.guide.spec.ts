@@ -563,3 +563,68 @@ test.describe('guide — English footer', () => {
     await expect(page.locator(`footer a[href="${INDEX}"]`)).toHaveCount(0);
   });
 });
+
+/**
+ * The homepage's door into the guide.
+ *
+ * Two of these three assertions exist to hold a design decision that a later
+ * edit would find it very natural to undo. The section first shipped as a
+ * tinted card carrying a red chip that counted the faults in the reader's
+ * language list — a claim about your device, a problem count and one button,
+ * which is the shape of scareware and a poor thing to build under a promise
+ * that nothing leaves your browser. It now shows the list and says who
+ * computed it, and grading that list stays on the hub, where the reader asked.
+ *
+ * So: the list renders, and no verdict vocabulary follows it home. The hub's
+ * own «{n} проблема» strings are asserted absent by name rather than by
+ * selector, because the way this comes back is somebody re-adding the count,
+ * not somebody restoring the element that used to hold it.
+ */
+test.describe('guide — homepage section', () => {
+  test.use({ locale: 'uk-UA' });
+
+  test('shows the reader their own language list, and grades nothing', async ({ page }) => {
+    await withLanguages(page, ['uk-UA', 'ru', 'en']);
+    await page.goto('/uk/', { waitUntil: 'domcontentloaded' });
+
+    const section = page.locator('#language-list');
+    await expect(section.locator('[data-guide-languages] li')).toHaveCount(3);
+    await expect(section).toContainText('українська');
+    await expect(section).toContainText('російська');
+
+    // Who computed it. The sentence that separates this from what it could be
+    // mistaken for, so it is asserted, not assumed.
+    await expect(section).toContainText('Мовар їх не бачить');
+
+    // No verdict, in any of the hub's three forms, and no count of faults.
+    const body = (await section.textContent()) ?? '';
+    expect(body).not.toMatch(/проблем/i);
+    expect(body).not.toContain('Усе гаразд');
+    expect(body).not.toContain('Немає даних');
+
+    // And one link out, not a button — the section closes the way its
+    // neighbours do.
+    await expect(section.locator(`a[href="${INDEX}"]`)).toHaveCount(1);
+    await expect(section.locator('button')).toHaveCount(0);
+  });
+
+  /*
+   * The evidence is the only progressive part, so with JS off the section has
+   * to stand on its argument alone rather than leave an empty labelled shell
+   * where the reader's list would be. JS off is also the only way to reach that
+   * branch from here: the inline locale redirect reads the same
+   * `navigator.languages`, so any list poor enough to produce no evidence
+   * bounces the visitor to the English homepage before this section renders.
+   */
+  test.describe('without JavaScript', () => {
+    test.use({ javaScriptEnabled: false });
+
+    test('drops the evidence and keeps the argument', async ({ page }) => {
+      await page.goto('/uk/', { waitUntil: 'domcontentloaded' });
+
+      await expect(page.locator('[data-guide-list]')).toBeHidden();
+      await expect(page.locator('#language-list h2')).toBeVisible();
+      await expect(page.locator(`#language-list a[href="${INDEX}"]`)).toBeVisible();
+    });
+  });
+});

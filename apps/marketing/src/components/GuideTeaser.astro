@@ -1,0 +1,175 @@
+---
+/*
+ * The homepage's door into the settings guide — Ukrainian-only, so it renders
+ * on `/uk` and nowhere else. Rationale for its existence and for the shape of
+ * its copy lives with the strings, in `lib/guide.ts` under `guideStrings.teaser`.
+ *
+ * ## Why this is a section and not a panel
+ *
+ * The first build of this was a tinted card with a rounded border and a solid
+ * green button, and it carried a red chip counting the faults in the reader's
+ * language list. Read back, that is two bad shapes at once. A claim about your
+ * device plus a red problem count plus one button to fix it is the grammar of
+ * scareware, which is a poor thing to build on a site whose entire proposition
+ * is that nothing leaves your browser. And a tinted card with a CTA button,
+ * dropped between two content sections, is the shape of an ad slot — which
+ * readers skip on reflex, so it would have failed even where it was honest.
+ *
+ * So it is built like the sections around it: the same full-bleed shell as
+ * `Stakes`, the same eyebrow and heading scale, and the same closing text link
+ * those sections use instead of a button.
+ *
+ * ## Why it shows the list instead of counting its faults
+ *
+ * A verdict is an assertion the reader has to take on faith, which is exactly
+ * what a scam offers. The list is a fact they can check against their own
+ * settings in ten seconds, and it makes the same point without claiming
+ * anything: someone whose list still carries Russian can see that it does.
+ *
+ * `GuideChecker` is the surface that grades the list, and it earns that — a
+ * reader who opened «Як зробити українську мовою за замовчуванням» has asked
+ * the question. This has not been asked, so it answers a smaller one. Note the
+ * hub's own count strip is untoned mono for the same reason; the red was
+ * invented here and had no precedent.
+ *
+ * ## Why the line under the list is this section's own
+ *
+ * Everything else here defers to `guide-diagnosis`, and the reckoning still
+ * does. The words do not: the hub's privacy line says «на вашому пристрої»,
+ * which is a different claim from «прочитано тут, поки ви читаєте» — and
+ * without the second one, three chips read as an illustration rather than as
+ * your list, read a second ago. `guideStrings.teaser` carries the reasoning,
+ * including the one thing these words must never say.
+ */
+import { GUIDE_INDEX_HREF, guideStrings } from '../lib/guide';
+
+const t = guideStrings.teaser;
+---
+
+<section id="language-list" class="border-t border-border bg-bg px-6 py-20">
+  <div class="mx-auto max-w-5xl">
+    <div class="max-w-3xl">
+      <p class="font-display text-xs font-bold uppercase tracking-label text-accent-text">
+        {t.eyebrow}
+      </p>
+      <h2
+        class="mt-3 font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-4xl"
+      >
+        {t.heading}
+      </h2>
+    </div>
+
+    {/*
+     * Empty and `hidden` until the script fills it. Without JavaScript — and in
+     * the private windows and Safari builds that hide the list from the page on
+     * purpose — the section is its heading and its link, which still names the
+     * guide and still says what the guide is for.
+     *
+     * No rule above the list and no label on it: the heading directly above
+     * ends on «цими мовами» and these rows are what it means, so the two are
+     * one sentence and a small-caps label between them would interrupt it.
+     *
+     * ## Why it is inline, and an ordered list
+     *
+     * It was a row of chips first, which is the wrong family — chips are tags
+     * and filters: a set, unordered, each one equal and usually removable,
+     * where this is ranked and the rank is the entire point. Then it was a
+     * bordered card of stacked rows, which fixed the rank and broke two other
+     * things. A card interrupts the sentence: the heading ends on «цими
+     * мовами» and these ARE that phrase, so a boxed widget between the two
+     * halves stops the reader mid-clause. And a bordered list of rows with
+     * dividers is what an editable settings control looks like, while nothing
+     * here can be reordered or removed — an affordance the section cannot
+     * honour.
+     *
+     * The rule sits above the row rather than the row carrying rank glyphs of
+     * its own: see `guideStrings.teaser.listRule` for why words beat a numeral
+     * here. Everything below is about the row itself.
+     *
+     * So: inline, no box, reading on from the heading. The arrow is the rank,
+     * and it is the mechanism rather than decoration — a site walks the list
+     * and serves the first language it has, which is what «українська →
+     * російська» describes and why a reader with Russian second should find it
+     * uncomfortable. It is `aria-hidden`; the `<ol>` carries the order for
+     * anyone not seeing it.
+     *
+     * The first item takes the strong ink because it is factually the one
+     * sites take. That is position, not praise, so it stays true for a reader
+     * whose first is not Ukrainian, and nothing marks any item as bad — see
+     * `guideStrings.teaser` on what this section is not allowed to become.
+     */}
+    <div data-guide-list hidden class="mt-6">
+      <p class="text-sm font-semibold text-ink-medium">{t.listRule}</p>
+      <ol
+        data-guide-languages
+        class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"
+      ></ol>
+      <p class="mt-4 text-sm text-ink-medium">{t.listSource}</p>
+    </div>
+
+    <a
+      href={GUIDE_INDEX_HREF}
+      class="mt-10 inline-flex items-center gap-1 text-sm font-semibold text-accent-text hover:underline"
+    >
+      {guideStrings.index.title}
+      <span aria-hidden="true">→</span>
+    </a>
+  </div>
+</section>
+
+<script>
+  import { guideLanguages } from '../lib/guide-diagnosis';
+
+  const block = document.querySelector<HTMLElement>('[data-guide-list]');
+  const list = document.querySelector<HTMLElement>('[data-guide-languages]');
+
+  if (block && list) {
+    const tags = navigator.languages?.length
+      ? [...navigator.languages]
+      : navigator.language
+        ? [navigator.language]
+        : [];
+
+    const languages = guideLanguages(tags);
+
+    /*
+     * Nothing to show is not the same as nothing wrong, and this section has no
+     * room to explain the difference — so where the browser says nothing, the
+     * block simply stays hidden and the guide's own checker handles that case.
+     */
+    if (languages.length > 0) {
+      for (const language of languages) {
+        const item = document.createElement('li');
+        item.className = 'flex items-baseline gap-3';
+
+        /* The first item carries the weight because it is the one sites take —
+           a statement about position, which stays true whichever language is
+           in it. No role colouring anywhere: marking Russian would put back the
+           alarm this section was rebuilt to remove, and the reader can see
+           perfectly well what is in their own list. */
+        /* The arrow LEADS its item rather than trailing the one before it, and
+           the difference only shows when the row wraps: with trailing arrows a
+           wrapped line ends on an arrow pointing at empty space, where a
+           leading one opens the next line as the continuation it is. Found at
+           390px with eight languages, which is an ordinary list — Chrome adds a
+           regional variant per keyboard layout. */
+        if (language.rank > 1) {
+          const arrow = document.createElement('span');
+          arrow.className = 'text-ink-faint';
+          arrow.setAttribute('aria-hidden', 'true');
+          arrow.textContent = '→';
+          item.append(arrow);
+        }
+
+        const name = document.createElement('span');
+        name.className =
+          language.rank === 1 ? 'font-semibold text-ink-strong' : 'text-ink-soft';
+        name.textContent = language.name;
+        item.append(name);
+
+        list.append(item);
+      }
+      block.hidden = false;
+    }
+  }
+</script>

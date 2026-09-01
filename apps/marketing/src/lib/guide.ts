@@ -189,6 +189,129 @@ export function formatUpdated(date: Date): string {
 export const guideStrings = {
   navLabel: 'Інструкція',
   /**
+   * The homepage band that opens this guide — Ukrainian-only, like everything
+   * else here, so it renders on `/uk` and has no English counterpart.
+   *
+   * ## Why the homepage carries it at all
+   *
+   * The guide was reachable from one footer column and from blog posts. A nav
+   * slot fixes the address problem and nothing else: «Інструкція» is a word,
+   * and a word does not tell a reader that the thing behind it is about *them*.
+   * The band does, because the verdict it renders is read off this visitor's
+   * own browser.
+   *
+   * ## Why it never hides itself
+   *
+   * `GuideChecker` on the hub ships `hidden` and reveals itself, because the
+   * page underneath it is the whole guide. Here there is nothing underneath —
+   * this section is the homepage's only route into the guide — so it renders
+   * complete, and only the reader's own language list appears. A no-JS visitor
+   * gets the claim and the link, which is the argument minus its evidence.
+   *
+   * ## What is deliberately NOT here
+   *
+   * No verdict, no fault count, and no word for how wrong the list is. The
+   * section shows the list and says what decides it; grading it is
+   * `GuideChecker`'s job, on a page the reader chose to open. See
+   * `components/GuideTeaser.astro` for why that line matters — a page that
+   * announces problems it found on your device, in red, beside one button, is
+   * a shape this site cannot afford to borrow.
+   *
+   * The words around the list are this section's own — see `listLabel` below
+   * for why that one departure from `diagnosisStrings` is deliberate.
+   */
+  teaser: {
+    /* Names the subject rather than echoing the heading. It was «Що бачать
+       сайти» — the hub's own section name — until the heading below started
+       naming sites too, and two lines running on «сайти» read as a stutter. */
+    eyebrow: 'Ваш список мов',
+    /*
+     * The heading and the list are one sentence: this states what the browser
+     * tells sites, and the rows below it are the «цими мовами» it ends on.
+     * Nothing sits between them, and nothing labels the rows, because the
+     * heading a reader has just read is the label.
+     *
+     * That is why it is not «Що про вас каже ваш браузер», which was the
+     * version before this one. A heading with no predicate left three language
+     * names under it and no stated relation between them and the reader — the
+     * browser does not report three names, it reports that this reader wants
+     * content in these languages, in this order. The list cannot supply a verb
+     * the heading never offered.
+     *
+     * Two earlier drafts are also gone: «Перш ніж віддати сторінку, сайт читає
+     * ваш список мов» with a paragraph under it, and a separate small-caps
+     * label over the list. Between them they established whose data this is
+     * three times.
+     *
+     * What went with the paragraph, and is worth knowing was deliberate: it
+     * said Movar passes your language to sites but does not write your system,
+     * Google or per-service settings. True, and the honest reason to open the
+     * guide — but the link now carries the guide's own title, which says the
+     * same thing in the place a reader is deciding whether to click.
+     *
+     * «хочете читати» and not «віддаєте перевагу контенту»: the second is the
+     * literal sense of the header and is also канцелярит (§4.12), which the
+     * plain verb says better.
+     */
+    heading: 'Ваш браузер каже сайтам, що ви хочете читати цими мовами',
+    /*
+     * No `linkLabel`. The section closes on {@link guideStrings.index.title},
+     * read from the hub rather than restated here, so a reader arrives at a
+     * page whose h1 is the words they clicked and a retitle cannot leave the
+     * homepage advertising a heading the guide no longer has.
+     *
+     * It said «Відкрити інструкцію» first, which named the act of clicking and
+     * not one thing about the destination — «інструкція» on its own could be
+     * four sentences or forty pages, about this extension or about the reader's
+     * own settings. Every other closing link on the site names its subject
+     * («Чому так стається — докладніше», «Як Мовар визначає мову»), and this
+     * was the only one that did not.
+     */
+    /*
+     * The line under the list, and the one place this section does NOT borrow
+     * `diagnosisStrings`.
+     *
+     * The hub's privacy sentence says «на вашому пристрої», which is true and
+     * is not the same claim: a device is where a file could sit, and the point
+     * here is that this ran in the page and stopped there. Naming the browser
+     * and the moment is what stops three chips reading as an illustration of
+     * what sites see in general, rather than as this reader's own list, read a
+     * second ago.
+     *
+     * On «каже про вас» and not «каже про вас нам»: the browser tells SITES,
+     * and Movar is not among them. A line that put this site on
+     * the receiving end would be false, and false in the exact direction the
+     * whole product is a claim against — the sentence beside it says Movar
+     * cannot see this. Whatever else these words become, they must never
+     * acquire a first-person recipient.
+     */
+    /*
+     * The row's label, and the thing that turns it from a sequence into a
+     * ranking. Arrows alone say «then»: nothing in them says the first entry
+     * is the one the reader actually gets. That reads acceptably at three
+     * languages and falls apart at eight, which is an ordinary list — Chrome
+     * adds a regional variant per keyboard layout.
+     *
+     * «У», not «В»: sentence-initial before a consonant cluster.
+     *
+     * It names the ordering rather than its consequence, and the draft before
+     * it («Сайт бере першу, яку має») did the reverse. Naming it is the
+     * shorter of the two and matches how the systems that own such a list
+     * label it — the reference for this row was Binance's «Payment Priority
+     * Order», which is this line's four words in another language. The
+     * consequence is the guide's subject, one link below.
+     *
+     * The extension states both halves in one sentence on the options page
+     * («Мовар просить у кожного сайту ці мови саме в такому порядку і бере
+     * першу, яка там є», `packages/i18n/src/messages-uk.ts`). That is the right
+     * length THERE, above a list the reader is about to reorder. Here it would
+     * be a third variant of a claim already made twice on this page.
+     */
+    listRule: 'У порядку пріоритету',
+    listSource:
+      'Прочитано у вашому браузері, поки ви читаєте цю сторінку. Мовар цих даних не бачить.',
+  },
+  /**
    * The mono line beside every install button in this section — the diagnosis
    * strip, the checklist's twenty-first row, and each page's callout.
    *

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { Menu, X } from 'lucide-react';
+import { ChevronDown, Menu, X } from 'lucide-react';
 
-import { headerLinks } from '../lib/header-links';
+import { headerEntries, isHeaderGroup } from '../lib/header-links';
 import { strings, localeHomeHref } from '../i18n';
 import type { Locale } from '../i18n';
 import { browserIconPaths, githubIconPath } from '../lib/browser-icons';
@@ -33,12 +33,17 @@ function DownloadGlyph({ browser }: Readonly<{ browser: Browser }>): JSX.Element
   );
 }
 
-/** React mock of `Header.astro` — links inline on desktop, behind a hamburger on mobile. */
+/**
+ * React mock of `Header.astro` — entries inline on desktop, behind a hamburger
+ * on mobile. The «Для мови» group is a `<details>` in the real header, so it is
+ * one here too: a `useState` disclosure would look right and behave differently
+ * from the thing it stands in for.
+ */
 function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): JSX.Element {
   const t = strings[lang];
   const home = localeHomeHref(lang);
   const [open, setOpen] = useState(false);
-  const links = headerLinks(lang);
+  const entries = headerEntries(lang);
   return (
     <header className="border-border/60 bg-bg/85 supports-[backdrop-filter]:bg-bg/70 sticky top-0 z-50 border-b backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
@@ -49,16 +54,36 @@ function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): J
           </span>
         </a>
         <nav className="text-ink-soft hidden items-center gap-x-5 text-sm sm:flex">
-          {links.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="hover:text-ink-strong inline-flex items-center gap-2 transition"
-            >
-              {link.download && <DownloadGlyph browser={browser} />}
-              {link.label}
-            </a>
-          ))}
+          {entries.map((entry) =>
+            isHeaderGroup(entry) ? (
+              <details key={entry.id} className="group relative">
+                <summary className="hover:text-ink-strong inline-flex cursor-pointer list-none items-center gap-1 transition [&::-webkit-details-marker]:hidden">
+                  {entry.label}
+                  <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-border bg-surface absolute top-full left-0 z-10 mt-3 min-w-44 rounded-lg border p-1.5 shadow-lg">
+                  {entry.links.map((link) => (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      className="hover:bg-surface-2 hover:text-ink-strong block rounded-md px-3 py-2 whitespace-nowrap transition"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              </details>
+            ) : (
+              <a
+                key={entry.href}
+                href={entry.href}
+                className="hover:text-ink-strong inline-flex items-center gap-2 transition"
+              >
+                {entry.download && <DownloadGlyph browser={browser} />}
+                {entry.label}
+              </a>
+            ),
+          )}
         </nav>
         <button
           type="button"
@@ -75,17 +100,37 @@ function HeaderMock({ lang = 'en', browser = 'chrome' }: Readonly<MockProps>): J
       {open && (
         <nav className="border-border/60 border-t sm:hidden">
           <ul className="text-ink-soft mx-auto flex max-w-5xl flex-col px-4 py-2 text-sm">
-            {links.map((link) => (
-              <li key={link.href}>
-                <a
-                  href={link.href}
-                  className="hover:bg-surface hover:text-ink-strong flex items-center gap-2 rounded-lg px-2 py-3 transition"
-                >
-                  {link.download && <DownloadGlyph browser={browser} />}
-                  {link.label}
-                </a>
-              </li>
-            ))}
+            {entries.map((entry) =>
+              isHeaderGroup(entry) ? (
+                <li key={entry.id} className="border-border/60 mb-2 border-b pb-2">
+                  <p className="tracking-label text-ink-faint px-2 pt-3 pb-1 font-mono text-xs font-semibold uppercase">
+                    {entry.label}
+                  </p>
+                  <ul>
+                    {entry.links.map((link) => (
+                      <li key={link.href}>
+                        <a
+                          href={link.href}
+                          className="hover:bg-surface hover:text-ink-strong flex items-center gap-2 rounded-lg px-2 py-3 transition"
+                        >
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ) : (
+                <li key={entry.href}>
+                  <a
+                    href={entry.href}
+                    className="hover:bg-surface hover:text-ink-strong flex items-center gap-2 rounded-lg px-2 py-3 transition"
+                  >
+                    {entry.download && <DownloadGlyph browser={browser} />}
+                    {entry.label}
+                  </a>
+                </li>
+              ),
+            )}
           </ul>
         </nav>
       )}

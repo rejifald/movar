@@ -5,12 +5,10 @@
  */
 import { DISCORD_URL, FEEDBACK_URL, SOURCE_URL } from '@movar/brand';
 
-import { BLOG_INDEX_HREF, blogStrings } from './blog';
 import { FALLBACK_HREF } from './downloads';
-import { GUIDE_INDEX_HREF, guideStrings } from './guide';
+import { forLanguageLinks } from './for-language-links';
 import {
   localeChangelogHref,
-  localeForUkrainianHref,
   localeHowMovarWorksHref,
   localeInstallHref,
   localePrivacyHref,
@@ -130,35 +128,15 @@ export function footerColumns(lang: Locale): FooterColumn[] {
        */
       id: 'for-language',
       heading: t.groups.forLanguage,
-      links: [
-        // The guide and the blog are Ukrainian-only (see ./guide, ./blog and
-        // src/content.config.ts), so they are the two links in this footer
-        // that exist in one locale. Linking them from the English footer
-        // would send an English reader to pages of Ukrainian prose, so the
-        // column is simply shorter there.
-        ...(lang === 'uk'
-          ? [
-              {
-                href: GUIDE_INDEX_HREF,
-                label: guideStrings.navLabel,
-                external: false,
-                download: false,
-              },
-              {
-                href: BLOG_INDEX_HREF,
-                label: blogStrings.navLabel,
-                external: false,
-                download: false,
-              },
-            ]
-          : []),
-        {
-          href: localeForUkrainianHref(lang),
-          label: strings[lang].forUkrainian.navLabel,
-          external: false,
-          download: false,
-        },
-      ],
+      // The set itself lives in ./for-language-links, because the header now
+      // renders the same three destinations as one menu under this column's
+      // own heading. Nothing here leaves the site, and none of it is the
+      // install link.
+      links: forLanguageLinks(lang).map((link) => ({
+        ...link,
+        external: false,
+        download: false,
+      })),
     },
     {
       id: 'trust',

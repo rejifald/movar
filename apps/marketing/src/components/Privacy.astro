@@ -1,16 +1,22 @@
 ---
 /*
- * Privacy claim. Mint-tinted band sitting directly above the footer — the
- * last thing a reader sees before the site's fine print, so the claim closes
- * the page rather than opening a new topic.
+ * Privacy claim. Grey band sitting directly above the footer — the last
+ * thing a reader sees before the site's fine print, so the claim closes the
+ * page rather than opening a new topic.
  *
  * Restructured from a centered icon+paragraph card into a two-column band: a
  * heading anchors the left column; a lead paragraph, a wrapping row of claim
- * chips, and two links fill the right. `border-accent-soft bg-accent-surface`
- * for the band and `border-accent-soft bg-surface` for the chips both echo
- * the highlighted-card idiom already used in GuideChecker.astro's language
- * chips and GuideChecklist.astro's `#BEYOND_ANCHOR` card — same mint, same
- * "quiet card on a tinted band" construction, just at section scale.
+ * chips, and two links fill the right. Started as the mint `bg-accent-surface`
+ * idiom GuideChecker.astro's language chips and GuideChecklist.astro's
+ * `#BEYOND_ANCHOR` card use, but at section scale — eyebrow, four chip icons
+ * and two links all accent-green at once, on an accent-green band — read as
+ * one undifferentiated mint wash rather than a highlighted card. `bg-surface-2`
+ * carries the band now; accent stays on the icons/eyebrow/links exactly as it
+ * does elsewhere (the hero's trust checklist below, most directly), it just
+ * needed a neutral ground to sit on. Claim TEXT itself (chip labels) is
+ * `ink-strong` rather than the hero checklist's `ink-soft` — these are the
+ * one place on the page the reader is meant to read as a checklist to verify,
+ * not skim.
  *
  * Below `md:` the heading sits left of a fixed-width column and the lead
  * fills the rest; above it, both stack full-width. `md:` (not `lg:`) because
@@ -44,7 +50,7 @@ const chips = [
 ];
 ---
 
-<section id="privacy-callout" class="border-t border-accent-soft bg-accent-surface px-6 py-20">
+<section id="privacy-callout" class="border-t border-border bg-surface-2 px-6 py-20">
   {/* One column: the heading used to sit in a fixed side column, where
      «Залишається у вашому браузері» broke to three lines. Full width it sets
      on one, and the reading measure below it is held by `max-w-2xl` rather
@@ -67,10 +73,10 @@ const chips = [
        sit on one line inside this block's `max-w-2xl` and fall to two around
        phone width. `whitespace-nowrap` makes each claim wrap as a unit, so a
        break never lands inside «Не сповільнює сторінки». */}
-    <ul class="mt-6 flex max-w-2xl flex-wrap gap-x-6 gap-y-3 border-t border-accent-soft pt-6">
+    <ul class="mt-6 flex max-w-2xl flex-wrap gap-x-6 gap-y-3 border-t border-border pt-6">
       {
         chips.map(({ Icon, label }) => (
-          <li class="flex items-center gap-2.5 whitespace-nowrap text-sm text-ink-soft">
+          <li class="flex items-center gap-2.5 whitespace-nowrap text-sm text-ink-strong">
             <Icon class="size-4 shrink-0 text-accent-text" aria-hidden="true" />
             {label}
           </li>

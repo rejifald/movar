@@ -110,7 +110,7 @@
   --fs-micro: 10px; /* the band's ordinals, story + guide micro-labels */
   --fs-band: 13.5px; /* the dark band's body and switch labels */
   --fs-lead: 17px; /* the reader CTA's standfirst */
-  --fs-hero-sm: 26px; /* hero headline below `sm:`, where the fluid ramp starts */
+  --fs-hero-sm: 29px; /* hero headline below `sm:`, where the fluid ramp starts */
   --lh-hero: 1.1; /* the hero headline's only line-height */
   --fs-code: 0.875em; /* inline `code`, relative to its host paragraph */
 

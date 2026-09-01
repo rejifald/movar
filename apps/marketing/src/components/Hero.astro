@@ -33,15 +33,23 @@ const claims = [
  * The text column is a fixed width only from `md` up (380px, widening to
  * the 540px design width at `lg`); below `md` it's just the full stacked
  * width. Those fixed widths are why the h1 steps down by breakpoint rather
- * than scaling fluidly: «Налаштуйте інтернет» measures 504px at 48px in
- * Fixel Display (≈10.5px of width per 1px of font-size), so each step is
- * sized against the column it actually sits in, with headroom left over
- * for font-fallback variance —
- *   - base (stacked, ~327px column at a 375px viewport): 26px → ~273px (17% headroom)
+ * than scaling fluidly: each step is sized against the column it actually
+ * sits in, with headroom left for font-fallback variance —
+ *   - base (stacked): sized by rendering line 1 at each candidate size and
+ *     checking it stays on one line, rather than a linear width estimate —
+ *     375px (~327px column) isn't the tightest common phone width; 360px
+ *     (~312px column, a common Android width) is, and needs its own check.
+ *     29px is the largest value that still fits «Налаштуйте інтернет» on one
+ *     line at 360px, confirmed under the `ui-sans-serif` fallback stack too
+ *     (30px already wraps at 360px, in-font or fallback).
  *   - md (380px column):                                  30px → ~315px (17% headroom)
  *   - lg (540px column, the desktop design size):          48px → 504px (given, 7% headroom)
  * — leaving the shorter second line ("in your language." / "на рідну
  * мову.") no way to wrap into a third line at any of the three.
+ *
+ * Below ~340px (e.g. the 320px-wide iPhone SE 1st-gen) line 1 already wraps
+ * even at the original 26px — a pre-existing gap this doesn't newly cause
+ * and doesn't attempt to close.
  */}
 <section class="overflow-hidden bg-bg px-6 py-16 md:py-20">
   <div class="mx-auto flex max-w-5xl flex-col gap-10 md:flex-row md:items-start md:gap-8 lg:gap-16">

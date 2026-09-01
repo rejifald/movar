@@ -286,30 +286,33 @@ export const guideStrings = {
      * acquire a first-person recipient.
      */
     /*
-     * The row's label, and the thing that turns it from a sequence into a
-     * ranking. Arrows alone say «then»: nothing in them says the first entry
-     * is the one the reader actually gets. That reads acceptably at three
-     * languages and falls apart at eight, which is an ordinary list — Chrome
-     * adds a regional variant per keyboard layout.
+     * Everything the row needs said about itself, in one line beneath it.
+     *
+     * Three claims, in the order they matter: what the sequence MEANS, where
+     * it was read, and who did not see it. The first two were separate lines —
+     * «У порядку пріоритету» sat above the row as its label — and folding them
+     * puts the section back to four blocks, which is what it was cut to.
+     *
+     * The cost is real and was accepted: a label above primes the reading,
+     * where a caption below explains a row the reader has already parsed. It
+     * is a caption on evidence rather than an instruction for reading it.
      *
      * «У», not «В»: sentence-initial before a consonant cluster.
      *
-     * It names the ordering rather than its consequence, and the draft before
-     * it («Сайт бере першу, яку має») did the reverse. Naming it is the
-     * shorter of the two and matches how the systems that own such a list
-     * label it — the reference for this row was Binance's «Payment Priority
-     * Order», which is this line's four words in another language. The
-     * consequence is the guide's subject, one link below.
+     * On naming the ordering rather than its consequence — «Сайт бере першу,
+     * яку має» was the draft before it. Naming it is shorter, and it matches
+     * how the systems that own such a list label theirs: the reference for
+     * this row was Binance's «Payment Priority Order», which is these words in
+     * another language. The consequence is the guide's own subject, one link
+     * below.
      *
      * The extension states both halves in one sentence on the options page
      * («Мовар просить у кожного сайту ці мови саме в такому порядку і бере
      * першу, яка там є», `packages/i18n/src/messages-uk.ts`). That is the right
-     * length THERE, above a list the reader is about to reorder. Here it would
-     * be a third variant of a claim already made twice on this page.
+     * length THERE, above a list the reader is about to reorder.
      */
-    listRule: 'У порядку пріоритету',
     listSource:
-      'Прочитано у вашому браузері, поки ви читаєте цю сторінку. Мовар цих даних не бачить.',
+      'У порядку пріоритету. Прочитано у вашому браузері, поки ви читаєте цю сторінку. Мовар цих даних не бачить.',
   },
   /**
    * The mono line beside every install button in this section — the diagnosis

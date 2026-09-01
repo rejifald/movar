@@ -82,9 +82,9 @@ const t = guideStrings.teaser;
      * here can be reordered or removed — an affordance the section cannot
      * honour.
      *
-     * The rule sits above the row rather than the row carrying rank glyphs of
-     * its own: see `guideStrings.teaser.listRule` for why words beat a numeral
-     * here. Everything below is about the row itself.
+     * What the order MEANS is said in words, in the caption below the row,
+     * rather than by rank glyphs on the items — see `guideStrings.teaser`'s
+     * `listSource` for why. Everything below is about the row itself.
      *
      * So: inline, no box, reading on from the heading. The arrow is the rank,
      * and it is the mechanism rather than decoration — a site walks the list
@@ -99,11 +99,7 @@ const t = guideStrings.teaser;
      * `guideStrings.teaser` on what this section is not allowed to become.
      */}
     <div data-guide-list hidden class="mt-6">
-      <p class="text-sm font-semibold text-ink-medium">{t.listRule}</p>
-      <ol
-        data-guide-languages
-        class="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"
-      ></ol>
+      <ol data-guide-languages class="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-lg"></ol>
       <p class="mt-4 text-sm text-ink-medium">{t.listSource}</p>
     </div>
 

@@ -592,15 +592,37 @@ test.describe('guide — homepage section', () => {
     await expect(section).toContainText('українська');
     await expect(section).toContainText('російська');
 
-    // Who computed it. The sentence that separates this from what it could be
-    // mistaken for, so it is asserted, not assumed.
-    await expect(section).toContainText('Мовар їх не бачить');
+    // Whose list, where it was read, and who did not see it — the three claims
+    // that separate this from what it could be mistaken for, so they are
+    // asserted rather than assumed.
+    await expect(section).toContainText('ваш браузер');
+    await expect(section).toContainText('поки ви читаєте цю сторінку');
+    await expect(section).toContainText('не бачить');
 
     // No verdict, in any of the hub's three forms, and no count of faults.
     const body = (await section.textContent()) ?? '';
     expect(body).not.toMatch(/проблем/i);
     expect(body).not.toContain('Усе гаразд');
     expect(body).not.toContain('Немає даних');
+
+    /*
+     * And nobody on the receiving end. The browser tells SITES, and this one is
+     * not among them — a line here that read «каже про вас нам» would be false
+     * in the exact direction the product is a claim against, and it would sit
+     * one line above the sentence promising Movar cannot see any of it.
+     *
+     * Tokenised rather than matched with `\b`, which in JavaScript is defined
+     * over ASCII word characters and so never fires against Cyrillic: the
+     * naive regex passes on text that contains the word.
+     */
+    const words = new Set(
+      body
+        .toLowerCase()
+        .split(/[^\p{L}]+/u)
+        .filter(Boolean),
+    );
+    expect(words.has('нам'), 'the section must not put this site on the receiving end').toBe(false);
+    expect(words.has('нас')).toBe(false);
 
     // And one link out, not a button — the section closes the way its
     // neighbours do.

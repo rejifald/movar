@@ -217,10 +217,8 @@ export const guideStrings = {
    * announces problems it found on your device, in red, beside one button, is
    * a shape this site cannot afford to borrow.
    *
-   * The label over the list and the on-device line come from
-   * `diagnosisStrings`, not from copies here: two surfaces reading the same
-   * browser must not describe it in two vocabularies, and the reader meets them
-   * minutes apart.
+   * The words around the list are this section's own — see `listLabel` below
+   * for why that one departure from `diagnosisStrings` is deliberate.
    */
   teaser: {
     /* `diagnosisStrings.heading` says this on the hub, about the same three
@@ -239,6 +237,33 @@ export const guideStrings = {
     body: 'Мовар передає вашу мову сайтам. Але сам список живе в системі, у браузері та в акаунтах — там його змінюєте тільки ви.',
     /** Closes the section, naming what the reader is about to open. */
     linkLabel: 'Відкрити інструкцію',
+    /*
+     * The two lines around the list, and the one place this section does NOT
+     * borrow `diagnosisStrings`.
+     *
+     * The hub's label («Сайти бачать ці мови як пріоритетні») describes the
+     * same list from the site's side, which works there: it sits inside a
+     * widget that has already named the reader's browser and system directly
+     * above it. Lifted onto a marketing page with nothing around it, three
+     * language chips under that label read as an illustration of what sites
+     * see in general — not as this reader's own list, read a second ago.
+     *
+     * So the label speaks to the reader about their own browser, and the line
+     * under the list says where the reading happened and who did not see it.
+     * The hub's privacy sentence says «на вашому пристрої», which is true and
+     * is not the same claim: a device is where a file could sit, and the point
+     * here is that this ran in the page and stopped there.
+     *
+     * On «розповідає про вас» and not «розповідає про вас нам»: the browser
+     * tells SITES, and Movar is not among them. A line that put this site on
+     * the receiving end would be false, and false in the exact direction the
+     * whole product is a claim against — the sentence beside it says Movar
+     * cannot see this. Whatever else these words become, they must never
+     * acquire a first-person recipient.
+     */
+    listLabel: 'Ось що про вас каже ваш браузер',
+    listSource:
+      'Прочитано у вашому браузері, поки ви читаєте цю сторінку. Мовар цих даних не бачить.',
   },
   /**
    * The mono line beside every install button in this section — the diagnosis

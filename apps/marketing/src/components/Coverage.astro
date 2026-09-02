@@ -26,6 +26,36 @@
  * (see ../lib/brand-icons) for its mark; that record is total, so every name
  * carries one — Bing wears the Microsoft four-square.
  *
+ * The switcher card gets a `demo` footer in place of that brand row. Naming
+ * real multilingual sites there would argue against the card's own claim —
+ * the set is open, and the homepage already refuses to name one anywhere
+ * else: the fourth `examples` entry is labelled generically ("Маркетплейс")
+ * over a screenshot of an invented store, kramko.example. So the footer
+ * shows the mechanism instead of a roster: the site's own language switcher,
+ * set to the visitor's language and held there.
+ *
+ * The demo is two states across an arrow. LEFT is the site as you found it:
+ * its switcher offers a Ukrainian version, and the blocked entry is the one
+ * it picked for you. RIGHT is after Movar switched it.
+ *
+ * The two active marks are drawn differently on purpose. On the left the
+ * active pill is neutral — a raised chip in the surface ramp, the way any
+ * segmented control marks its own selection — because that state is the
+ * site's doing, not Movar's. Only the right-hand pill takes `--accent`,
+ * which tokens.ts reserves for moments Movar acted, and only it carries the
+ * check. So the colour change across the arrow is itself the claim.
+ *
+ * The right-hand group shows the blocked entry gone, which is two corrections
+ * at once: the switch, which every install does, and the removal, which needs
+ * `settings.contentModification` (`defaultSettings` ships it false). The
+ * picture cannot separate them, so `status` does — it names the hiding
+ * specifically rather than saying "turned on in settings" of the pair. That
+ * is why this card's `status` is its own sentence and not the one
+ * `howItWorks.steps[1].status` carries: the shared wording was ambiguous
+ * here in a way it is not there. Two earlier passes tried to carry the split
+ * graphically — a check on both sides, then a struck entry with a keyed note
+ * — and both read as though the switch itself needed enabling.
+ *
  * Responsive: 1 column at mobile, 2 at tablet (sm:), 3 at desktop (lg:) —
  * the same steps ForUkrainian.astro's card grid uses. At the 2-column
  * tablet step the third card (perElement) spans both columns instead of
@@ -36,7 +66,7 @@
  * along the card footers whenever cards share a row (2- and 3-column steps),
  * and costs nothing at 1 column where every card is alone in its row.
  */
-import { Search, ArrowLeftRight, Layers } from 'lucide-astro';
+import { Search, ArrowLeftRight, Layers, Check, ArrowRight } from 'lucide-astro';
 
 import { brandIconPaths, type BrandId } from '../lib/brand-icons';
 import { strings, type Locale } from '../i18n';
@@ -55,11 +85,38 @@ interface CoverageCard {
   /** Brand row under the body — omitted for the "switcher" card, which
    *  names no specific sites (it works on any of them). */
   sites?: string[];
+  /** Renders the language-switcher demo in the footer instead of a brand
+   *  row. Set on the "switcher" card only, which has no roster to list. */
+  demo?: boolean;
+  /** Gate note under the footer — present only where the footer shows
+   *  something the opt-in content filter does. Comes from the card's own
+   *  strings, so it stays in lockstep with the wording HowItWorks uses for
+   *  the same setting. */
+  status?: string;
 }
+
+/* Shared by the brand row and the switcher demo: the three card footers sit
+   on the same baseline only while they carry identical spacing and rule. */
+const footerClass =
+  'mt-5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-border pt-4';
+
+/* Switcher-demo pieces. Colour is applied per instance, not layered over a
+   base: two border-colour utilities on one element resolve by stylesheet
+   order rather than class order, so an "override" class would be a coin flip. */
+const demoGroup = 'inline-flex items-center gap-1 rounded-lg border p-1';
+const demoPill = 'flex h-6 items-center rounded-md px-2 text-ui-xs font-semibold text-ink-faint';
+/* The site's own selection. Raised chip, no accent: in light the white pill
+   lifts off the surface-2 track, and in dark — where the pill is the darker
+   of the two — the jump from ink-faint to ink-strong on the label is what
+   carries the selection. */
+const demoPillSite =
+  'flex h-6 items-center rounded-md bg-surface px-2 text-ui-xs font-semibold text-ink-strong shadow-sm';
+const demoPillOn =
+  'flex h-6 items-center gap-1 rounded-md bg-accent px-2 text-ui-xs font-semibold text-accent-on';
 
 const cards: CoverageCard[] = [
   { Icon: Search, ...t.search },
-  { Icon: ArrowLeftRight, ...t.switcher },
+  { Icon: ArrowLeftRight, ...t.switcher, demo: true },
   { Icon: Layers, ...t.perElement },
 ];
 ---
@@ -83,7 +140,7 @@ const cards: CoverageCard[] = [
 
     <div class="mt-10 grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3">
       {
-        cards.map(({ Icon, title, body, sites }, i) => (
+        cards.map(({ Icon, title, body, sites, demo, status }, i) => (
           <div
             class:list={[
               'flex h-full flex-col rounded-xl border border-border bg-surface p-6',
@@ -102,7 +159,7 @@ const cards: CoverageCard[] = [
             <div class="flex-1" />
 
             {sites && (
-              <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-border pt-4">
+              <div class={footerClass}>
                 {sites.map((name) => {
                   /* The cast is unchecked — `sites` is plain copy — so the
                      guard stays as a runtime backstop even though the record
@@ -124,6 +181,44 @@ const cards: CoverageCard[] = [
                     </span>
                   );
                 })}
+              </div>
+            )}
+
+            {demo && (
+              <div class={footerClass}>
+                {/*
+                 * The site's own language switcher, rebuilt in markup so it
+                 * takes the theme's tokens instead of shipping a second
+                 * light/dark image pair — the same segmented control the
+                 * `examples` marketplace screenshot shows, and the same
+                 * en/ru/uk shape as the corpus picker fixtures
+                 * (packages/page-content/fixtures/pickers).
+                 *
+                 * aria-hidden: it illustrates the sentence above rather than
+                 * adding to it. The sibling footers list site names a reader
+                 * needs announced; this is inert language codes. The `status`
+                 * note below is NOT hidden — it is a real claim about when
+                 * the right-hand state applies.
+                 */}
+                <span class="flex flex-wrap items-center gap-2" aria-hidden="true">
+                  <span class={`${demoGroup} border-border bg-surface-2`}>
+                    <span class={demoPill}>EN</span>
+                    <span class={demoPillSite}>РУ</span>
+                    <span class={demoPill}>УК</span>
+                  </span>
+
+                  <ArrowRight class="size-4 shrink-0 text-ink-faint" />
+
+                  <span class={`${demoGroup} border-accent-soft bg-accent-surface`}>
+                    <span class={demoPill}>EN</span>
+                    <span class={demoPillOn}>
+                      <Check class="size-3" />
+                      УК
+                    </span>
+                  </span>
+                </span>
+
+                {status && <span class="w-full text-ui-xs text-ink-faint">{status}</span>}
               </div>
             )}
           </div>

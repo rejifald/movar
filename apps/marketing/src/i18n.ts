@@ -60,6 +60,22 @@ interface CoverageCard {
   /** Brand-mark row naming the sites this card covers. Omitted on the
    *  switcher card, which names no specific sites. */
   sites?: string[];
+  /** Gate note under the card's footer, for a card whose footer shows
+   *  something the opt-in content filter does rather than something that
+   *  works out of the box. Same `contentModification` setting as
+   *  `howItWorks.steps[1].status`, but NOT the same sentence: there the
+   *  whole step is the filter, so "turned on in settings" is unambiguous.
+   *  Here it sits under a picture that also shows the always-on switch, so
+   *  it has to split the two itself: it names what the default does, then
+   *  what the setting adds. Earlier drafts named only the gated half and
+   *  read as though the switch needed enabling too.
+   *
+   *  It says "hiding", not "hiding Russian": the filter reads
+   *  `settings.blocked`, a derived list, so the demo's РУ pill is one
+   *  instance of it rather than the rule. Same vocabulary the extension's
+   *  own setting uses — `contentToggle.label` in packages/i18n — so a
+   *  reader who goes looking finds the words they were shown. */
+  status?: string;
 }
 
 interface CoverageStrings {
@@ -898,6 +914,7 @@ const en: Strings = {
     switcher: {
       title: 'Any multilingual site',
       body: "Switching once isn't enough — sites forget your choice. Movar remembers it for you.",
+      status: 'By default Movar only switches — hiding is turned on in settings',
     },
     perElement: {
       title: 'Element by element',
@@ -1812,6 +1829,7 @@ const uk: Strings = {
     switcher: {
       title: 'Будь-який багатомовний сайт',
       body: 'Одного перемикання мало — сайти забувають ваш вибір. Мовар його запамʼятовує.',
+      status: 'Мовар перемикає одразу, а ховає — лише якщо ввімкнете в налаштуваннях',
     },
     perElement: {
       title: 'Поелементно',

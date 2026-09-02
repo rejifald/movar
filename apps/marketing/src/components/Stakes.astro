@@ -383,12 +383,8 @@ const narrowLoopArrowhead = `M${NARROW_BOX_W + 14} ${narrowEntryY - 7} L${NARROW
           </svg>
         </div>
 
-        {/* Mounted flush into the plate's bottom corners, and opaque, so the
-            grid behind it stops at its top edge — that termination is the
-            separation, and a `border-t` over it would draw a second boundary
-            on the same line. Same convention as Coverage.astro's footer tray. */}
         <figcaption
-          class="-mx-4 -mb-4 mt-4 bg-surface px-4 py-3 text-sm leading-relaxed text-ink-faint sm:-mx-6 sm:-mb-6 sm:px-6"
+          class="-mx-4 -mb-4 mt-4 border-t border-border bg-surface px-4 py-3 text-sm leading-relaxed text-ink-faint sm:-mx-6 sm:-mb-6 sm:px-6"
         >
           {diagram.caption}
         </figcaption>

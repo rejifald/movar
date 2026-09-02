@@ -18,6 +18,13 @@
  * id (same pattern as GuideCallout.astro / GuideChecklist.astro /
  * GuideChecker.astro).
  *
+ * It also takes the Hero's `width="stretch"`, for the same reason it can't
+ * take a different target: below `sm` both are the page's one action sitting
+ * alone in one stacked column, and a button sized by whatever the detected
+ * browser's label measures gave the same phone two install buttons of two
+ * different widths. Stretched, they agree with each other and with the
+ * column. From `sm` up both revert to label width.
+ *
  * The "why this keeps happening" deep-dive link used to sit here beside the
  * install CTA. It now closes the Stakes section instead: this row's one job
  * is to get people installing, and a second link competing with the CTA at
@@ -49,7 +56,7 @@ const t = strings[lang].close;
       {t.sectionTitle}
     </h2>
     <div class="flex flex-col items-start gap-4 md:shrink-0">
-      <DownloadButtons lang={lang} align="start" anchor={false} />
+      <DownloadButtons lang={lang} align="start" anchor={false} width="stretch" />
     </div>
   </div>
 </section>

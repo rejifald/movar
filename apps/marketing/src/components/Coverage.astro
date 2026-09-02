@@ -39,8 +39,8 @@
  * it picked for you. RIGHT is after Movar switched it.
  *
  * The two active marks are drawn differently on purpose. On the left the
- * active pill is neutral — a raised chip in the surface ramp, the way any
- * segmented control marks its own selection — because that state is the
+ * active pill is neutral — a chip recessed into the tray's own tone, the way
+ * any segmented control marks its own selection — because that state is the
  * site's doing, not Movar's. Only the right-hand pill takes `--accent`,
  * which tokens.ts reserves for moments Movar acted, and only it carries the
  * check. So the colour change across the arrow is itself the claim.
@@ -62,9 +62,10 @@
  * sitting alone on its own row at half width; it carries its own brand row
  * so a full-width third row reads as a natural closer rather than an
  * orphan. Each card is `flex h-full flex-col` with a `flex-1` spacer before
- * the brand row, so CSS Grid's default row-stretch keeps those rows aligned
- * along the card footers whenever cards share a row (2- and 3-column steps),
- * and costs nothing at 1 column where every card is alone in its row.
+ * the footer tray, so CSS Grid's default row-stretch plus the tray's own
+ * bottom-edge mount put every tray on the same line whenever cards share a
+ * row (2- and 3-column steps), and cost nothing at 1 column where every card
+ * is alone in its row.
  */
 import { Search, ArrowLeftRight, Layers, Check, ArrowRight } from 'lucide-astro';
 
@@ -95,22 +96,31 @@ interface CoverageCard {
   status?: string;
 }
 
-/* Shared by the brand row and the switcher demo: the three card footers sit
-   on the same baseline only while they carry identical spacing and rule. */
+/* Shared by the brand row and the switcher demo: the footer is a tray in the
+   card's own bottom corners, not a ruled-off block. The negative margins undo
+   the card's `p-6` so the tint runs to its edges, and `rounded-b-[11px]` is
+   `rounded-xl` minus the 1px border — the inner curve of the corner it sits
+   in. A rule was the earlier answer and the wrong one: it floats wherever the
+   body happens to end, so the three cards drew it at three different heights.
+   The tray is pinned to the bottom by the `flex-1` spacer above it, so the
+   three line up on the card's bottom edge whatever the copy does. */
 const footerClass =
-  'mt-5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t border-border pt-4';
+  'mt-6 -mx-6 -mb-6 flex flex-wrap items-center gap-x-5 gap-y-2.5 rounded-b-[11px] bg-surface-2 px-6 py-4';
 
 /* Switcher-demo pieces. Colour is applied per instance, not layered over a
    base: two border-colour utilities on one element resolve by stylesheet
    order rather than class order, so an "override" class would be a coin flip. */
 const demoGroup = 'inline-flex items-center gap-1 rounded-lg border p-1';
 const demoPill = 'flex h-6 items-center rounded-md px-2 text-ui-xs font-semibold text-ink-faint';
-/* The site's own selection. Raised chip, no accent: in light the white pill
-   lifts off the surface-2 track, and in dark — where the pill is the darker
-   of the two — the jump from ink-faint to ink-strong on the label is what
-   carries the selection. */
+/* The site's own selection. Neutral chip, no accent: the tray already spends
+   `--surface-2`, so a raised white chip has nothing left to rise off. The
+   group takes `--surface` and the pill takes the tray's own tone, which puts
+   one step of the ramp between them in either theme — the pill reads recessed
+   in light and lifted in dark, since which of the two is lighter flips. What
+   carries the selection in both is the label's jump from ink-faint to
+   ink-strong; the tint only has to differ, not to sit on a fixed side. */
 const demoPillSite =
-  'flex h-6 items-center rounded-md bg-surface px-2 text-ui-xs font-semibold text-ink-strong shadow-sm';
+  'flex h-6 items-center rounded-md bg-surface-2 px-2 text-ui-xs font-semibold text-ink-strong';
 const demoPillOn =
   'flex h-6 items-center gap-1 rounded-md bg-accent px-2 text-ui-xs font-semibold text-accent-on';
 
@@ -177,7 +187,7 @@ const cards: CoverageCard[] = [
                           <path d={path} />
                         </svg>
                       )}
-                      <span class="text-sm font-medium text-ink">{name}</span>
+                      <span class="text-ui-base font-medium text-ink-soft">{name}</span>
                     </span>
                   );
                 })}
@@ -201,7 +211,7 @@ const cards: CoverageCard[] = [
                  * the right-hand state applies.
                  */}
                 <span class="flex flex-wrap items-center gap-2" aria-hidden="true">
-                  <span class={`${demoGroup} border-border bg-surface-2`}>
+                  <span class={`${demoGroup} border-border bg-surface`}>
                     <span class={demoPill}>EN</span>
                     <span class={demoPillSite}>РУ</span>
                     <span class={demoPill}>УК</span>

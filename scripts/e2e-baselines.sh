@@ -103,7 +103,12 @@ echo "    forwarding to playwright: ${*:-<all baselines>}"
 # On a native-amd64 Linux host this is a cheap no-op.
 restore_host_modules() {
   echo "==> Restoring host node_modules (native binaries)"
-  if ! (cd "${REPO_ROOT}" && CI=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false); then
+  # Same purge blindness as inside the container, in the other direction: the
+  # lockfile has not moved, so pnpm 11.3 calls the container-written amd64 tree
+  # up to date and returns in milliseconds, leaving the host on Linux binaries
+  # — `astro` then dies on its own native module. Delete first, install second.
+  if ! (cd "${REPO_ROOT}" && rm -rf node_modules &&
+    CI=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false); then
     echo "warning: could not restore host node_modules automatically." >&2
     echo "         run 'pnpm install' yourself. On a native-Linux host the" >&2
     echo "         container writes root-owned files; if so, first run:" >&2

@@ -152,9 +152,13 @@ const stepsUpdated = formatUpdated(
   </div>
 
   {/* Count strip. Instructions rot, so the right-hand side carries the date the
-      steps below were last checked against the vendors' menus. */}
+      steps below were last checked against the vendors' menus.
+
+      `--surface-2` against the panel's `--surface`, and no rule: the tint
+      change already lands on the strip's top edge, so a border would mark the
+      same line twice. Same convention as Coverage.astro's footer tray. */}
   <div
-    class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border bg-surface-2 px-6 py-3"
+    class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-surface-2 px-6 py-3"
   >
     <p
       data-count

@@ -154,9 +154,11 @@ const stepsUpdated = formatUpdated(
   {/* Count strip. Instructions rot, so the right-hand side carries the date the
       steps below were last checked against the vendors' menus.
 
-      `--surface-2` against the panel's `--surface`, and no rule: the tint
-      change already lands on the strip's top edge, so a border would mark the
-      same line twice. Same convention as Coverage.astro's footer tray. */}
+      `--surface-2` against the panel's `--surface`, and no rule. It reads as a
+      band rather than a footer — the island renders the fault rows after it —
+      so the tint marks both its edges by itself. A `border-t` drew the top one
+      twice and left the bottom one bare. Same convention as Coverage.astro's
+      footer tray. */}
   <div
     class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-surface-2 px-6 py-3"
   >

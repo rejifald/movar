@@ -96,7 +96,10 @@ echo "    forwarding to playwright: ${*:-<all baselines>}"
 # `CI=1` alone no longer suffices: under pnpm 11 the container's install would
 # silently SKIP the purge, leave the host's darwin-arm64 modules in place, and
 # then die in `wxt prepare` on a missing `rolldown-binding.linux-x64-gnu.node`.
-# Hence the same flag on both installs.
+# Hence the same flag on both installs — and, since pnpm 11.3, an explicit
+# `rm -rf node_modules` inside the container before its install: the flag
+# auto-answers the purge prompt, but 11.3 stopped asking at all when the
+# lockfile has not moved, so the same failure came back through the same door.
 # On a native-amd64 Linux host this is a cheap no-op.
 restore_host_modules() {
   echo "==> Restoring host node_modules (native binaries)"
@@ -130,6 +133,14 @@ docker run --rm \
   bash -euo pipefail -c '
     target="$1"; shift
     corepack enable
+    # Delete the bind-mounted modules dir outright rather than trusting pnpm to
+    # purge it. The flag below only auto-answers the purge prompt; under pnpm
+    # 11.3 the install decides the tree is already up to date (the lockfile has
+    # not moved), never asks, and leaves the host darwin-arm64 binaries in
+    # place — then wxt prepare dies on a missing
+    # rolldown-binding.linux-x64-gnu.node, which is the very failure the flag
+    # was added to prevent. The restore trap above puts the host tree back.
+    rm -rf node_modules
     pnpm install --frozen-lockfile --store-dir /pnpm-store --config.confirmModulesPurge=false
     xvfb-run -a pnpm nx run "$target" -- "$@"
   ' movar-e2e-baselines "${NX_TARGET}" "$@"

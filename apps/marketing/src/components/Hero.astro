@@ -67,8 +67,32 @@ const claims = [
         {t.subhead}
       </p>
 
-      <div class="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <DownloadButtons lang={lang} align="start" />
+      {/*
+       * Below `sm` the CTA and the guide link are an explicit column, not a
+       * row left to wrap. Wrapping decided this per visitor, because the pair's
+       * width is the browser label's width: in a 360px viewport's 312px column
+       * the Ukrainian labels (198-292px, plus a 112px link) never fit on one
+       * line, while the English ones (152-192px, plus a 94px link) always do —
+       * so the same hero was a row for some readers and a column for others.
+       *
+       * Worse, it changed under the reader mid-load: SSR renders the neutral
+       * "Add Movar to your browser" (249px, which wraps), and the CTA's script
+       * then swaps in "Add to Chrome" (172px, which doesn't), collapsing the
+       * block by a line and pulling everything below it up. A column can't do
+       * that — its height is the same before and after detection.
+       *
+       * `gap-5` also gives the link a step away from the button instead of the
+       * wrap's 12px, where it read as the button's caption — and on Android as
+       * a caption of the note that lands between them.
+       *
+       * From `sm` up this reproduces the previous row exactly (`gap-5` and
+       * `sm:gap-x-5` are the same 20px), so the 1280px visual baselines are
+       * untouched.
+       */}
+      <div
+        class="mt-9 flex flex-col items-start gap-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3"
+      >
+        <DownloadButtons lang={lang} align="start" width="stretch" />
         <a href={installHref} class="text-sm font-medium text-accent-text hover:underline">
           {installLabel} →
         </a>

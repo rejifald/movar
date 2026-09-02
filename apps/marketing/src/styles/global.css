@@ -145,6 +145,7 @@
   --hero-col-md: 380px; /* hero screenshot column at `md:` */
   --hero-col-lg: 540px; /* …and at `lg:` */
   --diagram-min-w: 700px; /* the loop diagram's scroll floor */
+  --plate-mark: #a8a29e; /* the loop diagram plate's corner marks */
   --figure-aspect: 16 / 10;
 
   /* -- Motion ----------------------------------------------------------- */
@@ -411,6 +412,10 @@ body {
       color-mix(in srgb, var(--ink) 9%, transparent) 1px,
       transparent 1.6px
     );
+  }
+
+  :root {
+    --plate-mark: #57534e;
   }
 }
 

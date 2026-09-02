@@ -1,25 +1,32 @@
 ---
 /*
  * "Why this matters": the closed-loop diagram (Fig. 1) plus the four theses
- * that unpack it. Rebuilt from the reference mock's sections 4 and 5.
+ * that unpack it. Rebuilt from the reference mock's sections 4 and 5, and
+ * restyled as a "technical drawing plate": one bordered frame — corner
+ * registration marks, a top ruler strip, a faint graph-paper ground — around
+ * whichever of the two SVGs below is currently showing, with the caption
+ * running as the plate's bottom label strip.
  *
- * The diagram is drawn twice, swapped with Tailwind visibility utilities:
- * - `wideBoxes`/the `md:block` SVG below: four boxes left-to-right with the
- *   return path looping underneath, geometry lifted verbatim from the mock
- *   (box width 230, 262px pitch) but generated from `diagram.nodes` instead
- *   of retyped four times. It carries the figure's `role="img"` + aria-label.
+ * Inside that one frame, the diagram is still drawn twice, swapped with
+ * Tailwind visibility utilities:
+ * - `wideBoxes`/the `md:block` SVG: four boxes left-to-right with the return
+ *   path looping underneath. The box grid (width 230, 262px pitch) is lifted
+ *   from the mock but generated from `diagram.nodes` instead of retyped four
+ *   times.
  * - `narrowBoxes`/the `md:hidden` SVG: the same four nodes stacked
  *   top-to-bottom with the return path looping up a right-hand gutter
  *   instead of underneath. The wide geometry can't survive a 375px screen —
  *   scaled down it's unreadable, and a horizontal scroller would hide the
  *   return path, which is the whole point of the figure — so this is a
- *   different composition of the same argument, not a squashed copy. It's
- *   carries the SAME `role="img"` + aria-label as the wide one. That is not a
- *   duplicate: `hidden` is `display: none`, which drops an element from the
- *   accessibility tree, so exactly one of the two is ever exposed. Labelling
- *   only one leaves whichever breakpoint hides it with no figure description
- *   at all — which is what happened here before this comment existed.
- *   figures should ever expose an accessible name.
+ *   different composition of the same argument, not a squashed copy. It also
+ *   drops the wide drawing's dashed extension lines: there is no straight
+ *   run here that wouldn't cross the rotated loop label.
+ *
+ * Both SVGs carry the SAME `role="img"` + aria-label. That is not a
+ * duplicate: `hidden`/`md:hidden` is `display: none`, which drops an element
+ * from the accessibility tree, so exactly one of the two is ever exposed.
+ * Labelling only one would leave whichever breakpoint hides it with no
+ * figure description at all.
  * The wide SVG also sits in a horizontally-scrolling wrapper with a min
  * width, so at the narrow end of its own (md-and-up) range it scrolls
  * instead of squashing past legibility.
@@ -59,22 +66,41 @@ const wideArrows = wideBoxes.slice(0, 3).map(({ x }) => {
     chevron: `M${right + 18} ${midY - 5} L${right + 24} ${midY} L${right + 18} ${midY + 5}`,
   };
 });
+
+// Every box, its numeral plate and the loop's ticks all share this edge.
+const wideBoxBottom = WIDE_BOX_Y + WIDE_BOX_H; // 108
+
+// Dashed extension lines drop from nodes 2 and 3 only: 1 and 4 already have
+// the return path's own verticals passing their centres, so a second line
+// there would just double up.
+const wideExtensionLines = wideBoxes.slice(1, 3).map(({ x }) => {
+  const cx = x + WIDE_BOX_W / 2;
+  return `M${cx} ${wideBoxBottom + 4} L${cx} 244`;
+});
+
 // The return path's two ends are the horizontal centres of box 1 and box 4.
 const wideLoopEnd = WIDE_BOX_W / 2; // 115
 const wideLoopStart = 3 * WIDE_PITCH + WIDE_BOX_W / 2; // 901
-const wideLoopPath =
-  `M${wideLoopStart} ${WIDE_BOX_Y + WIDE_BOX_H} L${wideLoopStart} 208 ` +
-  `Q${wideLoopStart} 232 ${wideLoopStart - 24} 232 L${wideLoopEnd + 24} 232 ` +
-  `Q${wideLoopEnd} 232 ${wideLoopEnd} 208 L${wideLoopEnd} 138`;
-const wideArrowIntoFirst = `M${wideLoopEnd - 6} 146 L${wideLoopEnd} 136 L${wideLoopEnd + 6} 146`;
+const wideLoopRunY = 232; // the path's horizontal run, underneath the boxes
+
+// The path splits around the pill label below (unchanged: x=424 width=180),
+// clearing 16px on each side of its centre.
+const wideLoopLabelCx = 424 + 180 / 2; // 514
+const wideLoopLabelHalfGap = 180 / 2 + 16; // 106
+const wideLoopGapRight = wideLoopLabelCx + wideLoopLabelHalfGap; // 620
+const wideLoopGapLeft = wideLoopLabelCx - wideLoopLabelHalfGap; // 408
+
+const wideLoopTick = `M${wideLoopStart - 8} ${wideBoxBottom} L${wideLoopStart + 8} ${wideBoxBottom}`;
+const wideLoopSegA = `M${wideLoopStart} ${wideBoxBottom} L${wideLoopStart} ${wideLoopRunY} L${wideLoopGapRight} ${wideLoopRunY}`;
+const wideLoopSegB = `M${wideLoopGapLeft} ${wideLoopRunY} L${wideLoopEnd} ${wideLoopRunY} L${wideLoopEnd} ${wideBoxBottom + 14}`;
+const wideLoopArrowhead = `M${wideLoopEnd - 7} ${wideBoxBottom + 14} L${wideLoopEnd} ${wideBoxBottom} L${wideLoopEnd + 7} ${wideBoxBottom + 14} Z`;
 
 /* ---- Narrow diagram (below md) ------------------------------------------ */
 const NARROW_BOX_W = 230;
 const NARROW_BOX_H = 84;
 const NARROW_GAP = 70;
-const NARROW_TOP = 20;
+const NARROW_TOP = 26;
 const NARROW_GUTTER_X = 278;
-const NARROW_TURN_R = 24;
 const NARROW_VIEW_W = 300;
 
 const narrowBoxY = (i: number) => NARROW_TOP + i * (NARROW_BOX_H + NARROW_GAP);
@@ -93,18 +119,15 @@ const narrowArrows = [0, 1, 2].map((i) => {
 
 const narrowExitY = narrowBoxY(3) + NARROW_BOX_H / 2;
 const narrowEntryY = narrowBoxY(0) + NARROW_BOX_H / 2;
-const narrowLoopPath = [
-  `M${NARROW_BOX_W} ${narrowExitY}`,
-  `L${NARROW_BOX_W + NARROW_TURN_R} ${narrowExitY}`,
-  `Q${NARROW_GUTTER_X} ${narrowExitY} ${NARROW_GUTTER_X} ${narrowExitY - NARROW_TURN_R}`,
-  `L${NARROW_GUTTER_X} ${narrowEntryY + NARROW_TURN_R}`,
-  `Q${NARROW_GUTTER_X} ${narrowEntryY} ${NARROW_GUTTER_X - NARROW_TURN_R} ${narrowEntryY}`,
-  `L${NARROW_BOX_W + 4} ${narrowEntryY}`,
-].join(' ');
-const narrowArrowIntoFirst = `M${NARROW_BOX_W + 4} ${narrowEntryY - 6} L${NARROW_BOX_W - 6} ${narrowEntryY} L${NARROW_BOX_W + 4} ${narrowEntryY + 6}`;
-// Pill sits centred on the gutter's straight vertical run, rotated so its
-// text reads parallel to the return path it's labelling.
-const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_TURN_R)) / 2;
+// Pill sits centred between the two ends it labels, rotated so its text reads
+// parallel to the return path it's labelling.
+const narrowPillCenterY = (narrowEntryY + narrowExitY) / 2;
+const narrowLoopHalfGap = 78; // label half-span + clearance, mirrors the wide drawing's gap
+
+const narrowLoopTick = `M${NARROW_BOX_W} ${narrowExitY - 8} L${NARROW_BOX_W} ${narrowExitY + 8}`;
+const narrowLoopSegA = `M${NARROW_BOX_W} ${narrowExitY} L${NARROW_GUTTER_X} ${narrowExitY} L${NARROW_GUTTER_X} ${narrowPillCenterY + narrowLoopHalfGap}`;
+const narrowLoopSegB = `M${NARROW_GUTTER_X} ${narrowPillCenterY - narrowLoopHalfGap} L${NARROW_GUTTER_X} ${narrowEntryY} L${NARROW_BOX_W + 14} ${narrowEntryY}`;
+const narrowLoopArrowhead = `M${NARROW_BOX_W + 14} ${narrowEntryY - 7} L${NARROW_BOX_W} ${narrowEntryY} L${NARROW_BOX_W + 14} ${narrowEntryY + 7} Z`;
 ---
 
 <section id="why-it-matters" class="border-t border-border bg-bg px-6 py-20">
@@ -120,193 +143,118 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
       </h2>
     </div>
 
-    <div class="mt-9 border border-border-strong bg-surface">
-      {/* Wide (md and up): four boxes left-to-right, loop underneath.
-          Scrolls horizontally rather than squashing below a legible size. */}
-      <div class="hidden overflow-x-auto p-8 md:block">
-        <svg
-          viewBox="0 0 1040 300"
-          width="100%"
-          class="min-w-[var(--diagram-min-w)]"
-          role="img"
-          aria-label={diagram.ariaLabel}
-        >
-          <g
-            font-family="var(--font-mono)"
-            font-size="11"
-            letter-spacing="1.1"
-            fill="var(--ink-faint)"
-          >
-            {wideBoxes.map(({ x }, i) => (
-              <text x={x + 16} y="14">
-                {i + 1}
-              </text>
-            ))}
-          </g>
+    <figure class="mt-9 border border-border-strong bg-surface p-2">
+      <div class="plate relative border border-border p-4 sm:p-6">
+        {/* Corner registration marks + a top ruler strip — the "technical
+            drawing plate" framing device. Purely decorative. */}
+        <span
+          aria-hidden="true"
+          class="absolute -left-px -top-px size-[9px] border-l border-t border-[var(--plate-mark)]"
+        />
+        <span
+          aria-hidden="true"
+          class="absolute -right-px -top-px size-[9px] border-r border-t border-[var(--plate-mark)]"
+        />
+        <span
+          aria-hidden="true"
+          class="absolute -bottom-px -left-px size-[9px] border-b border-l border-[var(--plate-mark)]"
+        />
+        <span
+          aria-hidden="true"
+          class="absolute -bottom-px -right-px size-[9px] border-b border-r border-[var(--plate-mark)]"
+        />
+        <div aria-hidden="true" class="plate-ruler h-[4px]" />
 
-          <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
-            {wideBoxes.map(({ x }) => (
-              <rect x={x} y={WIDE_BOX_Y} width={WIDE_BOX_W} height={WIDE_BOX_H} rx="10" />
-            ))}
-          </g>
-
-          <g
-            font-family="var(--font-sans)"
-            font-size="15"
-            font-weight="600"
-            letter-spacing="-0.2"
-            fill="var(--ink-strong)"
+        {/* Wide (md and up): four boxes left-to-right, loop underneath.
+            Scrolls horizontally rather than squashing below a legible size. */}
+        <div class="mt-4 hidden overflow-x-auto md:block">
+          <svg
+            viewBox="0 0 1040 254"
+            width="100%"
+            class="min-w-[var(--diagram-min-w)]"
+            role="img"
+            aria-label={diagram.ariaLabel}
           >
-            {wideBoxes.map(({ x, node }) => (
-              <>
-                <text x={x + 20} y={WIDE_BOX_Y + 36}>
-                  {node.heading[0]}
+            <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
+              {wideBoxes.map(({ x }) => (
+                <rect x={x} y="2" width="22" height="16" rx="1" />
+              ))}
+            </g>
+            <g stroke="var(--border-strong)" stroke-width="1" fill="none">
+              {wideBoxes.map(({ x }) => (
+                <path d={`M${x + 11} 18 L${x + 11} ${WIDE_BOX_Y}`} />
+              ))}
+            </g>
+            <g font-family="var(--font-mono)" font-size="10" fill="var(--ink-faint)">
+              {wideBoxes.map(({ x }, i) => (
+                <text x={x + 11} y="14" text-anchor="middle">
+                  {String(i + 1).padStart(2, '0')}
                 </text>
-                <text x={x + 20} y={WIDE_BOX_Y + 56}>
-                  {node.heading[1]}
-                </text>
-              </>
-            ))}
-          </g>
-          <g
-            stroke="var(--ink-faint)"
-            stroke-width="1.4"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            {wideArrows.map((arrow) => (
-              <>
-                <path d={arrow.line} />
-                <path d={arrow.chevron} />
-              </>
-            ))}
-          </g>
+              ))}
+            </g>
 
-          <path
-            d={wideLoopPath}
-            stroke="var(--accent)"
-            stroke-width="1.6"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d={wideArrowIntoFirst}
-            stroke="var(--accent)"
-            stroke-width="1.6"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <rect
-            x="424"
-            y="218"
-            width="180"
-            height="28"
-            rx="14"
-            fill="var(--accent-surface)"
-            stroke="var(--accent-soft)"
-            stroke-width="1"
-          />
-          <text
-            x="514"
-            y="236"
-            text-anchor="middle"
-            font-family="var(--font-sans)"
-            font-size="13"
-            font-weight="700"
-            letter-spacing="-0.2"
-            fill="var(--accent-deep)"
-          >
-            {diagram.loopLabel}
-          </text>
-        </svg>
-      </div>
+            <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
+              {wideBoxes.map(({ x }) => (
+                <rect x={x} y={WIDE_BOX_Y} width={WIDE_BOX_W} height={WIDE_BOX_H} rx="2" />
+              ))}
+            </g>
 
-      {/* Below md: same four nodes stacked, return path up the right
-          gutter. Decorative — see the file header for why only one of the
-          two figures carries the accessible name. */}
-      <div class="p-4 sm:p-6 md:hidden">
-        <svg
-          viewBox={`0 0 ${NARROW_VIEW_W} ${NARROW_VIEW_H}`}
-          width="100%"
-          role="img"
-          aria-label={diagram.ariaLabel}
-        >
-          <g
-            font-family="var(--font-mono)"
-            font-size="11"
-            letter-spacing="1.1"
-            fill="var(--ink-faint)"
-          >
-            {narrowBoxes.map(({ y }, i) => (
-              <text x="16" y={y - 10}>
-                {i + 1}
-              </text>
-            ))}
-          </g>
+            <g
+              font-family="var(--font-sans)"
+              font-size="15"
+              font-weight="600"
+              letter-spacing="-0.2"
+              fill="var(--ink-strong)"
+            >
+              {wideBoxes.map(({ x, node }) => (
+                <>
+                  <text x={x + 20} y={WIDE_BOX_Y + 36}>
+                    {node.heading[0]}
+                  </text>
+                  <text x={x + 20} y={WIDE_BOX_Y + 56}>
+                    {node.heading[1]}
+                  </text>
+                </>
+              ))}
+            </g>
+            <g
+              stroke="var(--ink-faint)"
+              stroke-width="1.4"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              {wideArrows.map((arrow) => (
+                <>
+                  <path d={arrow.line} />
+                  <path d={arrow.chevron} />
+                </>
+              ))}
+            </g>
 
-          <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
-            {narrowBoxes.map(({ y }) => (
-              <rect x="0" y={y} width={NARROW_BOX_W} height={NARROW_BOX_H} rx="10" />
-            ))}
-          </g>
+            <g stroke="var(--border)" stroke-width="1" stroke-dasharray="3 4" fill="none">
+              {wideExtensionLines.map((d) => (
+                <path d={d} />
+              ))}
+            </g>
 
-          <g
-            font-family="var(--font-sans)"
-            font-size="15"
-            font-weight="600"
-            letter-spacing="-0.2"
-            fill="var(--ink-strong)"
-          >
-            {narrowBoxes.map(({ y, node }) => (
-              <>
-                <text x="20" y={y + 36}>
-                  {node.heading[0]}
-                </text>
-                <text x="20" y={y + 56}>
-                  {node.heading[1]}
-                </text>
-              </>
-            ))}
-          </g>
-          <g
-            stroke="var(--ink-faint)"
-            stroke-width="1.4"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            {narrowArrows.map((arrow) => (
-              <>
-                <path d={arrow.line} />
-                <path d={arrow.chevron} />
-              </>
-            ))}
-          </g>
+            <g
+              stroke="var(--accent)"
+              stroke-width="1.8"
+              fill="none"
+              stroke-linecap="butt"
+              stroke-linejoin="miter"
+            >
+              <path d={wideLoopTick} />
+              <path d={wideLoopSegA} />
+              <path d={wideLoopSegB} />
+            </g>
+            <path d={wideLoopArrowhead} fill="var(--accent)" />
 
-          <path
-            d={narrowLoopPath}
-            stroke="var(--accent)"
-            stroke-width="1.6"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d={narrowArrowIntoFirst}
-            stroke="var(--accent)"
-            stroke-width="1.6"
-            fill="none"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <g transform={`rotate(-90 ${NARROW_GUTTER_X} ${narrowPillCenterY})`}>
             <rect
-              x={NARROW_GUTTER_X - 70}
-              y={narrowPillCenterY - 14}
-              width="140"
+              x="424"
+              y="218"
+              width="180"
               height="28"
               rx="14"
               fill="var(--accent-surface)"
@@ -314,25 +262,134 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
               stroke-width="1"
             />
             <text
-              x={NARROW_GUTTER_X}
-              y={narrowPillCenterY + 4.5}
+              x="514"
+              y="236"
               text-anchor="middle"
               font-family="var(--font-sans)"
-              font-size="12"
+              font-size="13"
               font-weight="700"
               letter-spacing="-0.2"
               fill="var(--accent-deep)"
             >
               {diagram.loopLabel}
             </text>
-          </g>
-        </svg>
-      </div>
-    </div>
+          </svg>
+        </div>
 
-    <p class="mt-4 max-w-3xl text-sm leading-relaxed text-ink-faint">
-      {diagram.caption}
-    </p>
+        {/* Below md: same four nodes stacked, return path up the right
+            gutter. Carries the same accessible name as the wide SVG — see
+            the file header for why that is not a duplicate. */}
+        <div class="mt-4 md:hidden">
+          <svg
+            viewBox={`0 0 ${NARROW_VIEW_W} ${NARROW_VIEW_H}`}
+            width="100%"
+            role="img"
+            aria-label={diagram.ariaLabel}
+          >
+            <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
+              {narrowBoxes.map(({ y }) => (
+                <rect x="0" y={y - 22} width="22" height="16" rx="1" />
+              ))}
+            </g>
+            <g stroke="var(--border-strong)" stroke-width="1" fill="none">
+              {narrowBoxes.map(({ y }) => (
+                <path d={`M11 ${y - 6} L11 ${y}`} />
+              ))}
+            </g>
+            <g font-family="var(--font-mono)" font-size="10" fill="var(--ink-faint)">
+              {narrowBoxes.map(({ y }, i) => (
+                <text x="11" y={y - 10} text-anchor="middle">
+                  {String(i + 1).padStart(2, '0')}
+                </text>
+              ))}
+            </g>
+
+            <g fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1">
+              {narrowBoxes.map(({ y }) => (
+                <rect x="0" y={y} width={NARROW_BOX_W} height={NARROW_BOX_H} rx="2" />
+              ))}
+            </g>
+
+            <g
+              font-family="var(--font-sans)"
+              font-size="15"
+              font-weight="600"
+              letter-spacing="-0.2"
+              fill="var(--ink-strong)"
+            >
+              {narrowBoxes.map(({ y, node }) => (
+                <>
+                  <text x="20" y={y + 36}>
+                    {node.heading[0]}
+                  </text>
+                  <text x="20" y={y + 56}>
+                    {node.heading[1]}
+                  </text>
+                </>
+              ))}
+            </g>
+            <g
+              stroke="var(--ink-faint)"
+              stroke-width="1.4"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              {narrowArrows.map((arrow) => (
+                <>
+                  <path d={arrow.line} />
+                  <path d={arrow.chevron} />
+                </>
+              ))}
+            </g>
+
+            <g
+              stroke="var(--accent)"
+              stroke-width="1.8"
+              fill="none"
+              stroke-linecap="butt"
+              stroke-linejoin="miter"
+            >
+              <path d={narrowLoopTick} />
+              <path d={narrowLoopSegA} />
+              <path d={narrowLoopSegB} />
+            </g>
+            <path d={narrowLoopArrowhead} fill="var(--accent)" />
+
+            <g transform={`rotate(-90 ${NARROW_GUTTER_X} ${narrowPillCenterY})`}>
+              <rect
+                x={NARROW_GUTTER_X - 70}
+                y={narrowPillCenterY - 14}
+                width="140"
+                height="28"
+                rx="14"
+                fill="var(--accent-surface)"
+                stroke="var(--accent-soft)"
+                stroke-width="1"
+              />
+              <text
+                x={NARROW_GUTTER_X}
+                y={narrowPillCenterY + 4.5}
+                text-anchor="middle"
+                font-family="var(--font-sans)"
+                font-size="12"
+                font-weight="700"
+                letter-spacing="-0.2"
+                fill="var(--accent-deep)"
+              >
+                {diagram.loopLabel}
+              </text>
+            </g>
+          </svg>
+        </div>
+
+        <figcaption
+          class="-mx-4 -mb-4 mt-4 border-t border-border bg-surface px-4 py-3 text-sm leading-relaxed text-ink-faint sm:-mx-6 sm:-mb-6 sm:px-6"
+        >
+          {diagram.caption}
+        </figcaption>
+      </div>
+    </figure>
 
     <div class="mt-14 grid grid-cols-1 md:grid-cols-2">
       {
@@ -384,3 +441,14 @@ const narrowPillCenterY = (narrowEntryY + NARROW_TURN_R + (narrowExitY - NARROW_
     </a>
   </div>
 </section>
+
+<style>
+  .plate {
+    background-image:
+      repeating-linear-gradient(to right, var(--surface-2) 0 1px, transparent 1px 26px),
+      repeating-linear-gradient(to bottom, var(--surface-2) 0 1px, transparent 1px 26px);
+  }
+  .plate-ruler {
+    background-image: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 52px);
+  }
+</style>

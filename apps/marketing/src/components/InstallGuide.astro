@@ -89,8 +89,13 @@ for (const { key, flow } of flows) {
     </h1>
     <p class="mt-6 text-lg text-ink-soft">{t.intro}</p>
 
+    {/* `width="stretch"` matches the homepage's two CTAs: below `sm` this is
+        the page's one action alone in one column, and sizing it by the
+        detected browser's label left it a different width per visitor. The
+        label stays centred inside the filled button — `align` positions the
+        button's contents, not the button. */}
     <div class="mt-8">
-      <DownloadButtons lang={lang} />
+      <DownloadButtons lang={lang} width="stretch" />
     </div>
 
     {/* Browser selector — only the chosen browser's steps show (JS). */}

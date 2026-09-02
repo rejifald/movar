@@ -72,9 +72,38 @@ interface Props {
    * with forest text, and the "Soon" chip has to lighten with it.
    */
   tone?: 'accent' | 'inverse';
+  /**
+   * How wide the button is on narrow screens. `stretch` fills the column below
+   * `sm` and reverts to label width from `sm` up; `auto` is label width
+   * throughout.
+   *
+   * Every CTA that is a page's own primary action stretches — Hero.astro,
+   * Close.astro and InstallGuide.astro. On a phone each is the one action
+   * alone in one stacked column, and its width is whatever the detected
+   * browser's label happens to measure: 198px ("Встановити в Edge") to 292px
+   * (the Android label) inside the same 312px column at 360px. That gave the
+   * homepage two install buttons of two different widths, and gave the same
+   * button a different width per visitor, none of them lining up with
+   * anything. Filling the column settles them all on the edge the rules, the
+   * prose and the claims list already share.
+   *
+   * `align` is unaffected: it positions the button's contents, so a stretched
+   * `center` CTA (/install) still centres its label inside the filled button.
+   *
+   * Prose callers stay `auto` — the guide's callouts and the blog panel put
+   * the button inside a paragraph's measure, where a full-bleed bar reads as a
+   * banner rather than as a control.
+   */
+  width?: 'auto' | 'stretch';
 }
 
-const { lang = 'en', align = 'center', anchor = true, tone = 'accent' } = Astro.props;
+const {
+  lang = 'en',
+  align = 'center',
+  anchor = true,
+  tone = 'accent',
+  width = 'auto',
+} = Astro.props;
 
 const TONE = {
   accent: {
@@ -88,6 +117,15 @@ const TONE = {
     soon: 'rounded-md bg-forest-900/15 px-2 py-1 text-ui-xs font-medium uppercase tracking-label text-forest-900',
   },
 } as const;
+
+/* Applied to the wrapper as well as the button: the wrapper is a flex item of
+ * the caller's row, so without a width of its own it shrinks to the label and
+ * the button has nothing to fill. */
+const WIDTH = {
+  auto: '',
+  stretch: 'w-full sm:w-auto',
+} as const;
+
 const t = strings[lang].download;
 const guideHref = localeInstallHref(lang);
 ---
@@ -95,7 +133,11 @@ const guideHref = localeInstallHref(lang);
 <div
   data-cta-root
   id={anchor ? 'download' : undefined}
-  class:list={['flex flex-col gap-4', align === 'start' ? 'items-start' : 'items-center']}
+  class:list={[
+    'flex flex-col gap-4',
+    align === 'start' ? 'items-start' : 'items-center',
+    WIDTH[width],
+  ]}
 >
   <a
     data-cta
@@ -113,6 +155,7 @@ const guideHref = localeInstallHref(lang);
     class:list={[
       'group inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-6 py-3 text-sm font-semibold transition',
       TONE[tone].button,
+      WIDTH[width],
     ]}
   >
     <span data-cta-label>{t.addGeneric}</span>

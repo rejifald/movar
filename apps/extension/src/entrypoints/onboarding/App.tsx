@@ -158,15 +158,26 @@ function OnboardingBody() {
  *  post-install guidance stay one voice. */
 function ReassuranceCard() {
   const { t } = useI18n();
+  /*
+   * Same rail treatment as the step cards above, for the same reason and by
+   * the same mechanics: the glyph pairs with the title, and below `sm` the
+   * prose and the source link start at the card's own edge instead of behind
+   * a 36px indent — which, once the steps stopped indenting theirs, would
+   * have left this the one card on the page whose text doesn't reach it.
+   * `sm:row-end-3` spans the glyph across both rows so the wide layout keeps
+   * the geometry the visual baselines hold.
+   */
   return (
-    <aside className="border-border flex items-start gap-4 rounded-xl border p-5">
+    <aside className="border-border grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border p-5">
       <ShieldCheck
         size={iconSize.lg}
         aria-hidden="true"
-        className="text-accent-text mt-1 shrink-0"
+        className="text-accent-text row-start-1 mt-1 sm:row-end-3"
       />
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <h2 className="text-base font-semibold">{t.onboarding.reassuranceTitle}</h2>
+      <h2 className="col-start-2 row-start-1 text-base font-semibold">
+        {t.onboarding.reassuranceTitle}
+      </h2>
+      <div className="col-span-2 row-start-2 flex min-w-0 flex-col gap-2 sm:col-span-1 sm:col-start-2">
         <p className="text-ink-soft text-sm">{t.onboarding.reassurance}</p>
         <a
           href={SOURCE_URL}
@@ -201,15 +212,39 @@ function StepCard({ step, index, total, flow, browserLabel, permission }: Readon
   // point at no browser UI get `null`.
   const mockup = mockupFor(flow, step.kind);
 
+  /*
+   * The icon rail runs beside the step's heading, and from `sm` up beside the
+   * whole step; below it the body takes the card's full width. This page has a
+   * phone audience for exactly one reason — Firefox for Android is the only
+   * mobile browser that installs Movar, and it opens this page in a
+   * phone-width tab right after the install — and at that width the rail cost
+   * more than the 56px (40px tile + gap) it reserves. It left the step's prose
+   * and its `@movar/browser-ui` mockup 229px of a 285px card at 375px, and
+   * because a mockup will not compress below its own min-content width while
+   * the column that holds it can't shrink past it, the pin step's mockup ran
+   * 58px past the card's edge; at 320px the step overflowed the viewport and
+   * the page scrolled sideways. `min-w-0` is what lets the mockup compress
+   * instead, and the full-width row is what leaves it room to. Same treatment
+   * as the pre-install half of this guidance (apps/marketing
+   * InstallGuide.astro).
+   *
+   * Grid rather than that page's positioned badge because the rail's width is
+   * structural here (`auto` column + `gap-x-4`) instead of a padding that
+   * would have to restate 40px + 16px as an off-ladder 56px. `sm:row-end-3`
+   * spans the tile across both rows so it can never set the heading row's
+   * height, which keeps the wide layout — the 800px the visual baselines in
+   * `apps/e2e/src/offline/onboarding.visual.spec.ts` capture — pixel-for-pixel
+   * what it was.
+   */
   return (
-    <li className="border-border bg-surface-2 flex gap-4 rounded-xl border p-5">
+    <li className="border-border bg-surface-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border p-5">
       <span
         aria-hidden="true"
-        className="bg-surface-3 text-accent-text flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+        className="bg-surface-3 text-accent-text row-start-1 flex h-10 w-10 items-center justify-center rounded-lg sm:row-end-3"
       >
         <Icon className="h-5 w-5" />
       </span>
-      <div className="flex flex-col gap-2">
+      <div className="col-start-2 row-start-1 flex flex-col gap-2">
         {/* Not uppercased: the Ukrainian "з" (of) in "Крок 1 з 4" reads as the
             digit 3 when capitalised ("КРОК 1 З 4"). */}
         <p className="text-ink-faint text-xs font-medium tracking-wide">
@@ -217,6 +252,8 @@ function StepCard({ step, index, total, flow, browserLabel, permission }: Readon
           {step.optional === true ? ` · ${t.onboarding.optionalBadge}` : null}
         </p>
         <h2 className="text-base font-semibold">{title}</h2>
+      </div>
+      <div className="col-span-2 row-start-2 flex min-w-0 flex-col gap-2 sm:col-span-1 sm:col-start-2">
         <p className="text-ink-soft text-sm">{body}</p>
         {mockup === null ? null : <StepIllustration mockup={mockup} locale={locale} />}
         {step.permissionAware === true ? <PermissionLine permission={permission} /> : null}

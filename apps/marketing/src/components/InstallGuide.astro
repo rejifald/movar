@@ -147,14 +147,29 @@ for (const { key, flow } of flows) {
                 const mockup =
                   kind && installFlow ? mockupFor(installFlow, kind) : null;
                 return (
-                  <li class="flex gap-4">
+                  /*
+                   * The step number keeps its rail beside the title, but only
+                   * the title: below `sm` the prose and the browser mockup
+                   * start at the card's own edge instead. The rail is 48px
+                   * and empty under the first line — 17% of the card at
+                   * 375px, spent on nothing — and it was indenting the
+                   * mockups too, drawing a Firefox doorhanger at 229px of a
+                   * 277px card.
+                   *
+                   * The badge is positioned rather than a flex rail so the
+                   * wide layout is pixel-for-pixel what it was: out of flow
+                   * it can't set the first line's height, and the indents
+                   * (`pl-12` on the title, `sm:pl-12` on the rest) are
+                   * exactly the 32px badge + 16px gap it replaces.
+                   */
+                  <li class="relative">
                     <span
                       aria-hidden="true"
-                      class="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-surface font-display text-sm font-bold text-accent-text">
+                      class="absolute left-0 top-0 flex size-8 items-center justify-center rounded-full bg-accent-surface font-display text-sm font-bold text-accent-text">
                       {index + 1}
                     </span>
-                    <div class="min-w-0 flex-1">
-                      <h3 class="font-semibold text-ink-strong">{step.title}</h3>
+                    <h3 class="pl-12 font-semibold text-ink-strong">{step.title}</h3>
+                    <div class="sm:pl-12">
                       <p class="mt-1 text-ink-soft">{step.body}</p>
                       {mockup ? (
                         <Fragment

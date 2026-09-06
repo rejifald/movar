@@ -75,6 +75,36 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.8.1
+
+A one-fix release, and the fix is the whole note. Since 1.7.0, Movar had been
+concealing Google results in languages the user never blocked — everything
+outside the roster it classifies against, which on a default profile is Polish,
+German, French, Spanish, Italian, Belarusian and Bulgarian, and English too for
+anyone who narrowed their preferred languages to Ukrainian alone. The note names
+languages rather than the mechanism, because "results disappeared" is what a
+user saw. It also does not single out Safari: the App Store noticed first only
+because it skipped 1.7.0, and every other store had been shipping this for a
+week.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.8.1
+
+Виправлено
+• У пошуку Google зникали результати мовами, яких ви не блокували, — польською, німецькою, французькою та іншими. Тепер Мовар ховає лише те, що ви справді заблокували.
+```
+
+### English (en)
+
+```
+What's new in 1.8.1
+
+Fixed
+• Google search results in languages you never blocked — Polish, German, French and others — were disappearing from the page. Movar now hides only what you actually blocked.
+```
+
 ## 1.8.0
 
 An Apple release. Every user-facing change is in the Safari host app: macOS gets

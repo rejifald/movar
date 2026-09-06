@@ -1,0 +1,38 @@
+{
+  "extractor": "google",
+  "roster": ["uk", "ru"],
+  "shape": {
+    "description": "Pin the four-card mix so a re-save can't quietly drop the out-of-roster declarations and leave only the ru card the mechanism was always safe on.",
+    "selectors": {
+      "#rso [data-hveid]": 4,
+      "a[href*='translate.google.com']": 3,
+      "[data-sncf='1']": 4
+    }
+  },
+  "nodes": [
+    {
+      "selector": "[data-fixture-id='en-declared']",
+      "note": "Google declares sl=en on an hl=uk SERP. The user blocked ru, not English — a language outside the roster must never be concealed on a declaration alone.",
+      "verdict": "keep",
+      "fromLang": "en"
+    },
+    {
+      "selector": "[data-fixture-id='pl-declared']",
+      "note": "Same shape, a second out-of-roster code — one instance could look like an English special case; two say it is the roster rule.",
+      "verdict": "keep",
+      "fromLang": "pl"
+    },
+    {
+      "selector": "[data-fixture-id='ru-declared']",
+      "note": "The roster language the user actually blocked. Proves the declaration mechanism still HIDES, so the fix above is a narrowing and not a disabling.",
+      "verdict": "hide",
+      "fromLang": "ru"
+    },
+    {
+      "selector": "[data-fixture-id='uk-plain']",
+      "note": "Already in the interface language, so Google injects no translate link — no declaration, classified on its own Ukrainian text.",
+      "verdict": "keep",
+      "fromLang": "uk"
+    }
+  ]
+}

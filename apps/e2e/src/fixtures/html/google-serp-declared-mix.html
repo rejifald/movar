@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  Google SERP shape for the declared-language conceal e2e (google-declared-conceal.spec.ts).
+
+  Four organic cards on an hl=uk results page. Three carry Google's
+  "Перекласти цю сторінку" link — the one Google injects into every result whose
+  language differs from the INTERFACE language — whose `sl` param the extractor
+  reads as ContentNode.declaredLang:
+
+    en-declared  sl=en  out of a {uk, ru} roster -> must stay VISIBLE
+    pl-declared  sl=pl  out of a {uk, ru} roster -> must stay VISIBLE
+    ru-declared  sl=ru  in the roster and blocked -> must be CURTAINED
+    uk-plain     no link at all                   -> must stay VISIBLE
+
+  Standalone: no scripts, no remote assets, so the content script's mutations
+  are the only DOM changes after document_start. Brands anonymised.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>реле напруги - Пошук Google</title>
+  </head>
+  <body>
+    <div id="search">
+      <div id="rso">
+        <div data-fixture-id="en-declared" data-hveid="CAEQAA" data-ved="2ahUKEwi">
+          <div>
+            <a href="https://reference.example/en/voltage-relay/">
+              <h3>Voltage relay DS1 white — buy online, free delivery</h3>
+              <cite>reference.example › en</cite>
+            </a>
+            <a
+              href="https://translate.google.com/translate?u=https://reference.example/en/voltage-relay&sl=en&tl=uk&client=search"
+              >Перекласти цю сторінку</a
+            >
+          </div>
+          <div data-sncf="1">
+            Single-phase voltage relay rated 16A up to 3500W, with indication and adjustable cut-off
+            thresholds. Protects refrigerators, boilers and electronics from mains surges and
+            brownouts.
+          </div>
+        </div>
+
+        <div data-fixture-id="pl-declared" data-hveid="CAEQAB" data-ved="2ahUKEwj">
+          <div>
+            <a href="https://shop.example/pl/przekaznik-napiecia/">
+              <h3>Przekaznik napiecia — sklep internetowy, szybka dostawa</h3>
+              <cite>shop.example › pl</cite>
+            </a>
+            <a
+              href="https://translate.google.com/translate?u=https://shop.example/pl/przekaznik-napiecia&sl=pl&tl=uk&client=search"
+              >Перекласти цю сторінку</a
+            >
+          </div>
+          <div data-sncf="1">
+            Jednofazowy przekaznik napiecia 16A do 3500W z regulacja progow wylaczenia. Chroni
+            lodowki, kotly i elektronike przed skokami napiecia w sieci.
+          </div>
+        </div>
+
+        <div data-fixture-id="ru-declared" data-hveid="CAEQAC" data-ved="2ahUKEwk">
+          <div>
+            <a href="https://shop.example/ru/rele-napryazheniya/">
+              <h3>Реле напряжения — купить в Киеве по выгодной цене</h3>
+              <cite>shop.example › ru</cite>
+            </a>
+            <a
+              href="https://translate.google.com/translate?u=https://shop.example/ru/rele-napryazheniya&sl=ru&tl=uk&client=search"
+              >Перекласти цю сторінку</a
+            >
+          </div>
+          <div data-sncf="1">
+            Реле напряжения отсекатель для защиты бытовых приборов от скачков напряжения в сети.
+            Однофазное реле на 16А до 3500Вт с индикацией и регулировкой порогов отключения.
+          </div>
+        </div>
+
+        <div data-fixture-id="uk-plain" data-hveid="CAEQAD" data-ved="2ahUKEwl">
+          <div>
+            <a href="https://reference.example/uk/rele-napruhy/">
+              <h3>Реле напруги — як обрати та підключити правильно</h3>
+              <cite>reference.example › uk</cite>
+            </a>
+          </div>
+          <div data-sncf="1">
+            Реле напруги захищає побутову техніку від стрибків напруги в мережі. Однофазний пристрій
+            на 16А до 3500Вт з індикацією та регулюванням порогів вимкнення, що вберігає холодильник
+            і котел.
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

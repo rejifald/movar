@@ -538,10 +538,31 @@ function decideFused(
   node: ContentNode,
   verdict: FusedVerdict,
   enabled: ReadonlySet<LanguageCode>,
+  candidates: ReadonlySet<LanguageCode>,
   hits: FilteredCard[],
   opts: ConcealOptions,
 ): void {
   if (verdict.language === 'unknown' || enabled.has(verdict.language)) return;
+  // Block-only, enforced here because the fusion is the ONE path that can name
+  // a language the roster never contained. The text classifier is closed-set —
+  // `classifyBySnippet` can only ever return a candidate or 'unknown', so
+  // `concealIfBlocked` gets this invariant for free. The fused path does not:
+  // langtell returns an out-of-roster `nodeLangAttributes` declaration
+  // VERBATIM (measured: a roster of {uk, ru} fed `declared: 'en'` returns
+  // `en` at 0.752), so without this line "not enabled" silently means "not
+  // preferred" instead of "blocked".
+  //
+  // That gap only ever cost a corner case until Google's translate-link `sl`
+  // became a declaration carrier (@movar/page-content's TRANSLATE_LINK_SELECTOR,
+  // v1.7.0): Google emits that link for EVERY result whose language differs
+  // from the interface language, so on an `hl=uk` SERP every English, Polish or
+  // German result suddenly arrived declared — and a user whose priority is just
+  // `[uk]` had all of them concealed. Hiding a language the user never blocked
+  // is the failure `picker-filter`'s block-only mode already refuses to make
+  // ("languages outside `keep` but not in `blocked` are tolerated"), and the
+  // one docs/per-snippet-language-detection.md's asymmetry rules out: letting a
+  // card through is the acceptable failure, hiding an untargeted one is not.
+  if (!candidates.has(verdict.language)) return;
   if (concealNode(node, verdict.language, opts)) {
     hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
   }
@@ -604,6 +625,9 @@ export async function applyContentFilter(
   }: ContentFilterOptions,
 ): Promise<FilteredCard[]> {
   if (candidateCodes.length === 0) return [];
+  // The roster the classifier was asked to decide between. Only a language IN
+  // it can be concealed — see {@link decideFused}.
+  const candidates = new Set<LanguageCode>(candidateCodes);
   const concealOpts: ConcealOptions = { concealMode };
   if (presenter) concealOpts.presenter = presenter;
   if (onHideAll) concealOpts.onHideAll = onHideAll;
@@ -638,7 +662,7 @@ export async function applyContentFilter(
   cards.forEach(({ node }, i) => {
     const verdict = verdicts[i];
     if (!verdict) return;
-    if (isFusedVerdict(verdict)) decideFused(node, verdict, enabled, hits, concealOpts);
+    if (isFusedVerdict(verdict)) decideFused(node, verdict, enabled, candidates, hits, concealOpts);
     else concealIfBlocked(node, verdict, enabled, hits, concealOpts);
   });
   return hits;

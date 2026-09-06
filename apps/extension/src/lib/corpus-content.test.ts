@@ -9,13 +9,21 @@
  *      whole point of the fixture) fails LOUDLY here instead of passing
  *      vacuously (mirrors bosch-regression.test.ts).
  *   2. run the matching extractor (GOOGLE/YOUTUBE_EXTRACTOR),
- *   3. classify each node's serialized `text` with classifyBySnippet against the
- *      manifest's roster, and
+ *   3. classify each node the way the product does — a node carrying a
+ *      `declaredLang` goes through the DECLARED FUSION (buildDeclaredClassifier),
+ *      everything else through classifyBySnippet — both against the manifest's
+ *      roster, and
  *   4. assert the per-node verdict (hide | keep) + fromLang matches the manifest.
  *
- * "hide" ⟺ the classified language is in BLOCKED; "keep" ⟺ unknown or a
- * non-blocked language — mirroring content-runtime.ts's hide predicate without
- * coupling to user settings.
+ * "hide" ⟺ the classified language is in BLOCKED **and** in the manifest's
+ * roster; "keep" ⟺ unknown, a non-blocked language, or a language the roster
+ * never contained — mirroring content-conceal.ts's hide predicate (both
+ * `concealIfBlocked` and `decideFused`) without coupling to user settings.
+ *
+ * The roster clause is not decoration. The fusion returns an out-of-roster
+ * declaration VERBATIM, so a harness that dispatched on the declaration but
+ * skipped the candidate check would reproduce the very defect `decideFused`
+ * guards against instead of catching it (`sl-out-of-roster` pins that).
  *
  * Why this lives in the extension app, not packages/page-content: the harness
  * needs node:fs to read the corpus, and the page-content model package is kept
@@ -32,7 +40,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
@@ -45,6 +53,22 @@ const FIXTURES_ROOT = path.resolve(__dirname, '../../../../packages/page-content
  *  hide/keep column is read against. Kept small and explicit so the harness
  *  stays a pure classification gate, independent of user settings. */
 const BLOCKED: ReadonlySet<LanguageCode> = new Set(['ru']);
+
+/** The languages a fixture's roster KEEPS — the harness's stand-in for
+ *  `ContentFilterOptions.enabled`. Stated as "the roster minus the blocked"
+ *  rather than as a second literal so a manifest can never declare a roster
+ *  the enabled set contradicts.
+ *
+ *  Read together with the roster test in {@link runSurface}, this is
+ *  `decideFused`'s predicate verbatim — and the two clauses are NOT
+ *  interchangeable. `!enabled.has(x)` alone is true for every language on
+ *  earth, so it is the roster clause, not this one, that stops an out-of-roster
+ *  declaration from concealing a card (`sl-out-of-roster`). Modelling the gate
+ *  as "∈ BLOCKED" instead would make that fixture pass vacuously, since a
+ *  hardcoded block list can never hold the codes at issue. */
+function enabledFor(roster: ReadonlySet<LanguageCode>): ReadonlySet<LanguageCode> {
+  return new Set([...roster].filter((code) => !BLOCKED.has(code)));
+}
 
 interface ExpectedNode {
   selector: string;
@@ -106,6 +130,9 @@ function runSurface(surface: string, name: string, extractor: PageExtractor): vo
     });
 
     const model = extractor.extract(doc);
+    const roster = new Set<LanguageCode>(manifest.roster);
+    const enabled = enabledFor(roster);
+    const fuseDeclared = buildDeclaredClassifier(profiles);
 
     it(`extractor id is "${manifest.extractor}"`, () => {
       expect(model.extractor).toBe(manifest.extractor);
@@ -116,9 +143,19 @@ function runSurface(surface: string, name: string, extractor: PageExtractor): vo
         const node = model.nodes.find((n) => n.el.matches(expected.selector));
         expect(node, `no extracted node matched "${expected.selector}"`).toBeDefined();
 
-        const verdict = classifyBySnippet(node!.text, profiles, francRung3Resolver);
+        // Same dispatch the content filter uses: a declared node fuses its
+        // declaration with its text, an undeclared one classifies on text alone.
+        const declared = node!.declaredLang;
+        const verdict =
+          declared === undefined
+            ? classifyBySnippet(node!.text, profiles, francRung3Resolver)
+            : fuseDeclared(node!.text, declared);
         const observedVerdict =
-          verdict.language !== 'unknown' && BLOCKED.has(verdict.language) ? 'hide' : 'keep';
+          verdict.language !== 'unknown' &&
+          roster.has(verdict.language) &&
+          !enabled.has(verdict.language)
+            ? 'hide'
+            : 'keep';
 
         expect(verdict.language, `classified language for ${expected.selector}`).toBe(
           expected.fromLang,

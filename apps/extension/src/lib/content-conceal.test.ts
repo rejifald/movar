@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
+import type { LanguageCode } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
 import type { SnippetClassifier } from './content-conceal';
 import {
@@ -937,5 +938,76 @@ describe('curtain "Hide all" action', () => {
     expect(a.style.display).toBe('none');
     expect(b.style.display).toBe('none');
     expect(onHideAll).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** A Google-shaped result card carrying a page declaration, appended to the
+ *  document so the conceal path has a real element to hide. */
+function declaredNode(
+  text: string,
+  declared: LanguageCode,
+): { el: HTMLElement; node: ContentNode } {
+  const el = document.createElement('div');
+  el.textContent = text;
+  document.body.append(el);
+  return { el, node: { el, kind: 'result', hideMode: 'hide', text, declaredLang: declared } };
+}
+
+describe('applyContentFilter — a declaration outside the roster never conceals', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    clearAllMarks(document);
+  });
+
+  /** Roster a Ukrainian user actually ships with: priority [uk] plus the
+   *  imposer overlay [ru]. Deliberately EXCLUDES `en` — the shared `runFilter`
+   *  helper keeps `en` a candidate, which is exactly why this class of bug was
+   *  invisible to every other test in this file. */
+  const UK_ROSTER = ['uk', 'ru'];
+
+  async function runNarrowFilter(model: PageContentModel): ReturnType<typeof applyContentFilter> {
+    return applyContentFilter(model, {
+      candidateCodes: UK_ROSTER,
+      enabled: new Set(['uk']),
+      classify: directClassify,
+      concealMode: 'hide',
+    });
+  }
+
+  it.each([
+    ['en', 'Voltage relay DS1 white — buy online, free delivery'],
+    ['de', 'Spannungsrelais kaufen — schnelle Lieferung ab Lager'],
+    ['pl', 'Przekaznik napiecia — sklep internetowy, szybka dostawa'],
+  ])('keeps a card declared %s when the roster is uk/ru', async (declared, text) => {
+    const { el, node } = declaredNode(text, declared);
+    const hits = await runNarrowFilter({ extractor: 'google', nodes: [node] });
+    expect(hits).toHaveLength(0);
+    expect(isConcealed(node)).toBe(false);
+    expect(el.style.display).not.toBe('none');
+  });
+
+  it('still conceals a card declared ru — the roster language the user blocked', async () => {
+    const { node } = declaredNode('Реле напряжения ColorWay DS1, белое', 'ru');
+    const hits = await runNarrowFilter({ extractor: 'google', nodes: [node] });
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.fromLang).toBe('ru');
+    expect(isConcealed(node)).toBe(true);
+  });
+
+  it('keeps a Ukrainian card that Google mislabels ru — text still overrides', async () => {
+    const { node } = declaredNode('Реле напруги ColorWay DS1, біле — купити в Києві', 'ru');
+    const hits = await runNarrowFilter({ extractor: 'google', nodes: [node] });
+    expect(hits).toHaveLength(0);
+    expect(isConcealed(node)).toBe(false);
+  });
+
+  it('keeps an out-of-roster declaration even with no text to correct it', async () => {
+    // The worst shape: a declaration-only card. Before the candidate gate the
+    // fusion returned `en` verbatim at 0.752 and the card was hidden outright,
+    // with nothing in its own text able to argue back.
+    const { node } = declaredNode('', 'en');
+    const hits = await runNarrowFilter({ extractor: 'google', nodes: [node] });
+    expect(hits).toHaveLength(0);
+    expect(isConcealed(node)).toBe(false);
   });
 });

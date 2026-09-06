@@ -75,6 +75,46 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.8.1
+
+<!-- Distil the user-facing highlights below into both locales, then delete
+     this comment. User's voice: what changed for them, not for the code.
+     `pnpm check:release-notes` fails while either fenced block is empty.
+
+     Shape of a block — a title line, then category headings owning the
+     bullets beneath them (see "The shape of a block" in RELEASE-NOTES.md):
+
+       Що нового у версії 1.8.1
+
+       Виправлено
+       • …
+
+     Categories: Нове / Виправлено / Покращено / Безпека (uk),
+                 New / Fixed / Improved / Security (en).
+
+     From CHANGELOG.md:
+
+  ### Patch Changes
+  - f786bce: Stop a declared card being concealed for a language the user never blocked — on a Ukrainian-interface Google SERP, that was every English, Polish, German, French, Spanish, Italian, Belarusian and Bulgarian result on the page.
+    Movar is block-only, and the text path gets that for free: `classifyBySnippet` is a closed-set classifier, so it can only ever answer with a candidate or `unknown`, and `concealIfBlocked` cannot be handed a language the roster never contained. The **declared** path has no such floor. `buildDeclaredClassifier` feeds the declaration to langtell as a `nodeLangAttributes` value, and langtell returns an out-of-roster declaration **verbatim** — measured, a roster of `{uk, ru}` fed `declared: 'en'` answers `en` at 0.752. `decideFused` then asked only "is this language enabled?", so for every code outside the roster the predicate quietly read _not preferred_ instead of _blocked_, and hid the card.
+    That was a corner case for as long as declarations were rare — `data-rl` on an AI Overview, a `lang` attribute on a shopping card. v1.7.0 made them the common case: `TRANSLATE_LINK_SELECTOR` reads the `sl` param off Google's "Перекласти цю сторінку" link as a declaration, and Google injects that link into **every result whose language differs from the interface language**. On an `hl=uk` SERP that is every non-Ukrainian card at once. The eight codes above are exactly those `normalizeBCP47` recognises but a default roster of `{uk, en, ru}` does not hold; narrow `priority` to `[uk]` alone and English joins them, which is most of a results page.
+    The fix is one clause at the gate, not at the extractor: `decideFused` now requires the verdict's language to be **in the roster the classifier was asked to decide between**. Put there it covers all three declaration carriers — `data-rl`, `#rso [lang]`, and the translate link — rather than the one that made the gap visible, and it states the invariant where `concealIfBlocked` already gets it structurally. `sl` still adds evidence and still hides Russian; it just cannot name a language nobody was deciding about. This is the asymmetry `docs/per-snippet-language-detection.md` already fixes and `picker-filter`'s block-only mode already honours ("languages outside `keep` but not in `blocked` are tolerated"): letting a card through is the acceptable failure, hiding an untargeted one is not.
+    **Safari saw it first because Safari skipped v1.7.0.** That build was uploaded to App Store Connect on 2026-08-22 and never submitted, so the App Store went 1.6.2 → 1.8.0 and Safari took the whole v1.7.0 payload in one step, a week after Chrome, Firefox and Edge already had it. Nothing here is Safari-specific — the same over-hide has been live on every other store since 2026-08-22.
+    The corpus harness could not have caught this and now can. `corpus-content.test.ts` classified every fixture node with `classifyBySnippet` regardless of its `declaredLang`, so the declaration path — all three carriers — had no corpus coverage at all, and it scored hide/keep against a hardcoded `BLOCKED` set that can never hold the codes at issue. It now dispatches the way the product does (fused when declared, text-only otherwise) and models `decideFused`'s real predicate, roster clause included. `google-serp/sl-out-of-roster` is the pin: English and Polish cards declared by a translate link stay, a Russian one declared the same way is still hidden, and dropping the roster clause turns the first two red.
+-->
+
+### Українська (uk)
+
+```
+
+```
+
+### English (en)
+
+```
+
+```
+
 ## 1.8.0
 
 An Apple release. Every user-facing change is in the Safari host app: macOS gets

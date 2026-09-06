@@ -534,6 +534,45 @@ function uncheckSupersededCards(cards: readonly ScannableCard[]): void {
  *  Conceal iff that language isn't kept. A keep is left unmarked here: the
  *  collection loop marks CHECKED only for cards that carried text, so a
  *  declaration-only card (empty text) re-fuses once its text streams in. */
+/**
+ * Movar's conceal predicate, in one place: a language is concealed iff the
+ * verdict is real, the language is one of the CANDIDATES the classifier was
+ * asked to decide between, and it is not one the user keeps.
+ *
+ * Block-only lives in the middle clause. The text classifier gets it for free —
+ * `classifyBySnippet` is closed-set, so it can only ever answer with a
+ * candidate or 'unknown' — but the declared fusion does not: langtell returns
+ * an out-of-roster `nodeLangAttributes` declaration VERBATIM (measured: a
+ * roster of {uk, ru} fed `declared: 'en'` returns `en` at 0.752). Without the
+ * candidate test, "not enabled" silently means "not preferred" rather than
+ * "blocked", and Movar hides languages nobody blocked. That is the failure
+ * `picker-filter`'s block-only mode already refuses to make ("languages outside
+ * `keep` but not in `blocked` are tolerated") and the one
+ * docs/per-snippet-language-detection.md rules out: letting a card through is
+ * the acceptable failure, hiding an untargeted one is not.
+ *
+ * EXPORTED ON PURPOSE, and shared rather than mirrored. The corpus harness
+ * (corpus-content.test.ts) has to score a fixture the way the product does, and
+ * a second copy of this rule living in a test is precisely how a suite ends up
+ * certifying a predicate the product no longer uses — which is how the
+ * out-of-roster over-hide reached users past a green corpus. The
+ * mirror-and-pin pattern (dnr.ts against strategy.ts) earns its duplication by
+ * buying content-bundle bytes back; a test file has no such budget, so this is
+ * shared outright and cannot drift.
+ *
+ * The rung-margin gate is deliberately NOT folded in: it applies only to the
+ * text path, whose confidence is a per-rung lead, while a fused verdict carries
+ * an incomparable 0..1 score. Callers apply it where it means something.
+ */
+export function concealsLanguage(
+  language: LanguageCode,
+  enabled: ReadonlySet<LanguageCode>,
+  candidates: ReadonlySet<LanguageCode>,
+): boolean {
+  if (language === 'unknown') return false;
+  return candidates.has(language) && !enabled.has(language);
+}
+
 function decideFused(
   node: ContentNode,
   verdict: FusedVerdict,
@@ -542,27 +581,7 @@ function decideFused(
   hits: FilteredCard[],
   opts: ConcealOptions,
 ): void {
-  if (verdict.language === 'unknown' || enabled.has(verdict.language)) return;
-  // Block-only, enforced here because the fusion is the ONE path that can name
-  // a language the roster never contained. The text classifier is closed-set —
-  // `classifyBySnippet` can only ever return a candidate or 'unknown', so
-  // `concealIfBlocked` gets this invariant for free. The fused path does not:
-  // langtell returns an out-of-roster `nodeLangAttributes` declaration
-  // VERBATIM (measured: a roster of {uk, ru} fed `declared: 'en'` returns
-  // `en` at 0.752), so without this line "not enabled" silently means "not
-  // preferred" instead of "blocked".
-  //
-  // That gap only ever cost a corner case until Google's translate-link `sl`
-  // became a declaration carrier (@movar/page-content's TRANSLATE_LINK_SELECTOR,
-  // v1.7.0): Google emits that link for EVERY result whose language differs
-  // from the interface language, so on an `hl=uk` SERP every English, Polish or
-  // German result suddenly arrived declared — and a user whose priority is just
-  // `[uk]` had all of them concealed. Hiding a language the user never blocked
-  // is the failure `picker-filter`'s block-only mode already refuses to make
-  // ("languages outside `keep` but not in `blocked` are tolerated"), and the
-  // one docs/per-snippet-language-detection.md's asymmetry rules out: letting a
-  // card through is the acceptable failure, hiding an untargeted one is not.
-  if (!candidates.has(verdict.language)) return;
+  if (!concealsLanguage(verdict.language, enabled, candidates)) return;
   if (concealNode(node, verdict.language, opts)) {
     hits.push({ el: node.el, fromLang: verdict.language, kind: node.kind });
   }
@@ -575,12 +594,16 @@ function concealIfBlocked(
   node: ContentNode,
   verdict: SnippetVerdict,
   enabled: ReadonlySet<LanguageCode>,
+  candidates: ReadonlySet<LanguageCode>,
   hits: FilteredCard[],
   opts: ConcealOptions,
 ): void {
+  // Routed through the same predicate as the fused path even though the
+  // closed-set classifier already guarantees its candidate clause. Stating the
+  // rule once, for both, is what stops the next verdict source from arriving
+  // without it — the fused path was exactly that source.
   if (
-    verdict.language === 'unknown' ||
-    enabled.has(verdict.language) ||
+    !concealsLanguage(verdict.language, enabled, candidates) ||
     verdict.margin < minHideMargin(verdict.rung)
   ) {
     return;
@@ -663,7 +686,7 @@ export async function applyContentFilter(
     const verdict = verdicts[i];
     if (!verdict) return;
     if (isFusedVerdict(verdict)) decideFused(node, verdict, enabled, candidates, hits, concealOpts);
-    else concealIfBlocked(node, verdict, enabled, hits, concealOpts);
+    else concealIfBlocked(node, verdict, enabled, candidates, hits, concealOpts);
   });
   return hits;
 }

@@ -43,6 +43,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDeclaredClassifier, classifyBySnippet, getProfiles } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { francRung3Resolver } from '@movar/lang-detect/franc';
+import { concealsLanguage } from './content-conceal';
 import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
 import { YOUTUBE_EXTRACTOR } from '@movar/page-content/youtube';
 import type { PageExtractor } from '@movar/page-content/types';
@@ -59,13 +60,13 @@ const BLOCKED: ReadonlySet<LanguageCode> = new Set(['ru']);
  *  rather than as a second literal so a manifest can never declare a roster
  *  the enabled set contradicts.
  *
- *  Read together with the roster test in {@link runSurface}, this is
- *  `decideFused`'s predicate verbatim — and the two clauses are NOT
- *  interchangeable. `!enabled.has(x)` alone is true for every language on
- *  earth, so it is the roster clause, not this one, that stops an out-of-roster
- *  declaration from concealing a card (`sl-out-of-roster`). Modelling the gate
- *  as "∈ BLOCKED" instead would make that fixture pass vacuously, since a
- *  hardcoded block list can never hold the codes at issue. */
+ *  The verdict itself is taken by the product's own `concealsLanguage`, which
+ *  {@link runSurface} imports rather than restates: `!enabled.has(x)` alone is
+ *  true for every language on earth, so it is that function's roster clause
+ *  that stops an out-of-roster declaration from concealing a card
+ *  (`sl-out-of-roster`). Modelling the gate as "∈ BLOCKED" here instead would
+ *  make that fixture pass vacuously, since a hardcoded block list can never
+ *  hold the codes at issue. */
 function enabledFor(roster: ReadonlySet<LanguageCode>): ReadonlySet<LanguageCode> {
   return new Set([...roster].filter((code) => !BLOCKED.has(code)));
 }
@@ -150,12 +151,11 @@ function runSurface(surface: string, name: string, extractor: PageExtractor): vo
           declared === undefined
             ? classifyBySnippet(node!.text, profiles, francRung3Resolver)
             : fuseDeclared(node!.text, declared);
-        const observedVerdict =
-          verdict.language !== 'unknown' &&
-          roster.has(verdict.language) &&
-          !enabled.has(verdict.language)
-            ? 'hide'
-            : 'keep';
+        // The PRODUCT's predicate, imported — not a copy of it. See
+        // `concealsLanguage` for why this is shared rather than mirrored.
+        const observedVerdict = concealsLanguage(verdict.language, enabled, roster)
+          ? 'hide'
+          : 'keep';
 
         expect(verdict.language, `classified language for ${expected.selector}`).toBe(
           expected.fromLang,

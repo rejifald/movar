@@ -77,6 +77,28 @@ jobs:
       # returns nothing would surface as a metadata rejection instead.
       - run: node scripts/lib/release-notes.test.mjs
 
+      # Did the PREVIOUS release actually reach the App Store? A build can be
+      # uploaded and never submitted — that is what happened to v1.7.0, which
+      # left Safari on 1.6.2 while every other store moved on, and made its
+      # users take two releases' worth of change in one step. `gh release list`
+      # cannot see it; only Apple knows what Apple received.
+      #
+      # Report-only until it has produced one correct verdict against real
+      # credentials: this check has never run against live App Store Connect
+      # data, and a bug in it would block the submission it exists to protect.
+      # Flip `STRICT` to '1' once its output has been read and believed once.
+      - name: Store parity — did the previous release ship?
+        continue-on-error: true
+        env:
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          APPLE_ASC_API_KEY_P8: ${{ secrets.APPLE_ASC_API_KEY_P8 }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          PLATFORMS: ${{ inputs.platforms }}
+          STRICT: '0'
+        shell: bash
+        run: node scripts/check-store-parity.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Plan (reads only)
         env:
           APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}

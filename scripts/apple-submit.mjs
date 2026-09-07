@@ -50,6 +50,7 @@ import { readFileSync } from 'node:fs';
 import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
+import { resumeDecision, stagedVersionIds } from './lib/review-resume.mjs';
 import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 
 const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
@@ -57,6 +58,10 @@ const env = (name, fallback = '') => (process.env[name] ?? '').trim() || fallbac
 
 const DRY_RUN = env('DRY_RUN') === '1';
 const SUBMIT = env('SUBMIT') === '1';
+/** Resume mode: finish a submission that was staged but never submitted,
+ *  because the final PATCH failed on Apple's side. See lib/review-resume.mjs
+ *  for what that state is and why the normal path cannot get out of it. */
+const RESUME = env('RESUME') === '1';
 
 /**
  * App Store version states that still accept edits. Anything else means the
@@ -81,6 +86,9 @@ const IN_FLIGHT_STATES = new Set([
   'PROCESSING_FOR_APP_STORE',
   'READY_FOR_SALE',
 ]);
+
+/** Submission states worth looking at — anything not yet finished with. */
+const OPEN_SUBMISSION_STATES = 'READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES';
 
 const log = (msg) => console.log(msg);
 const step = (msg) => console.log(`\n▸ ${msg}`);
@@ -201,6 +209,14 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
       log(`  version ${version} is already ${state} — nothing to do, leaving it alone.`);
       return { platform, skipped: state };
     }
+    if (state === 'READY_FOR_REVIEW') {
+      // Staged but never submitted — the shape a failed final PATCH leaves.
+      // Reported, not thrown: `apply` declares `needs: plan`, so a plan run
+      // that died here would make `mode=resume` unreachable exactly when it is
+      // the only thing that helps. Editing is still refused; resume submits.
+      log(`  ${version} is staged but NOT submitted — run mode=resume to finish it.`);
+      return { platform, skipped: 'staged, awaiting resume' };
+    }
     if (!EDITABLE_STATES.has(state)) {
       throw new Error(`version ${version} is in state ${state}, which this script will not edit`);
     }
@@ -292,7 +308,7 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
     `/v1/reviewSubmissions?${new URLSearchParams({
       'filter[app]': appId,
       'filter[platform]': platform,
-      'filter[state]': 'READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES',
+      'filter[state]': OPEN_SUBMISSION_STATES,
       limit: '10',
     })}`,
   );
@@ -338,6 +354,91 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
   return { platform, submitted: true };
 }
 
+/**
+ * Finish a submission that was staged and never submitted.
+ *
+ * Only ever issues ONE write — the PATCH the failed run never landed. It does
+ * not create a version, attach a build, touch "What's New", or create a
+ * submission: all of that already succeeded, and redoing any of it is how a
+ * recovery turns into a second incident. Every read feeds
+ * {@link resumeDecision}, which fails closed on anything it cannot prove.
+ */
+async function resumePlatform(token, { appId, platform, version }) {
+  step(`${platform} — resume ${version}`);
+
+  const versions = await requireOk(
+    token,
+    `/v1/apps/${appId}/appStoreVersions?${new URLSearchParams({
+      'filter[platform]': platform,
+      'filter[versionString]': version,
+      limit: '10',
+    })}`,
+  );
+  const record = (versions.data ?? [])[0];
+  if (!record) return { platform, error: `no version record for ${version} — nothing to resume` };
+  const versionState = record.attributes?.appStoreState ?? record.attributes?.state ?? 'UNKNOWN';
+  log(`  version ${version} is ${versionState}`);
+
+  const open = await request(
+    token,
+    `/v1/reviewSubmissions?${new URLSearchParams({
+      'filter[app]': appId,
+      'filter[platform]': platform,
+      'filter[state]': OPEN_SUBMISSION_STATES,
+      limit: '10',
+    })}`,
+  );
+  if (open.status < 200 || open.status >= 300) {
+    return { platform, error: `could not list review submissions: ${open.status} ${open.detail}` };
+  }
+  const submissions = (open.body?.data ?? []).map((sub) => ({
+    id: sub.id,
+    state: sub.attributes?.state,
+  }));
+  for (const sub of submissions) log(`  submission ${sub.id} is ${sub.state}`);
+
+  // Read what each unsubmitted submission stages, so the decision can prove the
+  // one it picks holds THIS version. An unreadable response stays null and the
+  // decision refuses — see stagedVersionIds.
+  const stagedBySubmission = new Map();
+  for (const sub of submissions.filter((x) => x.state === 'READY_FOR_REVIEW')) {
+    const items = await request(token, `/v1/reviewSubmissions/${sub.id}/items?limit=50`);
+    stagedBySubmission.set(
+      sub.id,
+      items.status >= 200 && items.status < 300 ? stagedVersionIds(items.body) : null,
+    );
+  }
+
+  const decision = resumeDecision({
+    versionState,
+    versionId: record.id,
+    submissions,
+    stagedBySubmission,
+  });
+  if (decision.action === 'noop') {
+    log(`  ${decision.reason}`);
+    return { platform, skipped: decision.reason };
+  }
+  if (decision.action === 'refuse') return { platform, error: decision.reason };
+
+  await write(
+    token,
+    `🚀 SUBMIT FOR REVIEW (resumed submission ${decision.submissionId})`,
+    `/v1/reviewSubmissions/${decision.submissionId}`,
+    {
+      method: 'PATCH',
+      body: {
+        data: {
+          type: 'reviewSubmissions',
+          id: decision.submissionId,
+          attributes: { submitted: true },
+        },
+      },
+    },
+  );
+  return DRY_RUN ? { platform, skipped: 'dry-run' } : { platform, submitted: true };
+}
+
 async function main() {
   const client = clientFromEnv();
   if (client.error) {
@@ -362,7 +463,17 @@ async function main() {
 
   log(
     `App Store submission — ${bundleId} ${version} [${platforms.join(', ')}]\n` +
-      `mode: ${DRY_RUN ? 'DRY RUN (reads only)' : SUBMIT ? 'PREPARE + SUBMIT FOR REVIEW' : 'PREPARE ONLY (no submission)'}`,
+      `mode: ${
+        RESUME
+          ? DRY_RUN
+            ? 'RESUME (dry run — reads only)'
+            : 'RESUME a staged submission (submits, prepares nothing)'
+          : DRY_RUN
+            ? 'DRY RUN (reads only)'
+            : SUBMIT
+              ? 'PREPARE + SUBMIT FOR REVIEW'
+              : 'PREPARE ONLY (no submission)'
+      }`,
   );
 
   const allNotes = parseReleaseNotes(
@@ -397,14 +508,16 @@ async function main() {
   for (const platform of platforms) {
     try {
       results.push(
-        await submitPlatform(token, {
-          appId: app.id,
-          platform,
-          version,
-          notes,
-          buildNumber,
-          timeoutMin,
-        }),
+        RESUME
+          ? await resumePlatform(token, { appId: app.id, platform, version })
+          : await submitPlatform(token, {
+              appId: app.id,
+              platform,
+              version,
+              notes,
+              buildNumber,
+              timeoutMin,
+            }),
       );
     } catch (error) {
       console.error(`  ✗ ${platform}: ${error.message}`);

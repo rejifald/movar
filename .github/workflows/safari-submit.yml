@@ -30,9 +30,9 @@ on:
         type: string
         default: ''
       mode:
-        description: 'plan = read-only. prepare = create version, attach build, set notes. submit = also submit for review (irreversible).'
+        description: 'plan = read-only. prepare = create version, attach build, set notes. submit = also submit for review (irreversible). resume = finish a submission that was staged but never submitted (one PATCH, prepares nothing).'
         type: choice
-        options: [plan, prepare, submit]
+        options: [plan, prepare, submit, resume]
         default: plan
       platforms:
         description: 'Comma-separated App Store platforms.'
@@ -132,7 +132,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: ${{ inputs.mode == 'submit' && 'Prepare and SUBMIT FOR REVIEW' || 'Prepare only' }}
+      - name: ${{ inputs.mode == 'resume' && 'RESUME a staged submission' || inputs.mode == 'submit' && 'Prepare and SUBMIT FOR REVIEW' || 'Prepare only' }}
         env:
           APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
           APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
@@ -143,6 +143,11 @@ jobs:
           # Only `submit` sets SUBMIT=1; `prepare` stops before the
           # irreversible step, leaving a version you can still edit by hand.
           SUBMIT: ${{ inputs.mode == 'submit' && '1' || '0' }}
+          # `resume` takes a different path entirely: it issues the single
+          # PATCH a failed run never landed and prepares nothing. It exists
+          # because a version left in READY_FOR_REVIEW cannot be advanced by
+          # any other mode — see scripts/lib/review-resume.mjs.
+          RESUME: ${{ inputs.mode == 'resume' && '1' || '0' }}
         # `shell: bash` is NOT cosmetic: the default shell is `bash -e` with
         # NO pipefail, so `node … | tee` reports tee's exit status and a
         # crashed script reads as a green run. Naming the shell gets

@@ -287,8 +287,8 @@ test.describe('install CTA — footer link', () => {
  *
  * On Android the two answers come apart. Chrome on Android really is Chrome, so
  * detection is correct — and the Chrome Web Store button that correctness earns
- * it cannot install anything, because no Chromium browser on Android runs
- * extensions. That is the bug these two cases pin: a confidently green CTA that
+ * it cannot install anything, because no Chromium browser on Android can install
+ * Movar. That is the bug these two cases pin: a confidently green CTA that
  * was strictly worse than the GitHub fallback an unrecognised browser gets,
  * because it looked like it worked.
  */

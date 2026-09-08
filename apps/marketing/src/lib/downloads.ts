@@ -140,10 +140,15 @@ export function detectBrowser(): BrowserId | null {
  * This is a CAPABILITY question, deliberately separate from `detectBrowser`:
  * identity and installability are different facts, and on Android they
  * disagree. Chrome on Android really is Chrome, so `detectBrowser` rightly
- * returns `'chrome'` — but no Chromium browser on Android can install
- * extensions at all, so the Chrome Web Store link that identity earns it is a
- * button that cannot work. Every install surface therefore asks this FIRST and
- * only then resolves a store.
+ * returns `'chrome'` — but no Chromium browser on Android can install Movar, so
+ * the Chrome Web Store link that identity earns it is a button that cannot work.
+ * Every install surface therefore asks this FIRST and only then resolves a store.
+ *
+ * One narrowing, true since 2025 and deliberately not acted on: Edge for Android
+ * DOES run extensions, from a small manually curated allowlist you apply to. It
+ * changes nothing here — Movar isn't in that catalogue, and can't be until the
+ * native Edge Add-ons listing above is public — so Edge on Android stays a
+ * cannot-work button. See docs/android-extension-reach.md before widening this.
  *
  * Firefox is the one exclusion, and it is the whole reason this isn't just
  * "is Android": Firefox for Android does install extensions, and Movar ships a

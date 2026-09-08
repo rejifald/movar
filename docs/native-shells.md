@@ -725,3 +725,4 @@ itself.
 - [movar-audit.md](movar-audit.md) — the audit ADR; §9 owns the egress posture
 - [safari-deploy.md](safari-deploy.md) — the existing iOS/macOS release path
 - [ROADMAP.md](ROADMAP.md) — Safari distribution status
+- [android-extension-reach.md](android-extension-reach.md) — why the Android shell here is not, and cannot be, an extension container the way the Safari host app is

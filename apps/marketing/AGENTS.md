@@ -20,18 +20,19 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 
 **Pages (en locale at root, uk locale under `/uk/`):**
 
-| Route               | File                                     |
-| ------------------- | ---------------------------------------- |
-| `/`                 | `src/pages/index.astro`                  |
-| `/install`          | `src/pages/install.astro`                |
-| `/privacy`          | `src/pages/privacy.astro`                |
-| `/transparency`     | `src/pages/transparency.astro`           |
-| `/why-this-happens` | `src/pages/why-this-happens.astro`       |
-| `/how-movar-works`  | `src/pages/how-movar-works.astro`        |
-| `/why-not-ai`       | `src/pages/why-not-ai.astro`             |
-| `/changelog`        | `src/pages/changelog.astro`              |
-| `/404`              | `src/pages/404.astro`                    |
-| `/uk/*`             | `src/pages/uk/` (mirrors the nine above) |
+| Route               | File                                    |
+| ------------------- | --------------------------------------- |
+| `/`                 | `src/pages/index.astro`                 |
+| `/install`          | `src/pages/install.astro`               |
+| `/privacy`          | `src/pages/privacy.astro`               |
+| `/transparency`     | `src/pages/transparency.astro`          |
+| `/why-this-happens` | `src/pages/why-this-happens.astro`      |
+| `/how-movar-works`  | `src/pages/how-movar-works.astro`       |
+| `/why-not-ai`       | `src/pages/why-not-ai.astro`            |
+| `/changelog`        | `src/pages/changelog.astro`             |
+| `/uninstall`        | `src/pages/uninstall.astro`             |
+| `/404`              | `src/pages/404.astro`                   |
+| `/uk/*`             | `src/pages/uk/` (mirrors the ten above) |
 
 **Ukrainian-only routes** (no English counterpart — see "The blog and the guide" below):
 
@@ -42,6 +43,15 @@ Presents Movar to potential users: explains the problem (Russian-language defaul
 | `/uk/blog/rss.xml` | `src/pages/uk/blog/rss.xml.ts`       |
 | `/uk/guide`        | `src/pages/uk/guide/index.astro`     |
 | `/uk/guide/<slug>` | `src/pages/uk/guide/[...slug].astro` |
+
+`/uninstall` is the page the BROWSER opens when Movar is removed — the extension's
+background worker points `browser.runtime.setUninstallURL` at it (via `uninstallUrl()`
+in `@movar/brand`, which is where the route lives because the worker cannot import this
+app's `i18n.ts`). The URL carries the running version and nothing else. The page itself
+is the one surface written for someone who has already left: it cannot read any state,
+because by then the extension is gone, so every route off it is a `mailto:` — a feedback
+form would need a backend, which the network-silent promise forbids. Safari has no
+uninstall hook at all, so this page is unreachable from that build by design.
 
 `/changelog` renders `apps/extension/store-assets/RELEASE-NOTES.md` at build
 time through `scripts/lib/release-notes.mjs` — the same parser the App Store and

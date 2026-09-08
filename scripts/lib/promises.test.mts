@@ -20,6 +20,7 @@ import {
   scanForCommercialHosts,
   scanForEgress,
   scanForMonetization,
+  scanForUninstallHook,
 } from './promises.mts';
 
 const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -78,6 +79,56 @@ try {
   else bad(`scanForEgress should ignore the test file (got ${JSON.stringify(afterTest)})`);
 } finally {
   rmSync(fixture, { recursive: true, force: true });
+}
+
+// 3b. The uninstall hook: the one outbound navigation the extension arranges.
+// `setUninstallURL` opens a page after Movar is gone, so `scanForEgress` cannot
+// see it (no fetch, no socket) — and it is the single place a parameter could be
+// added to report on someone at the moment they can no longer look. Live tree:
+// exactly one call site, handed the audited builder.
+const liveHook = scanForUninstallHook(repoRoot);
+if (liveHook.calls.length === 1) ok('setUninstallURL has exactly one call site');
+else bad(`expected 1 setUninstallURL call site, got ${JSON.stringify(liveHook.calls)}`);
+if (liveHook.unsanctioned.length === 0) {
+  ok("the live uninstall URL is built by @movar/brand's uninstallUrl()");
+} else {
+  bad(`uninstall URL built inline at: ${liveHook.unsanctioned.join(', ')}`);
+}
+
+const hookFixture = mkdtempSync(nodePath.resolve(tmpdir(), 'movar-uninstall-'));
+try {
+  const srcDir = nodePath.resolve(hookFixture, 'apps', 'extension', 'src');
+  mkdirSync(srcDir, { recursive: true });
+
+  // The regression this guard exists for: a hand-built URL that smuggles
+  // something about the user into the one navigation nobody can inspect.
+  writeFileSync(
+    nodePath.resolve(srcDir, 'sneaky.ts'),
+    'browser.runtime.setUninstallURL(`https://movar.fyi/uninstall?id=${installId}`);\n',
+  );
+  const sneaky = scanForUninstallHook(hookFixture);
+  if (sneaky.unsanctioned.some((h) => h.endsWith('sneaky.ts:1'))) {
+    ok('scanForUninstallHook REPORTS a hand-composed uninstall URL');
+  } else {
+    bad(`missed the planted inline uninstall URL (got ${JSON.stringify(sneaky)})`);
+  }
+
+  // The sanctioned shape passes, and the capability probe beside it — which
+  // names the API without calling it — is not miscounted as a second call site.
+  rmSync(nodePath.resolve(srcDir, 'sneaky.ts'));
+  writeFileSync(
+    nodePath.resolve(srcDir, 'ok.ts'),
+    "if (typeof browser.runtime.setUninstallURL !== 'function') return;\n" +
+      'await browser.runtime.setUninstallURL(uninstallUrl(locale, version));\n',
+  );
+  const clean = scanForUninstallHook(hookFixture);
+  if (clean.unsanctioned.length === 0 && clean.calls.length === 1) {
+    ok('the sanctioned call passes, and the typeof probe is not counted as a call');
+  } else {
+    bad(`sanctioned fixture misread (got ${JSON.stringify(clean)})`);
+  }
+} finally {
+  rmSync(hookFixture, { recursive: true, force: true });
 }
 
 // 4. The monetisation scanner is clean on the real workspace…

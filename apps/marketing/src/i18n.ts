@@ -413,7 +413,7 @@ interface DownloadStrings {
   viaGithub: string;
   /**
    * CTA label on Android Chromium (see lib/downloads `isAndroidChromium`).
-   * Those browsers can't run extensions at all, so the CTA can't offer the
+   * None of those browsers can install Movar, so the CTA can't offer the
    * store their UA points at — it offers the one Android target that does
    * install Movar, Firefox for Android, and `androidNote` says why.
    */
@@ -1257,7 +1257,7 @@ const en: Strings = {
     viaGithub: 'Get Movar from GitHub',
     addAndroid: 'Add to Firefox for Android',
     androidNote:
-      "Chromium browsers on Android — Chrome, Edge, Opera, Brave — can't run extensions at all. That's a limit of those browsers, not of Movar. Firefox for Android can, so the button above installs Movar there.",
+      "Chromium browsers on Android — Chrome, Opera, Brave — can't run extensions at all. That's a limit of those browsers, not of Movar. Firefox for Android can, so the button above installs Movar there.",
     soon: 'Soon',
     newTab: 'opens the store in a new tab',
   },
@@ -2170,7 +2170,7 @@ const uk: Strings = {
     viaGithub: 'Завантажити Мовар з GitHub',
     addAndroid: 'Встановити у Firefox для Android',
     androidNote:
-      'Браузери на Chromium в Android — Chrome, Edge, Opera, Brave — узагалі не підтримують розширень. Це обмеження самих браузерів, а не Мовара. Firefox для Android їх підтримує, тож кнопка вище встановить Мовар саме туди.',
+      'Браузери на Chromium в Android — Chrome, Opera, Brave — узагалі не підтримують розширень. Це обмеження самих браузерів, а не Мовара. Firefox для Android їх підтримує, тож кнопка вище встановить Мовар саме туди.',
     soon: 'Незабаром',
     newTab: 'магазин відкриється в новій вкладці',
   },

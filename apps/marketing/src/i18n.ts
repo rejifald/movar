@@ -778,6 +778,53 @@ export interface ForUkrainianStrings {
   delisting: string;
 }
 
+/** One row of the uninstall page's ask ladder: a complaint in the reader's own
+ *  voice, and the subject its `mailto:` opens with. Paired here rather than in
+ *  two parallel arrays so a row can never be given another row's subject. */
+interface UninstallRow {
+  /** The complaint, as the reader would put it. */
+  label: string;
+  /** Subject the row's mail opens with. Every one names the uninstall, so an
+   *  exit report is filterable in the inbox without opening it. */
+  subject: string;
+}
+
+/**
+ * The post-uninstall page — what `browser.runtime.setUninstallURL` opens.
+ *
+ * The only page on the site written for someone who has already left, and the
+ * one place the product cannot ask anything: by the time this renders the
+ * extension is gone, so there is no state to read and nothing to prefill beyond
+ * what the link itself carried. Every route off this page is a `mailto:` or a
+ * link — no form, because a form would need a backend and the network-silent
+ * promise forbids one (`scripts/lib/promises.mts`).
+ */
+interface UninstallStrings {
+  htmlTitle: string;
+  metaDescription: string;
+  title: string;
+  /** Lead when the uninstall link carried a version. */
+  lead: string;
+  /** Lead when it did not — the page was opened directly, so there is no
+   *  version to disclose and the sentence must not claim one. */
+  leadNoVersion: string;
+  /** The privacy claim, split so the opening sentence can carry weight without
+   *  putting markup in a translatable string. */
+  guarantee: { strong: string; rest: string };
+  askTitle: string;
+  askLead: string;
+  /** Exactly three: two named failures and an "everything else". A longer list
+   *  reads as a survey, which is the genre this page deliberately is not. */
+  rows: readonly [UninstallRow, UninstallRow, UninstallRow];
+  /** Seeded into every row's mail body. Deliberately NOT the popup's prompt,
+   *  which offers to let the reader trim an auto-attached diagnostic block —
+   *  there is no such block here, because there is no extension left to gather
+   *  one. Nothing is appended but what the reader types. */
+  bodyPrompt: string;
+  discordPrompt: string;
+  discordLabel: string;
+}
+
 export interface Strings {
   meta: MetaStrings;
   nav: NavStrings;
@@ -802,6 +849,7 @@ export interface Strings {
   whyNotAi: WhyNotAiStrings;
   installGuide: InstallGuideStrings;
   forUkrainian: ForUkrainianStrings;
+  uninstall: UninstallStrings;
 }
 
 /**
@@ -1154,6 +1202,36 @@ const en: Strings = {
     sectionLead:
       'Have a question, an idea, or a site where Movar missed? Join the Discord or drop a note.',
     emailLabel: 'Email support@movar.fyi',
+    discordLabel: 'Join the Discord',
+  },
+  uninstall: {
+    htmlTitle: 'Movar is uninstalled',
+    metaDescription:
+      'Movar is off your browser. If something did not work, the report goes by email — there is no form here and no analytics.',
+    title: 'Movar is uninstalled.',
+    lead: "It's off this browser, and its settings went with it. Movar reported nothing on the way out — the link that opened this page carries the version you had, and nothing else.",
+    leadNoVersion:
+      "It's off this browser, and its settings went with it. Movar reported nothing on the way out, and this link carries nothing about you.",
+    guarantee: {
+      strong: 'Nothing here is watching.',
+      rest: 'No form, no analytics, no account. Unless you write to us, we hear nothing.',
+    },
+    askTitle: "What didn't work",
+    askLead:
+      'Pick the closest one. Your mail app opens with the subject filled in — the message goes only when you send it.',
+    rows: [
+      {
+        label: 'It hid something I wanted to read',
+        subject: 'Movar — after uninstall: hid too much',
+      },
+      {
+        label: 'A site kept showing Russian anyway',
+        subject: 'Movar — after uninstall: a site stayed Russian',
+      },
+      { label: 'Something else', subject: 'Movar — after uninstall' },
+    ],
+    bodyPrompt: 'Say what happened: the site, what Movar did, and what you expected instead.',
+    discordPrompt: 'Rather talk than write?',
     discordLabel: 'Join the Discord',
   },
   changelog: {
@@ -2067,6 +2145,37 @@ const uk: Strings = {
     sectionLead:
       'Маєте запитання, ідею чи сайт, де Мовар не спрацював? Приєднуйтеся до Discord або напишіть.',
     emailLabel: 'Написати на support@movar.fyi',
+    discordLabel: 'Приєднатися до Discord',
+  },
+  uninstall: {
+    htmlTitle: 'Мовар видалено',
+    metaDescription:
+      'Мовара більше немає у вашому браузері. Якщо щось не спрацювало, про це можна написати листом — тут немає ні форми, ні аналітики.',
+    title: 'Мовар видалено.',
+    lead: 'Його немає в цьому браузері, налаштування зникли разом із ним. Наостанок Мовар нічого не надіслав — у посиланні, яке відкрило цю сторінку, є номер версії, і більше нічого.',
+    leadNoVersion:
+      'Його немає в цьому браузері, налаштування зникли разом із ним. Наостанок Мовар нічого не надіслав, а це посилання не несе про вас нічого.',
+    guarantee: {
+      strong: 'Тут ніхто не стежить.',
+      rest: 'Ні форми, ні аналітики, ні облікового запису. Якщо ви нам не напишете, ми нічого не почуємо.',
+    },
+    askTitle: 'Що не спрацювало',
+    askLead:
+      'Виберіть те, що найближче. Поштова програма відкриється з готовою темою — лист піде тільки тоді, коли ви його надішлете.',
+    rows: [
+      {
+        label: 'Мовар приховав те, що я хочу читати',
+        subject: 'Мовар — після видалення: приховував зайве',
+      },
+      {
+        label: 'Сайт все одно показував російською',
+        subject: 'Мовар — після видалення: сайт лишався російським',
+      },
+      { label: 'Щось інше', subject: 'Мовар — після видалення' },
+    ],
+    bodyPrompt:
+      'Опишіть, що сталося: на якому сайті, що зробив Мовар і чого ви очікували натомість.',
+    discordPrompt: 'Радше поговорити, ніж писати?',
     discordLabel: 'Приєднатися до Discord',
   },
   changelog: {

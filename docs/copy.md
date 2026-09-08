@@ -276,6 +276,20 @@ Grammatical, idiomatic, and still wrong for this brand:
 - **Empty intensifiers.** «справді», «дійсно», «насправді» used for emphasis rather than for contrast.
 - **Perfect parallelism.** A bullet list whose every item has the same length and the same grammatical shape reads machine-made. Real lists have uneven members.
 
+### 4.15 Never put the reader in a first-person past tense
+
+Ukrainian past tense agrees with the speaker's gender — «я хотів» / «я хотіла» — and there is no neutral form. Any UA string written in the reader's own voice therefore cannot use one, because shipping it means either picking a gender for the reader or printing a «хотів(ла)» slash form, and both are worse than rewriting.
+
+This has no EN counterpart: _"something I wanted to read"_ is free of the problem, so the UA half of such a pair can never be a direct rendering. It is the sharpest case of §4.13 — UA is drafted, not translated.
+
+Three ways out, in order of preference:
+
+- **Make something other than the reader the subject.** «Сайт все одно показував російською», not «я бачив російську». §1.7 wants this anyway, so it is usually the right rewrite rather than a workaround.
+- **Use the present tense.** «Мовар приховав те, що я хочу читати» — «хочу» carries no gender.
+- **Use a possessive instead of a verb.** The shipped popup row «Цей сайт проігнорував мою мову» is first-person without a first-person verb.
+
+Formal plural «ви» is already safe («ви очікували»), so this bites only in the singular. The corpus contained no first-person singular past at all until `/uninstall` — the first surface written in the reader's voice — and the rule exists so the next one does not discover this the hard way.
+
 ---
 
 ## 5. English mechanics
@@ -382,6 +396,13 @@ Mode is orthogonal. Both promote and protect have an **action** mode (one senten
 | Store listing  | Tagline (Chrome/Edge: 132 ch)   | ≤ 132 chars           | promote + protect        | (not in repo yet)                                                                                                                      |
 | Store listing  | Description                     | full prose            | promote + protect        | (not in repo yet)                                                                                                                      |
 | Store listing  | Screenshot caption              | ≤ 12 words            | promote                  | (not in repo yet)                                                                                                                      |
+| Uninstall      | Title                           | ≤ 5 words             | state                    | _"Movar is uninstalled."_ / «Мовар видалено.»                                                                                          |
+| Uninstall      | Lead                            | ≤ 35 words            | state                    | discloses what the link carried; a second variant for no version                                                                       |
+| Uninstall      | Guarantee                       | ≤ 22 words            | protect                  | _"Nothing here is watching…"_ / «Тут ніхто не стежить…»                                                                                |
+| Uninstall      | Ask heading                     | ≤ 4 words             | state                    | _"What didn't work"_ / «Що не спрацювало»                                                                                              |
+| Uninstall      | Ask lead                        | ≤ 25 words            | state                    | _"Pick the closest one…"_ / «Виберіть те, що найближче…»                                                                               |
+| Uninstall      | Ladder row                      | ≤ 7 words             | state                    | _"It hid something I wanted to read"_ — reader's voice, see §4.15                                                                      |
+| Uninstall      | Mail subject                    | ≤ 8 words             | state                    | _"Movar — after uninstall: a site stayed Russian"_                                                                                     |
 
 Caps come from the current corpus — the longest existing example for each slot, rounded up by 1–2 units. When a new surface lands, add a row.
 

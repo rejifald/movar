@@ -84,6 +84,29 @@ function installDnr(): void {
   );
 }
 
+/** Stub the uninstall hook for the `uninstall hook` suite below.
+ *
+ *  `setUninstallURL` is absent on Safari (an App Store app has no uninstall
+ *  hook) and absent from fakeBrowser, which is why the worker probes for it
+ *  rather than calling it blind. The spy goes onto the SAME `browser` the worker
+ *  imports — the reason `installDnr` above spies there and not on `fakeBrowser`
+ *  — and the version is pinned, since fakeBrowser's manifest carries none and an
+ *  unreleased version deliberately suppresses the query parameter.
+ *
+ *  `i18n` is stubbed for the same reason the DNR fake exists: fakeBrowser leaves
+ *  it unimplemented and reading it throws. The worker resolves the page's locale
+ *  through `getUILanguage()`, so without this the call lands in its own catch and
+ *  the hook is silently never set — indistinguishable from the Safari no-op. */
+function stubUninstallHook(): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(async (_url: string) => {});
+  Object.assign(browser.runtime, { setUninstallURL: spy });
+  vi.spyOn(browser.runtime, 'getManifest').mockReturnValue({
+    version: '1.8.1',
+  } as ReturnType<typeof browser.runtime.getManifest>);
+  Object.assign(browser, { i18n: { getUILanguage: () => 'en-US' } });
+  return spy;
+}
+
 /** The currently-installed Accept-Language rule, or undefined when removed. */
 function currentRule(): DnrRule | undefined {
   return dynamicRules.find((r) => r.id === RULE_ID);
@@ -887,5 +910,55 @@ describe('tabs.onUpdated toolbar-icon repaint', () => {
     // Neither branch of the guard matched → no repaint.
     await Promise.resolve();
     expect(setIcon).not.toHaveBeenCalled();
+  });
+});
+
+describe('uninstall hook', () => {
+  afterEach(() => {
+    // Both were assigned onto the shared `browser`, which `fakeBrowser.reset()`
+    // does not undo — leaving them would hand every later test an i18n that the
+    // real fake does not have.
+    delete (browser.runtime as unknown as Record<string, unknown>)['setUninstallURL'];
+    delete (browser as unknown as Record<string, unknown>)['i18n'];
+  });
+
+  it('points the browser at the exit page in the user’s UI locale', async () => {
+    const spy = stubUninstallHook();
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: { ...defaultSettings, uiLanguage: 'uk' },
+    });
+
+    await loadBackground();
+
+    await vi.waitFor(() => {
+      expect(spy).toHaveBeenCalledWith('https://movar.fyi/uk/uninstall?v=1.8.1');
+    });
+  });
+
+  it('carries the version and nothing else', async () => {
+    const spy = stubUninstallHook();
+    await fakeBrowser.storage.sync.set({
+      [SETTINGS_KEY]: { ...defaultSettings, uiLanguage: 'en' },
+    });
+
+    await loadBackground();
+
+    await vi.waitFor(() => {
+      expect(spy).toHaveBeenCalled();
+    });
+    const url = new URL(String(spy.mock.calls[0]?.[0]));
+    // .forEach, not .keys(): the repo bans the WebIDL iterators (Firefox Xray).
+    const names: string[] = [];
+    url.searchParams.forEach((_value, key) => names.push(key));
+    expect(names).toEqual(['v']);
+    expect(url.pathname).toBe('/uninstall');
+  });
+
+  // Safari, and any browser that drops the API: the probe short-circuits and
+  // the wake path completes as normal. A throw here would take the DNR resync
+  // down with it.
+  it('is a no-op where the browser has no uninstall hook', async () => {
+    await fakeBrowser.storage.sync.set({ [SETTINGS_KEY]: { ...defaultSettings } });
+    await expect(loadBackground()).resolves.toBeUndefined();
   });
 });

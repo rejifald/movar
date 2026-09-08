@@ -180,6 +180,45 @@ export function scanForEgress(repoRoot: string): string[] {
   );
 }
 
+/**
+ * `browser.runtime.setUninstallURL` hands the browser a URL to open AFTER the
+ * extension is gone.
+ *
+ * It is not egress in the {@link EGRESS_CALL} sense — nothing is sent, no socket
+ * is opened, and the navigation is the browser's own — which is exactly why that
+ * pattern cannot see it. But it is the one channel that could quietly BECOME
+ * one: a parameter appended here would report on the user at the single moment
+ * they can no longer inspect, revoke, or even observe it. So it gets its own
+ * rule rather than being folded into the egress scan, which would fail the
+ * promise for a call that is legitimate and deliberate.
+ *
+ * The rule has two halves: at most ONE call site, and its argument must be
+ * `uninstallUrl()` from @movar/brand — whose own unit test pins that the URL
+ * carries `v` and nothing else. A string literal, a template, a hand-composed
+ * URL, or a second call site all fail. Zero call sites also pass: the promise is
+ * that nothing leaks, not that the feature exists.
+ */
+const UNINSTALL_HOOK_CALL = /\bsetUninstallURL\s*\(/;
+const UNINSTALL_HOOK_SANCTIONED = /\bsetUninstallURL\s*\(\s*uninstallUrl\s*\(/;
+
+/**
+ * Every `setUninstallURL` call in shipped extension source, split into all call
+ * sites and those NOT handed the audited builder.
+ *
+ * Two passes rather than one because {@link scanSource} reports `file:line` and
+ * not the line itself; the sanctioned set is a subset of the calls, so the
+ * difference is exactly the offenders. Exported for the unit test.
+ */
+export function scanForUninstallHook(repoRoot: string): {
+  calls: string[];
+  unsanctioned: string[];
+} {
+  const root = nodePath.resolve(repoRoot, 'apps/extension/src');
+  const calls = scanSource(repoRoot, root, /\.tsx?$/, UNINSTALL_HOOK_CALL);
+  const sanctioned = new Set(scanSource(repoRoot, root, /\.tsx?$/, UNINSTALL_HOOK_SANCTIONED));
+  return { calls, unsanctioned: calls.filter((hit) => !sanctioned.has(hit)) };
+}
+
 function verifyNetworkSilent(repoRoot: string): PromiseCheck {
   const reasons: string[] = [];
 
@@ -207,13 +246,23 @@ function verifyNetworkSilent(repoRoot: string): PromiseCheck {
     );
   }
 
+  const uninstall = scanForUninstallHook(repoRoot);
+  if (uninstall.unsanctioned.length > 0) {
+    reasons.push(
+      `uninstall URL not built by @movar/brand's uninstallUrl(): ${uninstall.unsanctioned.join(', ')}`,
+    );
+  }
+  if (uninstall.calls.length > 1) {
+    reasons.push(`setUninstallURL called from more than one place: ${uninstall.calls.join(', ')}`);
+  }
+
   const kept = reasons.length === 0;
   return {
     claim: 'Nothing leaves your browser',
     source: 'hero badge + OG card + privacy section',
     kept,
     detail: kept
-      ? "manifest declares data collection 'none', no analytics dependency, and no fetch/XHR/WebSocket/sendBeacon in the extension runtime"
+      ? "manifest declares data collection 'none', no analytics dependency, no fetch/XHR/WebSocket/sendBeacon in the extension runtime, and the uninstall URL is built by @movar/brand (version only)"
       : reasons.join('; '),
   };
 }

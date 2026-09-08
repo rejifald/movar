@@ -31,6 +31,12 @@ export const PAGES = [
   // not wait for a page to be public — the point is to notice when it
   // changes, and an unlinked page is exactly the kind that changes unwatched.
   { stem: 'for-ukrainian', en: '/for-ukrainian', uk: '/uk/for-ukrainian' },
+  // Reached only by the browser's uninstall hook, so nothing on the site links
+  // to it and nobody will notice it drifting — the same argument as
+  // `for-ukrainian` above, one step stronger. Shot WITHOUT the `?v=` the real
+  // hook appends, which is the deterministic case: no version means the page
+  // renders its plain lead and the client-side swap never runs.
+  { stem: 'uninstall', en: '/uninstall', uk: '/uk/uninstall' },
   { stem: 'blog', en: undefined, uk: '/uk/blog' },
   { stem: 'blog-post', en: undefined, uk: '/uk/blog/tykha-kapitulyatsiya' },
   // The guide: the hub carries both islands and the card grid, and one page

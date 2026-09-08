@@ -70,6 +70,7 @@ export const MIRRORED_PAGES: ReadonlySet<string> = new Set([
   '/why-not-ai',
   '/changelog',
   '/for-ukrainian',
+  '/uninstall',
 ]);
 
 /**

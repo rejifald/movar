@@ -20,9 +20,9 @@ export const SOURCE_URL = 'https://github.com/rejifald/movar';
  * Deliberately not a set of per-page URLs: the site is bilingual and its `/uk`
  * prefix is the site's own routing concern (`localeHomeHref` and friends in
  * `apps/marketing/src/i18n.ts`). Consumers outside the site compose the path
- * they need on top of this origin. The single exception is the changelog — see
- * {@link changelogPath} at the bottom of this file for why that one page's
- * route had to move here.
+ * they need on top of this origin. Two pages are exceptions — the changelog and
+ * the uninstall page; see {@link changelogPath} and {@link uninstallPath} at the
+ * bottom of this file for why those two routes had to move here.
  */
 export const SITE_URL = 'https://movar.fyi';
 
@@ -105,4 +105,51 @@ export function changelogPath(locale: SiteLocale): string {
 export function changelogUrl(locale: SiteLocale, version: string): string {
   const anchor = RELEASED_VERSION.test(version) ? `#v${version}` : '';
   return `${SITE_URL}${changelogPath(locale)}${anchor}`;
+}
+
+// ---------------------------------------------------------------------------
+// Derived URLs — the uninstall page.
+//
+// `browser.runtime.setUninstallURL` is handed a URL by the background worker,
+// which lives outside the Astro app and so cannot import its `i18n.ts` — the
+// same bind that moved `changelogPath` here. This is the second and, for now,
+// last exception to "no per-page URLs in this package".
+// ---------------------------------------------------------------------------
+
+/**
+ * Site-relative path to the uninstall page for `locale`.
+ *
+ * Mirrors {@link changelogPath}, with one difference worth knowing: the
+ * changelog is linked from the site, so `apps/marketing` keeps its own
+ * `localeChangelogHref` that delegates here. Nothing links to the uninstall page
+ * — it is reached only by the browser's uninstall hook — so there is no
+ * `locale*Href` twin, and this is the ONLY place the route is spelled. Adding
+ * one would be dead code, which `pnpm metrics` rejects.
+ *
+ * `pnpm check:locale-redirects` still enforces that the page has a `uk/`
+ * counterpart and a MIRRORED_PAGES entry; `index.test.ts` pins what this builds.
+ */
+export function uninstallPath(locale: SiteLocale): string {
+  return locale === 'uk' ? '/uk/uninstall' : '/uninstall';
+}
+
+/**
+ * Absolute uninstall URL for `locale`, carrying `version` when it is a real
+ * release — what `browser.runtime.setUninstallURL` is set to.
+ *
+ * The version is the ONLY thing this URL ever carries, and it describes the
+ * build, not the person: it is identical for every user on that release, and
+ * the page it opens has no form, no analytics and no account. Adding any
+ * further parameter would make the extension report on the user at the one
+ * moment it can no longer be inspected, which is exactly what the
+ * network-silent promise forbids — see `scripts/lib/promises.mts`.
+ *
+ * An unreleased or unknown version (`preview` under static-serve, `dev` in the
+ * host app — see {@link RELEASED_VERSION}) emits no parameter at all rather
+ * than a bare `?v=` or a fabricated value; the page renders its own no-version
+ * copy in that case.
+ */
+export function uninstallUrl(locale: SiteLocale, version: string): string {
+  const query = RELEASED_VERSION.test(version) ? `?v=${encodeURIComponent(version)}` : '';
+  return `${SITE_URL}${uninstallPath(locale)}${query}`;
 }

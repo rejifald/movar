@@ -1,0 +1,123 @@
+---
+/*
+ * The post-uninstall page — what the browser opens when Movar is removed
+ * (`setUninstallURL`, wired in the extension's background worker).
+ *
+ * Structurally the mirror of the onboarding tab: the browser opens one page
+ * when Movar arrives and this one when it leaves. What it is NOT is the genre
+ * it resembles — the cancellation survey. Those are radio buttons posting to a
+ * backend, and Movar has no backend to post to; `verifyNetworkSilent` in
+ * `scripts/lib/promises.mts` is the promise that keeps it that way. So the ask
+ * is a ladder of `mailto:` rows, each opening the reader's own mail client with
+ * the subject already scoped, and the page reassures BEFORE it asks.
+ *
+ * Four bands, in this order on purpose: what happened → the privacy claim →
+ * the ask → the other channel. The claim sits above the ask because it answers
+ * the objection the ask raises ("what are you collecting?") before the ask
+ * lands, rather than after it.
+ *
+ * There is no version stamp anywhere on the page. The lead DISCLOSES that the
+ * link carried one — saying what travelled is the honest half — but a build
+ * number is nothing a departing reader needs to read.
+ */
+import { ChevronRight, EyeOff, Globe, Mail, MessageCircle, ShieldCheck } from 'lucide-astro';
+import { DISCORD_URL } from '@movar/brand';
+
+import { strings, type Locale } from '../i18n';
+import { buildUninstallMailto } from '../lib/uninstall-mailto';
+
+interface Props {
+  lang?: Locale;
+}
+
+const { lang = 'en' } = Astro.props;
+const t = strings[lang].uninstall;
+
+// One icon per row, paired by position against the fixed three-row tuple in
+// i18n.ts — the rows are a tuple precisely so this can't silently mismatch the
+// way an open-ended array would.
+const ROW_ICONS = [EyeOff, Globe, Mail] as const;
+const rows = t.rows.map((row, index) => ({
+  ...row,
+  Icon: ROW_ICONS[index] ?? Mail,
+  href: buildUninstallMailto(row.subject, t.bodyPrompt),
+}));
+---
+
+<section class="px-6 py-16">
+  <div
+    class="mx-auto max-w-[660px] overflow-hidden rounded-2xl border border-border bg-surface shadow-sm"
+  >
+    <div class="px-8 pb-8 pt-10 sm:px-11 sm:pt-11">
+      <h1
+        class="font-display text-3xl font-extrabold tracking-display text-ink-strong sm:text-[34px]"
+      >
+        {t.title}
+      </h1>
+
+      {/* Progressive enhancement, and the default is the one that is true either
+         way: with no script, a reader sees `leadNoVersion`, which holds whether
+         or not the link carried a `?v=` — a build number is about the release,
+         not about them. The script upgrades to the fuller disclosure only once
+         it has confirmed a version really is in the address. Doing it the other
+         way round would print a claim about the link that a directly-opened
+         page contradicts. */}
+      <p id="uninstall-lead-plain" class="mt-4 leading-relaxed text-pretty text-ink-soft">
+        {t.leadNoVersion}
+      </p>
+      <p id="uninstall-lead-version" class="mt-4 leading-relaxed text-pretty text-ink-soft" hidden>
+        {t.lead}
+      </p>
+    </div>
+
+    <div class="flex gap-4 border-y border-accent-soft bg-accent-surface px-8 py-5 sm:px-11">
+      <ShieldCheck class="mt-0.5 size-5 shrink-0 text-accent" aria-hidden="true" />
+      <p class="text-pretty leading-relaxed text-accent-deep">
+        <strong class="font-bold">{t.guarantee.strong}</strong>{' '}{t.guarantee.rest}
+      </p>
+    </div>
+
+    <div class="px-8 pb-9 pt-8 sm:px-11">
+      <h2 class="font-display text-xl font-extrabold tracking-display text-ink-strong">
+        {t.askTitle}
+      </h2>
+      <p class="mt-2.5 text-sm leading-relaxed text-pretty text-ink-soft">{t.askLead}</p>
+
+      <ul class="mt-5 flex flex-col gap-2">
+        {
+          rows.map(({ Icon, label, href }) => (
+            <li>
+              <a
+                href={href}
+                class="flex items-center gap-3.5 rounded-xl border border-border bg-surface px-4 py-4 text-ink-strong transition-colors hover:border-accent hover:bg-accent-surface"
+              >
+                <Icon class="size-5 shrink-0 text-ink-soft" aria-hidden="true" />
+                <span class="flex-1 text-sm font-medium">{label}</span>
+                <ChevronRight class="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="flex items-center gap-2.5 border-t border-border bg-surface-2 px-8 py-4 sm:px-11">
+      <MessageCircle class="size-4 shrink-0 text-ink-soft" aria-hidden="true" />
+      <p class="text-sm text-ink-soft">
+        {t.discordPrompt}{' '}
+        <a href={DISCORD_URL} class="underline hover:text-ink-strong">{t.discordLabel}</a>
+      </p>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Swap in the fuller lead only when the uninstall hook actually put a version
+  // in the address. Nothing is read beyond whether `v` is present and non-empty
+  // — the value itself is never rendered, stored, or sent.
+  const version = new URLSearchParams(window.location.search).get('v');
+  if (version != null && version !== '') {
+    document.getElementById('uninstall-lead-plain')?.setAttribute('hidden', '');
+    document.getElementById('uninstall-lead-version')?.removeAttribute('hidden');
+  }
+</script>

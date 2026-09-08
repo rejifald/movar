@@ -5,7 +5,9 @@ import { francEngine, francRung3Resolver, warmFranc } from '@movar/lang-detect/f
 import { contentStringsEn } from '../lib/i18n/content-strings-en';
 import { contentStringsUk } from '../lib/i18n/content-strings-uk';
 import type { ContentStrings } from '../lib/i18n/content-strings';
+import { resolveLocale } from '@movar/i18n';
 import type { ResolvedLocale } from '@movar/i18n';
+import { uninstallUrl } from '@movar/brand';
 import {
   clearGoogleRedirectSuspension,
   suspendGoogleSearchRedirectRule,
@@ -76,6 +78,38 @@ async function openOnboarding(): Promise<void> {
     await browser.tabs.create({ url: runtime.getURL('/onboarding.html') });
   } catch {
     // Tab creation can be refused; onboarding stays reachable, just not popped.
+  }
+}
+
+/** Point the browser's uninstall hook at the site's exit page, in the user's UI
+ *  locale and stamped with the running version.
+ *
+ *  The symmetric twin of {@link openOnboarding}: the browser opens one page when
+ *  Movar arrives and this one when it leaves. Movar cannot ask anything at
+ *  uninstall time — by then it is gone — so what this opens is a plain `mailto:`
+ *  handoff with no form and no analytics behind it, and the URL carries the
+ *  version and nothing else (see `uninstallUrl` in @movar/brand).
+ *
+ *  Re-run on every worker wake AND on every settings change, because the UI
+ *  locale is a setting: a URL frozen at install time would open the wrong
+ *  language for anyone who switched afterwards.
+ *
+ *  Safari has no uninstall hook at all — the extension ships inside an App Store
+ *  app, so removing it is removing the app — hence a capability check rather
+ *  than a `BROWSER` check: the API is simply absent there (and in the test
+ *  browser mock), and absent is the correct no-op. */
+async function syncUninstallUrl(): Promise<void> {
+  // Typed by WXT, but absent at runtime on Safari and in the test browser mock
+  // — so this is a capability probe, not a type guard.
+  if (typeof browser.runtime.setUninstallURL !== 'function') return;
+  try {
+    const { uiLanguage } = await getSettings();
+    const locale = resolveLocale(uiLanguage, browser.i18n.getUILanguage());
+    const version = browser.runtime.getManifest().version;
+    await browser.runtime.setUninstallURL(uninstallUrl(locale, version));
+  } catch {
+    // A refused hook must not break the wake path. The page stays reachable at
+    // movar.fyi/uninstall; it just won't open by itself.
   }
 }
 
@@ -232,6 +266,12 @@ export default defineBackground({
     registerHiddenPushHandler();
     void initBadgeStyle();
     void warmFranc();
+    // Re-pointed on every worker wake rather than once at install, so a locale
+    // switch or an update is picked up. Deliberately its OWN statement and not
+    // a step in the wake chain below: it shares no state with the pause / DNR /
+    // icon work, so sequencing it behind those would only let one of their
+    // failures silently leave the uninstall hook unset.
+    void syncUninstallUrl();
 
     // On every worker wake (not just browser onStartup), self-heal a timed pause
     // whose window elapsed while the SW slept — if the resume alarm was dropped,
@@ -291,6 +331,8 @@ export default defineBackground({
       if (isNativeBridgeAvailable()) void pushSettingsToNative();
       // enabled / allowlist changes flip the icon (off ↔ active ↔ exempt).
       void refreshActiveTabs();
+      // The UI language is a setting, and it picks the uninstall page's locale.
+      void syncUninstallUrl();
     });
     onPauseChange(() => {
       void resync();

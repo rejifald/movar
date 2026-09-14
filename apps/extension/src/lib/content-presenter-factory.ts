@@ -4,6 +4,8 @@ import type {
   ContentCurtainRequest,
   ContentPresenter,
   PickerContainerCurtainRequest,
+  PickerControlBadgeRequest,
+  PickerEntryCurtainRequest,
   PickerSurvivorTooltipRequest,
   PresenterHandle,
 } from './content-presenter';
@@ -86,6 +88,100 @@ export function createContentPresenterAdapter({
           },
         ],
       });
+    },
+    attachPickerEntryCurtain(request: PickerEntryCurtainRequest): PresenterHandle {
+      const content = getContentMessages();
+      const description = content.pickerEntry.chipLabel(endonym(request.language));
+      return attachCurtain(request.entry, {
+        mode: 'replace',
+        skin: 'chip',
+        // The row it replaces owned a full-width line among other full-width
+        // lines, so the curtain takes the whole slot rather than sitting in it
+        // as a short mark with the rest of the row left blank.
+        block: true,
+        minHeight: request.slotHeight,
+        icon: defaultHiddenIcon(),
+        // The row sits in a list of language names, so its visible text must
+        // read as Movar's mark and not as one more option to pick — naming the
+        // hidden language here made the chip look selectable, and clicking it
+        // restores the option rather than switching to it. The endonym goes to
+        // the description instead, which the host surfaces as its `title` and
+        // its aria-label.
+        title: content.pickerEntry.label,
+        description,
+        ariaLabel: description,
+        colorScheme: getColorScheme(),
+        actions: [
+          {
+            label: content.pickerEntry.show,
+            onClick: (ctx) => {
+              // Order matters: the curtain's own detach puts the entry's inline
+              // `display` back to what it snapshotted — which is the
+              // `none !important` hideElement had already written — so the
+              // picker-level restore has to run after it to win.
+              ctx.detach();
+              request.restore();
+            },
+          },
+        ],
+      });
+    },
+    attachPickerControlBadge(request: PickerControlBadgeRequest): PresenterHandle {
+      const content = getContentMessages();
+      const endonyms = request.hiddenLanguages.map((code) => endonym(code));
+      const body = content.pickerSurvivor.body(endonyms);
+      // Two surfaces, one interaction. The badge is the always-visible sign
+      // that Movar acted — a native <select> otherwise shows nothing until
+      // someone happens to hover it — but it is deliberately inert: floating,
+      // pointer-events:none, aria-hidden, no tab stop, so it can neither take a
+      // click nor add a stop to the page's keyboard order.
+      const badge = attachCurtain(request.control, {
+        mode: 'badge',
+        skin: 'chip',
+        icon: defaultHiddenIcon(),
+        title: content.pickerEntry.label,
+        description: body,
+        ariaLabel: body,
+        colorScheme: getColorScheme(),
+        actions: [],
+      });
+      // Everything interactive hangs off the CONTROL, which the visitor is
+      // already aiming at and which is already in the tab order — so the
+      // explanation and the way back are reachable by keyboard without Movar
+      // adding anything to it.
+      const tip = attachTooltip(request.control, {
+        title: content.pickerSurvivor.title,
+        body,
+        colorScheme: getColorScheme(),
+        action: {
+          label: content.pickerSurvivor.show,
+          onClick: () => {
+            request.restore();
+          },
+        },
+      });
+      // The badge cannot feel its own hover (pointer-events: none), and CSS
+      // cannot reach it from the control (different tree), so the control's own
+      // hover/focus drives the expansion.
+      const expand = (): void => {
+        badge.host.dataset['expanded'] = 'true';
+      };
+      const collapse = (): void => {
+        delete badge.host.dataset['expanded'];
+      };
+      const EXPAND_EVENTS = ['mouseenter', 'focus'] as const;
+      const COLLAPSE_EVENTS = ['mouseleave', 'blur'] as const;
+      for (const type of EXPAND_EVENTS) request.control.addEventListener(type, expand);
+      for (const type of COLLAPSE_EVENTS) request.control.addEventListener(type, collapse);
+      return {
+        host: badge.host,
+        detach(): void {
+          for (const type of EXPAND_EVENTS) request.control.removeEventListener(type, expand);
+          for (const type of COLLAPSE_EVENTS) request.control.removeEventListener(type, collapse);
+          tip.detach();
+          badge.detach();
+        },
+      };
     },
     attachPickerSurvivorTooltip(request: PickerSurvivorTooltipRequest): PresenterHandle {
       const content = getContentMessages();

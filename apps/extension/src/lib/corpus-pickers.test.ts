@@ -39,6 +39,7 @@ import type { LanguageCode } from '@movar/lang-detect';
 import { defaultSettings } from '@movar/settings';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
+import type { Picker, PickerLayout } from '@movar/lang-pickers/types';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
 import {
   detectPageLanguage,
@@ -58,6 +59,11 @@ interface PickerExpectation {
   containerMatches?: string;
   links: number;
   languages: LanguageCode[];
+  /** Expected `Picker.layout` — the verdict that decides WHICH surface explains
+   *  a hidden entry (an in-row chip for a list, the survivor tooltip for an
+   *  inline strip). Optional so the strip fixtures that predate it stay as they
+   *  are; pin it on any fixture whose shape is the point. */
+  layout?: PickerLayout;
 }
 
 interface ShapeGuard {
@@ -158,8 +164,8 @@ function shapeViolations(shape: ShapeGuard): string[] {
 
 /** Find the picker matching the manifest's container expectation among all
  *  detected pickers (keyed by id / selector / tag — so a found match already
- *  proves the container identity) and return its sorted detected languages. */
-function pickPicker(expectation: PickerExpectation): LanguageCode[] {
+ *  proves the container identity). */
+function pickPicker(expectation: PickerExpectation): Picker {
   const pickers = findLanguagePickers();
   const match = pickers.find((p) => {
     if (expectation.containerId != null) return p.container.id === expectation.containerId;
@@ -169,7 +175,12 @@ function pickPicker(expectation: PickerExpectation): LanguageCode[] {
     return true;
   });
   expect(match, 'no detected picker matched the manifest expectation').toBeDefined();
-  return match!.links.map((l) => l.language).toSorted();
+  return match!;
+}
+
+/** The matched picker's detected languages, sorted for order-free comparison. */
+function detectedLanguages(picker: Picker): LanguageCode[] {
+  return picker.links.map((l) => l.language).toSorted();
 }
 
 /** Mount a fixture AND apply its declared page scenario (the `<html lang>` the
@@ -263,6 +274,7 @@ describe('corpus — picker fixtures (@movar/lang-pickers)', () => {
     'tradeport-lang-gate',
     'stls-value-attr',
     'hotline-bare-div-picker',
+    'bigfive-listbox',
   ] as const;
 
   for (const name of pickerFixtures) {
@@ -279,10 +291,18 @@ describe('corpus — picker fixtures (@movar/lang-pickers)', () => {
         mount(html);
         // pickPicker matches by container id / selector / tag, so a found match
         // already proves the container identity — assert only the languages here.
-        const languages = pickPicker(manifest.picker);
+        const languages = detectedLanguages(pickPicker(manifest.picker));
         expect(languages).toHaveLength(manifest.picker.links);
         expect(languages).toEqual(manifest.picker.languages.toSorted());
       });
+
+      const expectedLayout = manifest.picker.layout;
+      if (expectedLayout !== undefined) {
+        it(`reads the picker's shape → ${expectedLayout}`, () => {
+          mount(html);
+          expect(pickPicker(manifest.picker).layout).toBe(expectedLayout);
+        });
+      }
 
       const page = manifest.page;
 
@@ -351,7 +371,7 @@ describe('corpus — redirect-site fixtures (getRuleForHost)', () => {
         const picker = manifest.picker;
         it(`detects the on-page picker → ${picker.languages.join(', ')}`, () => {
           mount(html);
-          const languages = pickPicker(picker);
+          const languages = detectedLanguages(pickPicker(picker));
           expect(languages).toHaveLength(picker.links);
           expect(languages).toEqual(picker.languages.toSorted());
         });

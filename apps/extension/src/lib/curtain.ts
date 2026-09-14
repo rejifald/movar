@@ -13,6 +13,24 @@
  *   replace — curtain inserted as a sibling BEFORE `target`, occupying its
  *             flow slot at the curtain's natural size. `target` itself is
  *             hidden via display:none.
+ *   badge   — a mark placed BESIDE `target`, which is not touched at all. For
+ *             a control Movar cannot reach inside: a native <select> draws its
+ *             popup outside the document, so the mark has to sit next to the
+ *             control rather than in it.
+ *
+ *             The badge must never get in the visitor's way, so it is built to
+ *             be incapable of it. The host is appended to `document.body` and
+ *             positioned from the target's rect, so the site's own DOM gains no
+ *             sibling (`select + button` rules, `:last-child`, `nth-child` and
+ *             flex gap counts all keep working) and its layout does not shift.
+ *             `pointer-events: none` means it cannot swallow a click even where
+ *             it visually overlaps — which is also why tracking it by position
+ *             is safe: drift can be cosmetic, never functional. It is
+ *             `aria-hidden` and takes no focus, so it adds no tab stop and no
+ *             second announcement; the caller anchors the real explanation on
+ *             the control itself, which already takes hover AND focus.
+ *             `data-expanded` (set by the caller while the control is hovered
+ *             or focused) grows it from the bare mark to its label.
  *
  * Two visual skins, picked via `skin`:
  *
@@ -81,7 +99,7 @@ const FILTER_VAR = '--movar-curtain-filter';
 const DEFAULT_CHILD_FILTER = 'blur(16px) saturate(0.6)';
 const DEFAULT_PEEK_FILTER = 'blur(4px) saturate(0.85)';
 
-export type CurtainMode = 'cover' | 'replace';
+export type CurtainMode = 'cover' | 'replace' | 'badge';
 export type CurtainSkin = 'pill' | 'chip';
 
 export interface ActionContext {
@@ -102,6 +120,32 @@ export interface CurtainOptions {
    *  click target and drops `description` from the rendered DOM (it goes
    *  to aria-label + host `title` instead). */
   skin?: CurtainSkin;
+  /**
+   * Replace mode only: take the FULL WIDTH of the slot the curtain is standing
+   * in, as a tinted band, instead of sizing to the mark's own content.
+   *
+   * For a row of a dropdown — where the thing replaced owned a full-width line
+   * among other full-width lines — a content-sized mark reads as a small note
+   * dropped into the list, and leaves the rest of the row looking like dead
+   * space. Filling the slot makes the row read as curtained, and gives the
+   * restore click the whole row as its target rather than a few characters.
+   *
+   * Wrong for a header strip, where the slot is one item in a line of items and
+   * a full-width band would blow the strip apart — hence opt-in, not default.
+   */
+  block?: boolean;
+  /**
+   * Block replace only: floor the curtain's height, in px, at the box the slot
+   * used to occupy.
+   *
+   * Needed because replace mode hides the target, which takes its box with it —
+   * so the curtain falls back to its own content height and the row it stands
+   * in collapses to roughly half the ones around it, breaking the list's
+   * rhythm. The caller measures (a still-visible sibling row, since the target
+   * is already hidden by the time the curtain mounts) and passes the result;
+   * the curtain has no way to recover the number on its own.
+   */
+  minHeight?: number;
   /** Leading mark. String is rendered as text (emoji); Node is appended verbatim. */
   icon?: string | Node;
   title: string;
@@ -315,8 +359,60 @@ const STYLES = `
   display: inline-flex;
   vertical-align: middle;
 }
+/* Badge — a floating mark the visitor can never collide with. pointer-events
+   and user-select are off so it can neither take a click nor join a text
+   selection; position/z-index are written inline from the target's rect. It
+   rests as the mark alone and grows to its label while data-expanded is set.
+   The label is clipped rather than removed so the chip's accessible name is the
+   same at every width; max-width (not width) animates without measuring text. */
+:host([data-mode="badge"]) {
+  position: absolute;
+  display: inline-flex;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2147483645;
+}
+:host([data-mode="badge"]) .chip__label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    max-width ${duration.slow} ${easing.standard},
+    opacity ${duration.fast} ${easing.standard};
+}
+:host([data-mode="badge"][data-expanded]) .chip__label {
+  max-width: 16ch;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  :host([data-mode="badge"]) .chip__label {
+    transition: none;
+  }
+}
 :host([data-mode="replace"]) .curtain {
   display: contents;
+}
+/* Block replace — the curtain stands in a full-width slot (a dropdown row) and
+   takes all of it. The tint is the same neutral the chip already uses for its
+   own hover, so a curtained row reads as a quiet band in the list rather than a
+   second colour, and the hover step lifts it further -- keeping the
+   "this is the button" affordance the plain chip gets from appearing at all. */
+:host([data-mode="replace"][data-block="true"]) {
+  display: flex;
+  width: 100%;
+}
+:host([data-mode="replace"][data-block="true"]) .chip {
+  flex: 1;
+  justify-content: flex-start;
+  background: var(--movar-action-primary-bg);
+  /* Full size, not the 0.8em shrink the strip chip takes: that floor exists so
+     a chip squeezed into tiny header chrome stays legible, and here the chip
+     owns a whole row and should read at the same weight as the rows around it. */
+  font-size: inherit;
+}
+:host([data-mode="replace"][data-block="true"]) .chip:hover {
+  background: var(--movar-action-primary-hover);
 }
 
 .pill {
@@ -944,6 +1040,55 @@ function revertReplaceSideEffects(target: HTMLElement, restore: ReplaceRestore):
   }
 }
 
+/** Gap between the control's trailing edge and the badge, in px. */
+const BADGE_GAP_PX = 6;
+
+/** Every mounted badge, so one shared pair of page listeners can keep them all
+ *  pinned instead of each attaching its own. */
+const badgeAnchors = new Map<HTMLElement, HTMLElement>();
+let badgeListenersInstalled = false;
+
+/** Pin `host` just past `target`'s trailing edge, vertically centred, in PAGE
+ *  coordinates (position: absolute on body) so it stays put through ordinary
+ *  scrolling without a listener firing. A target with no box — a control the
+ *  site has hidden, or one not laid out yet — hides the badge rather than
+ *  parking it at 0,0. */
+function positionBadge(host: HTMLElement, target: HTMLElement): void {
+  const rect = target.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) {
+    host.style.visibility = 'hidden';
+    return;
+  }
+  host.style.visibility = '';
+  const own = host.getBoundingClientRect();
+  host.style.left = `${String(rect.right + globalThis.scrollX + BADGE_GAP_PX)}px`;
+  host.style.top = `${String(rect.top + globalThis.scrollY + (rect.height - own.height) / 2)}px`;
+}
+
+function repositionAllBadges(): void {
+  for (const [host, target] of badgeAnchors) positionBadge(host, target);
+}
+
+/** Reposition on the things that move a rect without moving the page: a
+ *  scrolling ancestor (capture, so inner scrollers count) and a resize. Plain
+ *  page scrolling needs none of this — page coordinates already absorb it. */
+function installBadgeListeners(): void {
+  if (badgeListenersInstalled) return;
+  badgeListenersInstalled = true;
+  globalThis.addEventListener('scroll', repositionAllBadges, { capture: true, passive: true });
+  globalThis.addEventListener('resize', repositionAllBadges);
+}
+
+/** Append the badge to `document.body` — never into the site's own tree, so no
+ *  sibling selector, child index or flex gap count changes — and pin it. */
+function mountBadge(host: HTMLElement, target: HTMLElement): void {
+  host.setAttribute(ARIA_HIDDEN_ATTR, 'true');
+  document.body.append(host);
+  badgeAnchors.set(host, target);
+  installBadgeListeners();
+  positionBadge(host, target);
+}
+
 /** Build the curtain's shadow host element (no side effects on the target).
  *  Sets the data-attributes the STYLES key off, threads the explicit color
  *  scheme, and — for the chip skin — mirrors the description into the native
@@ -956,6 +1101,14 @@ function buildCurtainHost(opts: CurtainOptions, skin: CurtainSkin): HostWithHand
   host.setAttribute(HOST_ATTR, '');
   host.dataset['mode'] = opts.mode;
   host.dataset['skin'] = skin;
+  if (opts.mode === 'replace' && opts.block === true) {
+    host.dataset['block'] = 'true';
+    // Inline rather than a CSS rule: the value is measured per slot, and the
+    // host is ours, so it leaves with the curtain on detach.
+    if (opts.minHeight !== undefined && opts.minHeight > 0) {
+      host.style.minHeight = `${String(opts.minHeight)}px`;
+    }
+  }
   if (opts.mode === 'cover') {
     host.dataset['peek'] = String(opts.peek ?? true);
   }
@@ -1037,6 +1190,7 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
     detached = true;
     if (coverRestore) revertCoverSideEffects(target, coverRestore);
     if (replaceRestore) revertReplaceSideEffects(target, replaceRestore);
+    badgeAnchors.delete(host);
     host.remove();
   }
 
@@ -1055,6 +1209,10 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
 
   if (opts.mode === 'cover') {
     coverRestore = mountCoverCurtain(host, target, opts);
+  } else if (opts.mode === 'badge') {
+    // No side effects on the target at all, and nothing added to the site's
+    // tree — so detach() only has to drop the host and its tracking entry.
+    mountBadge(host, target);
   } else {
     replaceRestore = applyReplaceSideEffects(target);
     const parent = target.parentNode;

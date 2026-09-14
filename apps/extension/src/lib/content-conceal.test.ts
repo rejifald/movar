@@ -27,6 +27,8 @@ const failingCurtainPresenter: ContentPresenter = {
   attachContentCurtain: () => null,
   detachCurtains: () => {},
   attachPickerContainerCurtain: () => null,
+  attachPickerEntryCurtain: () => null,
+  attachPickerControlBadge: () => null,
   attachPickerSurvivorTooltip: () => null,
   detachAllTooltips: () => {},
 };

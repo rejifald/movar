@@ -185,11 +185,39 @@ export interface ClassifiedLink {
   language: LanguageCode;
 }
 
+/**
+ * How a picker seats its entries — the one thing that decides whether Movar
+ * can mark a removed entry IN PLACE, has to explain the gap from outside, or
+ * cannot say anything at all.
+ *
+ *   list   — an explicit ARIA listbox/menu: a stacked column of `role="option"`
+ *            / `role="menuitem"` rows, usually inside a dropdown the visitor
+ *            opens and scans with the pointer. Each row owns a full-width slot,
+ *            so a removed entry's slot is somewhere a marker can live.
+ *   inline — everything else, and overwhelmingly the header strip
+ *            (`UA | RU | EN`): a handful of entries packed on one line with
+ *            separators between them. A removed entry leaves no slot worth
+ *            occupying — the separator cleanup passes close the gap entirely —
+ *            so the only surface left is one anchored to what survived.
+ *   native — a native `<select>`, whatever role it claims. Its popup is drawn
+ *            by the browser OUTSIDE the document: an `<option>` may not contain
+ *            an element, and (measured in Chromium) every `<option>` reports a
+ *            0×0 box even with the control on screen, so it can never take a
+ *            hover or a focus either. Nothing Movar inserts or anchors there is
+ *            reachable — which makes concealment here necessarily SILENT, and
+ *            that is a decision about conceal mode rather than about layout.
+ */
+export type PickerLayout = 'list' | 'inline' | 'native';
+
 export interface Picker {
   container: HTMLElement;
   /** Deduped-by-language display set (see `dedupByLanguage` in extract.ts) —
    *  one entry per distinct language, for counting/labelling/tooltip use. */
   links: ClassifiedLink[];
+  /** Shape of the picker, as {@link PickerLayout} defines it. Optional so
+   *  hand-built test fixtures that only set `container`/`links` keep compiling;
+   *  consumers read an absent value as `'inline'`, the historical behaviour. */
+  layout?: PickerLayout;
   /** Every classified link inside the container BEFORE the language dedup
    *  that produces `links` above — includes regional-variant duplicates
    *  (e.g. both `ru-RU` and `ru-UA`) that dedup collapsed away. Filtering

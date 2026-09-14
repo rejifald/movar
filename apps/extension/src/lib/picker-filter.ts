@@ -26,12 +26,52 @@ import type {
 const DIVIDER_CLASS_PATTERN = /(^|[-_\s])(divider|separator|sep|bullet|pipe)([-_\s]|$)/i;
 
 const PICKER_CURTAIN_KIND = 'picker-container';
+const PICKER_ENTRY_CURTAIN_KIND = 'picker-entry';
+const PICKER_BADGE_KIND = 'picker-badge';
 
 /** Per-anchor tooltip handles, used to detach a previously-attached
  *  tooltip when annotateSurvivingLinks re-runs (MutationObserver, settings
  *  change) and the hidden-language list might have changed. WeakMap so
  *  detached/removed anchors are GC'd along with their handles. */
 const anchorTooltips = new WeakMap<HTMLElement, PresenterHandle>();
+
+/**
+ * What each live tooltip currently SAYS, keyed by its anchor — the hidden
+ * languages joined in order.
+ *
+ * Without it, every MutationObserver re-fire detached the anchor's tooltip and
+ * attached an identical replacement. That is invisible for a mark that is always
+ * on screen, and destructive for one that is not: the replacement starts closed,
+ * and the pointer is already inside the anchor, so no fresh `mouseenter` ever
+ * fires and the explanation the visitor was reading simply disappears. Measured
+ * in Chromium on the `picker-select-ru` fixture, the host was replaced ~600ms
+ * into a hover that never moved.
+ *
+ * So a re-annotate is now a no-op while the copy would be identical, and only
+ * rebuilds when the hidden-language list actually changed.
+ */
+const anchorTooltipKeys = new WeakMap<HTMLElement, string>();
+
+/** Per-entry chip handles for list-shaped pickers, keyed by the hidden entry
+ *  they stand in for. Mirrors {@link anchorTooltips}: the marker is re-derived
+ *  on every filter pass, so the previous one has to be reachable to detach.
+ *  WeakMap so an entry the site re-renders away takes its handle with it. */
+const entryCurtains = new WeakMap<HTMLElement, PresenterHandle>();
+
+/** Per-control badge handles for native `<select>` pickers, with the copy each
+ *  currently carries — same idempotence bookkeeping as {@link anchorTooltips} /
+ *  {@link anchorTooltipKeys}, keyed by the control rather than by an entry. */
+const controlBadges = new WeakMap<HTMLElement, PresenterHandle>();
+const controlBadgeKeys = new WeakMap<HTMLElement, string>();
+
+/** Detach a control's badge (and the tooltip anchored on it). Idempotent. */
+function detachControlBadge(control: HTMLElement): void {
+  const existing = controlBadges.get(control);
+  if (!existing) return;
+  existing.detach();
+  controlBadges.delete(control);
+  controlBadgeKeys.delete(control);
+}
 
 /** Text that is entirely separator characters and whitespace, and contains
  *  at least one non-whitespace separator. Pure-whitespace nodes are layout,
@@ -375,7 +415,8 @@ export function restoreOriginalBorders(el: HTMLElement): void {
  *     hideUselessDividers output)
  *   - put back any leaf-link textContent we trimmed via
  *     trimOrphanSeparators (ORIGINAL_TEXT_ATTR)
- *   - detach all tooltips Movar attached to surviving links
+ *   - detach all tooltips Movar attached to surviving links, and all in-row
+ *     chips it left standing in a list picker's hidden rows
  *   - mark the container with RESTORED_ATTR so the next MutationObserver
  *     re-fire of filterPickers skips it
  *
@@ -390,6 +431,12 @@ export function restoreOriginalBorders(el: HTMLElement): void {
 /* eslint-disable sonarjs/cognitive-complexity -- inverse of the multi-pass filter pipeline; splitting forces coupled exports */
 // fallow-ignore-next-line complexity
 function restorePickerInPlace(picker: Picker): void {
+  // Drop the in-row chips FIRST. Each one reverts the entry's inline `display`
+  // to the value it snapshotted — `none !important`, written by hideElement
+  // before the chip went up — so the un-hide below has to be what runs last.
+  for (const link of picker.links) {
+    detachEntryCurtain(link.el);
+  }
   // Un-hide classified links. Iterates the full pre-dedup set (falling back
   // to `links` when a caller never populated it) so a regional-variant
   // duplicate that filterPickerLinks hid via `allLinks` — and which may not
@@ -435,30 +482,169 @@ function restorePickerInPlace(picker: Picker): void {
     }
     span.replaceWith(picker.container.ownerDocument.createTextNode(original));
   }
-  // Detach the tooltips Movar attached to surviving links.
+  // Detach the tooltips Movar attached to surviving links — and the one a
+  // native <select> carries on the control instead of on its options.
   for (const link of picker.links) {
-    const handle = anchorTooltips.get(link.el);
-    if (!handle) continue;
-    handle.detach();
-    anchorTooltips.delete(link.el);
+    detachSurvivorTooltip(link.el);
   }
+  detachSurvivorTooltip(picker.container);
+  detachControlBadge(picker.container);
   // Mark the container so filterPickers' next pass leaves it alone.
   picker.container.setAttribute(RESTORED_ATTR, '');
 }
 /* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
 
-/** Detach `link`'s previously-attached survivor tooltip, if any — removing
+/** Detach `anchor`'s previously-attached survivor tooltip, if any — removing
  *  both its host (appended to `document.body`, outside the picker subtree)
  *  and its entry in tooltip.ts's `tooltipRegistry` — and drop it from
- *  `anchorTooltips`. Idempotent: a no-op when the link never had one. Must
- *  run for every link leaving tooltip-eligibility, not just re-annotated
- *  survivors — otherwise the host/registry entry orphans permanently
- *  (movar#303). */
-function detachSurvivorTooltip(link: ClassifiedLink): void {
-  const existing = anchorTooltips.get(link.el);
+ *  `anchorTooltips`. Idempotent: a no-op when the anchor never had one. Must
+ *  run for every anchor leaving tooltip-eligibility, not just re-annotated
+ *  ones — otherwise the host/registry entry orphans permanently (movar#303).
+ *  Takes an element rather than a ClassifiedLink because the native-`<select>`
+ *  path anchors on the CONTROL, which is not a classified entry. */
+function detachSurvivorTooltip(anchor: HTMLElement): void {
+  const existing = anchorTooltips.get(anchor);
   if (!existing) return;
   existing.detach();
-  anchorTooltips.delete(link.el);
+  anchorTooltips.delete(anchor);
+  anchorTooltipKeys.delete(anchor);
+}
+
+/** True when `anchor` already carries a live tooltip saying exactly this — so
+ *  rebuilding it would change nothing on screen except to close it. */
+function tooltipIsCurrent(anchor: HTMLElement, key: string): boolean {
+  return anchorTooltips.has(anchor) && anchorTooltipKeys.get(anchor) === key;
+}
+
+/** Stable identity for a tooltip's copy: the hidden languages, in picker order. */
+function hiddenLanguageKey(hiddenLanguages: readonly LanguageCode[]): string {
+  return hiddenLanguages.join(',');
+}
+
+/**
+ * Height of the box `entry` used to occupy, taken from a still-visible sibling
+ * row — 0 when none can be measured.
+ *
+ * Measured off a sibling rather than off the entry itself because by the time a
+ * chip goes up, `filterPickerLinks` has already hidden the entry and its box is
+ * gone; un-hiding it to measure would mean a write, a forced reflow and a
+ * re-hide on every observer re-fire. A list picker's rows are uniform by
+ * construction — that uniformity is most of what makes it a list rather than a
+ * strip — so a sibling's box IS the hidden row's box.
+ *
+ * Skips Movar's own hosts and anything else already hidden, so a second chip in
+ * the same container never measures the first one.
+ */
+function slotHeightFor(entry: HTMLElement): number {
+  const parent = entry.parentElement;
+  if (!parent) return 0;
+  for (const sibling of parent.children) {
+    if (sibling === entry || !(sibling instanceof HTMLElement)) continue;
+    if (sibling.hasAttribute(HIDDEN_ATTR)) continue;
+    if (Object.hasOwn(sibling.dataset, 'movarCurtain')) continue;
+    if (sibling.offsetHeight > 0) return sibling.offsetHeight;
+  }
+  return 0;
+}
+
+/** Detach `entry`'s previously-attached chip, if any. Idempotent. Must run
+ *  before the entry's display is restored: the chip's own detach puts back the
+ *  `display` it snapshotted, which is the `none !important` hideElement wrote. */
+function detachEntryCurtain(entry: HTMLElement): void {
+  const existing = entryCurtains.get(entry);
+  if (!existing) return;
+  existing.detach();
+  entryCurtains.delete(entry);
+}
+
+/**
+ * Mark each hidden entry of a LIST-shaped picker with a chip in its own row,
+ * instead of hanging a tooltip off every survivor.
+ *
+ * Why the two shapes diverge here: the survivor tooltip is a hover popup, and a
+ * list picker is the one shape where that is actively hostile. Its rows are what
+ * the visitor sweeps the pointer across to read the options — so a tooltip on
+ * each survivor turns every recognised row into a trap that opens a panel over
+ * the rows around it, at a z-index above the site's own dropdown. On
+ * bigfive-test.com (42 options, 9 of them languages Movar classifies) that was
+ * eight hover traps inside the list, and picking any other language meant
+ * dodging them. An inline strip has no such problem — and no row to mark either,
+ * since the cleanup passes close the gap completely — so it keeps the tooltip.
+ *
+ * One chip per hidden LANGUAGE, not per hidden element: `picker.links` is the
+ * deduped display set, so a picker carrying both `ru-RU` and `ru-UA` gets a
+ * single marker while `filterPickerLinks` still hides both elements.
+ *
+ * Idempotent across MutationObserver re-fires — the previous chip is detached
+ * first, the same way {@link annotateSurvivingLinks} handles its tooltips.
+ */
+function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefined): void {
+  for (const link of picker.links) {
+    // A chip is always on screen, so a rebuild is not destructive the way a
+    // tooltip's is — but it still repaints and restarts the fade, so skip it
+    // when the row already carries the chip it should.
+    if (link.el.hasAttribute(HIDDEN_ATTR) && entryCurtains.has(link.el)) continue;
+    detachEntryCurtain(link.el);
+    if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
+    if (presenter?.hasVisiblePresentation !== true) continue;
+    const handle = presenter.attachPickerEntryCurtain({
+      entry: link.el,
+      language: link.language,
+      slotHeight: slotHeightFor(link.el),
+      restore: () => {
+        restorePickerInPlace(picker);
+      },
+    });
+    if (handle === null) continue;
+    handle.host.dataset['movarKind'] = PICKER_ENTRY_CURTAIN_KIND;
+    entryCurtains.set(link.el, handle);
+  }
+}
+
+/**
+ * Mark a native `<select>` with a badge beside the control.
+ *
+ * Its `<option>`s can carry nothing: an `<option>` may not contain an element,
+ * and — measured in Chromium on the `picker-select-ru` fixture — every
+ * `<option>` reports a 0x0 box even with the control on screen, so it can take
+ * neither a chip nor a hover. Anchoring the survivor tooltip to each surviving
+ * option, which is what the inline path does, produced explanation surfaces that
+ * could never be opened.
+ *
+ * Anchoring on the `<select>` itself works, but says nothing until someone
+ * happens to hover it — and on a control the visitor is aiming at anyway, that
+ * is a coin flip. The badge is the fix: an always-visible mark in the flow
+ * beside the control, resting as the bare sigil and expanding to its label on
+ * hover or keyboard focus, with the detail and the restore action in a tooltip
+ * anchored on the badge. In-flow rather than floating, so it tracks the control
+ * through scrolling and sticky headers for free and can never come to rest on
+ * top of the site's own UI.
+ *
+ * Idempotent across MutationObserver re-fires the same way the tooltip paths
+ * are, and for a sharper reason: a rebuilt badge would restart its fade and drop
+ * an open tooltip mid-read.
+ */
+function markNativeControl(
+  picker: Picker,
+  hiddenLanguages: LanguageCode[],
+  presenter: ContentPresenter | undefined,
+): void {
+  const key = hiddenLanguageKey(hiddenLanguages);
+  if (controlBadgeKeys.get(picker.container) === key && controlBadges.has(picker.container)) return;
+  detachControlBadge(picker.container);
+  if (hiddenLanguages.length === 0) return;
+  if (presenter?.hasVisiblePresentation !== true) return;
+  const handle = presenter.attachPickerControlBadge({
+    control: picker.container,
+    hiddenLanguages,
+    restore: () => {
+      restorePickerInPlace(picker);
+    },
+  });
+  if (handle === null) return;
+  handle.host.dataset['movarKind'] = PICKER_BADGE_KIND;
+  controlBadges.set(picker.container, handle);
+  controlBadgeKeys.set(picker.container, key);
 }
 
 /**
@@ -483,8 +669,10 @@ function annotateSurvivingLinks(
 ): void {
   if (hiddenLanguages.length === 0) return;
 
+  const key = hiddenLanguageKey(hiddenLanguages);
   for (const link of picker.links) {
-    detachSurvivorTooltip(link);
+    if (tooltipIsCurrent(link.el, key)) continue;
+    detachSurvivorTooltip(link.el);
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
     if (presenter?.hasVisiblePresentation !== true) continue;
     const handle = presenter.attachPickerSurvivorTooltip({
@@ -494,7 +682,9 @@ function annotateSurvivingLinks(
         restorePickerInPlace(picker);
       },
     });
-    if (handle !== null) anchorTooltips.set(link.el, handle);
+    if (handle === null) continue;
+    anchorTooltips.set(link.el, handle);
+    anchorTooltipKeys.set(link.el, key);
   }
 }
 
@@ -611,12 +801,25 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
  * Only called when the container stays visible. When the chip is about to hide
  * the whole container, this cleanup would be invisible AND would leak past the
  * chip's "click-to-restore = exact picker state" contract.
+ *
+ * The four passes run for every layout — a list picker simply has no separators
+ * for them to find. What the layout picks is the SURFACE that explains the gap:
+ * an in-row chip for a list, the survivor tooltip for an inline strip (see
+ * {@link markHiddenEntries} for why a list must not get the tooltip).
  */
 function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter | undefined): void {
   hideUselessDividers(picker);
   hideOrphanEdgeBorders(picker);
   trimOrphanSeparators(picker);
   trimContainerTextSeparators(picker);
+  if (picker.layout === 'list') {
+    markHiddenEntries(picker, presenter);
+    return;
+  }
+  if (picker.layout === 'native') {
+    markNativeControl(picker, collectHiddenLanguages(picker), presenter);
+    return;
+  }
   annotateSurvivingLinks(picker, collectHiddenLanguages(picker), presenter);
 }
 

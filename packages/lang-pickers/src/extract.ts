@@ -1,5 +1,5 @@
 import { MAX_PICKER_DEPTH, SEED_SELECTORS, TEXT_DIVIDER_KIND } from './types';
-import type { ClassifiedLink, Picker } from './types';
+import type { ClassifiedLink, Picker, PickerLayout } from './types';
 import { classifyLanguageElement } from './classify';
 
 /** Keep only outer elements when a classified element is nested inside another. */
@@ -135,6 +135,28 @@ export function pruneOuterContainers(containers: HTMLElement[]): HTMLElement[] {
 }
 
 /**
+ * Decide a picker's {@link PickerLayout} from its ARIA roles alone.
+ *
+ * Roles, not tags or classes, because they are the only signal that survives a
+ * redesign AND separates the two shapes. `<ul>` fails on both counts: a header
+ * strip is just as likely to be a `<ul>` laid out with `display: flex` (see the
+ * `picker-survivor-uk` e2e fixture) as a dropdown is, so reading the tag would
+ * misclassify the common case. Explicit `role="listbox"` / `role="menu"` (or the
+ * matching per-row roles) is a deliberate authoring act that says "this is a
+ * stacked menu of options" — which is exactly the distinction that matters here.
+ *
+ * A native `<select>` short-circuits to `native` whatever role it claims: the
+ * browser draws its popup outside the document, so neither a marker inserted
+ * among its `<option>`s nor one anchored to them is ever reachable.
+ */
+export function pickerLayout(container: HTMLElement, links: ClassifiedLink[]): PickerLayout {
+  if (container.tagName === 'SELECT') return 'native';
+  if (container.matches('[role="listbox"], [role="menu"]')) return 'list';
+  const rowRoles = '[role="option"], [role="menuitem"], [role="menuitemradio"]';
+  return links.some((link) => link.el.matches(rowRoles)) ? 'list' : 'inline';
+}
+
+/**
  * Find language pickers on the page. Seeded broadly (anchors, data-lang, class
  * hints, hreflang); once at least two classified elements share a small common
  * ancestor, that ancestor becomes the picker. Direct children of the candidate
@@ -171,6 +193,11 @@ export function findLanguagePickers(root: ParentNode = document): Picker[] {
     // `allLinks` keeps the full pre-dedup set so filterPickerLinks can hide
     // every regional-variant duplicate, not just the one dedup kept for
     // display in `links` (movar#293).
-    return { container, links: dedupByLanguage(links), allLinks: links };
+    return {
+      container,
+      links: dedupByLanguage(links),
+      allLinks: links,
+      layout: pickerLayout(container, links),
+    };
   });
 }

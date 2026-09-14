@@ -10,7 +10,8 @@
     "container": "SELECT",
     "containerId": "sw_language",
     "links": 3,
-    "languages": ["en", "ru", "uk"]
+    "languages": ["en", "ru", "uk"],
+    "layout": "native"
   },
   "page": {
     "url": "https://example.com/ru/",

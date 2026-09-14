@@ -156,6 +156,56 @@ export function setupSelectPicker(): void {
   `);
 }
 
+/**
+ * The bigfive-test.com shape: a HeroUI/react-aria `Select` whose options are
+ * portalled into a `<ul role="listbox">` of `<li role="option" value="xx">`
+ * rows. The site ships 42 of them; nine are languages Movar classifies, so the
+ * list here keeps that ratio in miniature — a handful of classified rows among
+ * unclassifiable ones, which is what makes the survivor tooltip's
+ * one-per-survivor fan-out visible.
+ */
+export function setupListboxPicker(): HTMLElement {
+  const rows = [
+    ['sq', 'Albanian'],
+    ['de', 'Deutsch'],
+    ['en', 'English'],
+    ['fr', 'French'],
+    ['ru', 'Russian'],
+    ['th', 'Thai'],
+    ['uk', 'Ukrainian'],
+  ];
+  setBody(`
+    <div data-slot="popover">
+      <ul id="picker" role="listbox">
+        ${rows.map(([code, label]) => `<li role="option" id="opt-${code}" value="${code}">${label}</li>`).join('')}
+      </ul>
+    </div>
+  `);
+  const el = document.querySelector<HTMLElement>('ul#picker');
+  if (!el) throw new Error('setupListboxPicker: ul#picker not found');
+  return el;
+}
+
+/** Assert `entrySelector` is hidden and a picker-entry chip stands in its slot,
+ *  i.e. as the element immediately before it. */
+export function expectEntryCurtained(entrySelector: string): HTMLElement {
+  const entry = document.querySelector<HTMLElement>(entrySelector)!;
+  expect(entry.style.display).toBe('none');
+  const host = entry.previousElementSibling as HTMLElement | null;
+  expect(host?.dataset['movarKind']).toBe('picker-entry');
+  return host!;
+}
+
+/** Collect every control-badge host currently standing beside a native control. */
+export function getControlBadges(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('[data-movar-kind="picker-badge"]')];
+}
+
+/** Collect every picker-entry chip host currently standing in a hidden row. */
+export function getEntryCurtainHosts(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('[data-movar-kind="picker-entry"]')];
+}
+
 /** Collect every tooltip host (`[data-movar-tooltip]`) currently attached
  *  under the document. Mirrors the `getHosts` helper in tooltip.test.ts
  *  but lives here because picker tests want the same query without

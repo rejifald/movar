@@ -3,7 +3,8 @@
  *
  *   - which elements carry `data-movar-hidden` (the picker-filter result)
  *   - which curtain hosts are mounted (`data-movar-curtain` — content-filter
- *     blur cards + picker-container chip overlays)
+ *     blur cards, picker-container chip overlays, and the in-row chips a
+ *     list-shaped picker gets in place of survivor tooltips)
  *   - whether the `[data-movar-restored]` marker was set (the user-pressed
  *     "Show hidden options" path)
  *
@@ -16,6 +17,13 @@ export interface MovarDomState {
   hiddenLinkCount: number;
   curtainCount: number;
   pickerContainerCurtainCount: number;
+  /** Chips standing in a hidden row of a LIST-shaped picker (`picker-entry`).
+   *  Counted apart from `contentBlurCount`, which would otherwise absorb them
+   *  — it is the "everything that isn't a picker chip" bucket. */
+  pickerEntryCurtainCount: number;
+  /** Badges standing beside a control Movar cannot mark inside (`picker-badge`).
+   *  Counted apart from `contentBlurCount` for the same reason as the chips. */
+  pickerBadgeCount: number;
   contentBlurCount: number;
   trimmedTextCount: number;
 }
@@ -24,19 +32,21 @@ export async function readMovarDomState(page: Page): Promise<MovarDomState> {
   return page.evaluate(() => {
     const hiddenLinks = document.querySelectorAll('[data-movar-hidden]').length;
     const curtainHosts = document.querySelectorAll('[data-movar-curtain]');
-    let containerKind = 0;
-    let blurKind = 0;
+    // Every curtain host carries a `data-movar-kind` naming which surface it is;
+    // anything unlabelled is a content-filter blur card.
+    const byKind: Record<string, number> = {};
     for (const h of curtainHosts) {
-      const kind = (h as HTMLElement).dataset['movarKind'];
-      if (kind === 'picker-container') containerKind += 1;
-      else blurKind += 1;
+      const kind = (h as HTMLElement).dataset['movarKind'] ?? 'content-blur';
+      byKind[kind] = (byKind[kind] ?? 0) + 1;
     }
     const trimmed = document.querySelectorAll('[data-movar-original-text]').length;
     return {
       hiddenLinkCount: hiddenLinks,
       curtainCount: curtainHosts.length,
-      pickerContainerCurtainCount: containerKind,
-      contentBlurCount: blurKind,
+      pickerContainerCurtainCount: byKind['picker-container'] ?? 0,
+      pickerEntryCurtainCount: byKind['picker-entry'] ?? 0,
+      pickerBadgeCount: byKind['picker-badge'] ?? 0,
+      contentBlurCount: byKind['content-blur'] ?? 0,
       trimmedTextCount: trimmed,
     };
   });

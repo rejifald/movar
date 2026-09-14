@@ -1,0 +1,29 @@
+{
+  "surface": "picker",
+  "shape": {
+    "selectors": {
+      "ul[role=\"listbox\"]": 1,
+      "li[role=\"option\"][value=\"ru\"]": 1,
+      "li[role=\"option\"][value=\"uk\"][aria-selected=\"true\"]": 1,
+      "[class*=\"lang\"]": 0,
+      "a[hreflang]": 0
+    },
+    "minSelectors": {
+      "li[role=\"option\"][value]": 42
+    }
+  },
+  "picker": {
+    "containerId": "language-listbox",
+    "links": 9,
+    "languages": ["bg", "de", "en", "es", "fr", "it", "pl", "ru", "uk"],
+    "layout": "list"
+  },
+  "page": {
+    "url": "https://bigfive-test.com/uk",
+    "htmlLang": "uk",
+    "activeLanguage": null,
+    "detectedLanguage": "uk",
+    "expectNavigation": false,
+    "note": "Already Ukrainian, so the ladder must stand down. activeLanguage ABSTAINS by design: every row is a non-anchor <li>, so the inactive-switcher signal fires on all 42 at once and singles none out, and the site marks its current entry with aria-selected / data-selected — neither of which is an active-entry marker (aria-CURRENT is). htmlLang carries the page instead. Pinning the abstention keeps a future active-marker change visible."
+  }
+}

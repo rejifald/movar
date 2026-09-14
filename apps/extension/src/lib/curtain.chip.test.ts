@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { attachCurtain } from './curtain';
-import type { ActionContext } from './curtain';
+import type { ActionContext, CurtainOptions } from './curtain';
 import { setBody, getHost, getShadow } from './dom-test-helpers';
 
 // Global setup in test-setup.ts clears body/head/lang before each test and
@@ -188,5 +188,45 @@ describe('attachCurtain — chip skin', () => {
     expect(getShadow(getHost()!).querySelector('.chip')?.getAttribute('aria-label')).toBe(
       'screen reader copy',
     );
+  });
+});
+
+/** Base chip options, rebuilt per call — `actions` must stay a mutable array. */
+function chipOpts(): Pick<CurtainOptions, 'skin' | 'icon' | 'title' | 'actions'> {
+  return {
+    skin: 'chip',
+    icon: '⚑',
+    title: 'Movar: hidden',
+    actions: [{ label: 'Show', onClick: () => {} }],
+  };
+}
+
+describe('chip skin — block replace', () => {
+  it('marks the host so the full-width CSS applies', () => {
+    setBody('<div id="parent"><span id="t">x</span></div>');
+    attachCurtain(document.querySelector<HTMLElement>('#t')!, {
+      mode: 'replace',
+      block: true,
+      ...chipOpts(),
+    });
+    expect(getHost()!.dataset['block']).toBe('true');
+  });
+
+  it('stays content-sized by default — a header strip must not get a band', () => {
+    // The picker-CONTAINER chip sits in a line of other items; a full-width
+    // band there would blow the strip apart. Opt-in, never inferred.
+    setBody('<div id="parent"><span id="t">x</span></div>');
+    attachCurtain(document.querySelector<HTMLElement>('#t')!, { mode: 'replace', ...chipOpts() });
+    expect(getHost()!.dataset['block']).toBeUndefined();
+  });
+
+  it('ignores block in cover mode, where the host already fills the target', () => {
+    setBody('<div id="parent"><div id="t">x</div></div>');
+    attachCurtain(document.querySelector<HTMLElement>('#t')!, {
+      mode: 'cover',
+      block: true,
+      ...chipOpts(),
+    });
+    expect(getHost()!.dataset['block']).toBeUndefined();
   });
 });

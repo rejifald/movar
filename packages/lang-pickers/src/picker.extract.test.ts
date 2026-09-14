@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from './extract';
-import { setBody, setupDeeplyNestedPicker } from './picker.test-utils';
+import { setBody, setupDeeplyNestedPicker, setupListboxPicker } from './picker.test-utils';
 
 describe('findLanguagePickers — real-world DOM shapes', () => {
   it('pierces an open shadow root to find a picker (component-library switchers)', () => {
@@ -109,5 +109,68 @@ describe('findLanguagePickers — real-world DOM shapes', () => {
     const pickers = findLanguagePickers(parsed);
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+  });
+});
+
+describe('findLanguagePickers — layout', () => {
+  it('reads an explicit ARIA listbox of options as a list (bigfive-test.com)', () => {
+    setupListboxPicker();
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.layout).toBe('list');
+  });
+
+  it('reads a role="menu" of menuitems as a list', () => {
+    setBody(`
+      <div id="picker" role="menu">
+        <a role="menuitem" href="/ua/x">UA</a>
+        <a role="menuitem" href="/ru/x">RU</a>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('reads per-row option roles as a list even when the container carries none', () => {
+    // react-aria renders the rows' roles reliably; the wrapper that ends up as
+    // the picker container is not always the element holding role="listbox".
+    setBody(`
+      <div id="picker">
+        <div role="option" value="uk">Українська</div>
+        <div role="option" value="ru">Русский</div>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('reads a <ul> header strip as inline — the tag says nothing about the shape', () => {
+    // The picker-survivor-uk e2e fixture is exactly this: a <ul> laid out with
+    // display:flex, i.e. a one-line strip. Keying off the tag would misread it.
+    setBody(`
+      <nav>
+        <ul id="picker" class="lang-switcher">
+          <li><a hreflang="ru" href="/ru/">Русский</a></li>
+          <li><a hreflang="uk" href="/">Українська</a></li>
+          <li><a hreflang="en" href="/en/">English</a></li>
+        </ul>
+      </nav>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
+  });
+
+  it('reads a native <select> as native even when it claims role="listbox"', () => {
+    // The browser draws a <select>'s popup outside the document, so neither a
+    // marker inserted among its <option>s nor one anchored to them is reachable.
+    setBody(`
+      <select id="picker" role="listbox">
+        <option value="uk">Українська</option>
+        <option value="ru">Русский</option>
+      </select>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('native');
+  });
+
+  it('reads a plain bare-anchor strip as inline', () => {
+    setBody('<div id="picker"><a href="/ua/x">UA</a><a href="/ru/x">RU</a></div>');
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
   });
 });

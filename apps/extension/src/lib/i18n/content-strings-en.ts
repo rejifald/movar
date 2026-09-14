@@ -9,6 +9,11 @@ export const contentStringsEn: ContentStrings = {
     chipLabelNoLang: 'Movar hid this language switcher — click to show',
     show: 'Show',
   },
+  pickerEntry: {
+    label: 'Movar: hidden',
+    chipLabel: 'Movar hid the {endonym} option — click to show',
+    show: 'Show',
+  },
   pickerSurvivor: {
     title: 'Some options hidden',
     body: 'Movar hid: {languages}.',

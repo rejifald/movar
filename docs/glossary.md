@@ -192,8 +192,23 @@ How blocked content actually gets hidden, and what the user sees.
   language switcher (dropdown, buttons, flags). Movar reads it to learn the active
   language and can hide blocked-language entries from it.
 - <a id="picker-filter"></a>**Picker-filter** — Hiding blocked-language entries inside a
-  site's language picker (as opposed to concealing content cards). A hidden entry's text
-  is replaced by a small inline tooltip naming the language that was hidden.
+  site's language picker (as opposed to concealing content cards). What marks the gap
+  depends on the picker's [layout](#picker-layout): a chip in the hidden row for a list,
+  a hover tooltip on the survivors for an inline strip.
+- <a id="picker-layout"></a>**Picker layout** — Whether a picker is a `list` (an ARIA
+  listbox/menu — a dropdown of stacked `role="option"` rows, like bigfive-test.com's), an
+  `inline` strip (`UA | RU | EN` in a header), or `native` (a real `<select>`). A list has
+  a row where the removed entry used to be, so Movar marks it there; a strip has no such
+  slot, and a hover tooltip over a list's rows would cover the very options the visitor is
+  reading. A `native` picker's entries can carry nothing at all — the browser draws its
+  popup outside the document — so Movar stands a [badge](#picker-badge) beside the control
+  instead.
+- <a id="picker-badge"></a>**Picker badge** — The mark Movar leaves beside a native
+  `<select>` whose entries it cannot mark: a curtain in `badge` mode, floating next to the
+  control and deliberately inert — appended to `<body>` rather than the site's tree, with
+  `pointer-events: none`, `aria-hidden`, and no tab stop, so it can neither take a click,
+  shift the layout, nor add a keyboard stop. Hovering or focusing the control expands it
+  to its label and opens the tooltip that carries the hidden languages and the way back.
 - <a id="active-picker"></a>**Active picker / active language** — The option currently
   selected in a site's picker. It's the most reliable signal of what language the site
   is actually serving, because the picker state and the rendered content are set

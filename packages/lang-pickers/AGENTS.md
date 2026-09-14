@@ -16,8 +16,11 @@ package only reads.
 - **Never imports** `@movar/page-mode`, `@movar/page-content`, `@movar/page-language`,
   or anything from `apps/extension` (overlays, i18n, concealment).
 - DOM mutation (hiding picker entries, trimming orphan separators, inserting
-  survivor tooltips) lives entirely in `apps/extension/src/lib/picker-filter.ts`
-  (`filterPickers`). This package is the model layer that `filterPickers` consumes.
+  survivor tooltips and in-row chips) lives entirely in
+  `apps/extension/src/lib/picker-filter.ts` (`filterPickers`). This package is the
+  model layer that `filterPickers` consumes — including `Picker.layout`
+  (`pickerLayout` in `extract.ts`), which DESCRIBES the picker's shape so
+  `filterPickers` can pick a surface; the choice of surface stays app-side.
 - `buildPickerModel` is in its own file to avoid a circular dependency:
   `extract.ts` → `active.ts` → (would need `extract.ts`); callers pass
   `Picker[]` in.

@@ -145,15 +145,38 @@ export function pruneOuterContainers(containers: HTMLElement[]): HTMLElement[] {
  * matching per-row roles) is a deliberate authoring act that says "this is a
  * stacked menu of options" — which is exactly the distinction that matters here.
  *
- * A native `<select>` short-circuits to `native` whatever role it claims: the
- * browser draws its popup outside the document, so neither a marker inserted
- * among its `<option>`s nor one anchored to them is ever reachable.
+ * Anything inside a native `<select>` short-circuits to `native` whatever role it
+ * claims: the browser draws its popup outside the document, so neither a marker
+ * inserted among its `<option>`s nor one anchored to them is ever reachable.
+ * Tested with `closest`, not on the container's own tag — a grouped select's
+ * container is the `<optgroup>`, since that already holds two languages and
+ * `findPickerContainer` stops at the first ancestor that does.
+ *
+ * `role="menubar"` is the one menu role that means a ROW of items, so it is
+ * pinned to `inline` before the per-row roles are consulted; its children
+ * legitimately carry `role="menuitem"` and would otherwise read as a stacked
+ * list and be handed a full-width band.
+ *
+ * Row roles are matched with `closest` (bounded to the container) rather than
+ * `matches`, because `classifyContainerChildren` prefers the innermost
+ * classified descendant: in the overwhelmingly common
+ * `<li role="option"><a hreflang="ru">…</a></li>` the ClassifiedLink is the
+ * `<a>`, which carries no role at all. Reading only the classified element made
+ * every Bootstrap/HeadlessUI-shaped dropdown fall through to `inline` — i.e. to
+ * the survivor-tooltip fan-out this whole layout split exists to avoid.
  */
 export function pickerLayout(container: HTMLElement, links: ClassifiedLink[]): PickerLayout {
-  if (container.tagName === 'SELECT') return 'native';
+  if (container.closest('select') !== null) return 'native';
+  if (container.matches('[role="menubar"]')) return 'inline';
   if (container.matches('[role="listbox"], [role="menu"]')) return 'list';
-  const rowRoles = '[role="option"], [role="menuitem"], [role="menuitemradio"]';
-  return links.some((link) => link.el.matches(rowRoles)) ? 'list' : 'inline';
+  const rowRoles =
+    '[role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
+  return links.some((link) => {
+    const row = link.el.closest(rowRoles);
+    return row !== null && container.contains(row);
+  })
+    ? 'list'
+    : 'inline';
 }
 
 /**

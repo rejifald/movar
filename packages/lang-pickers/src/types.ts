@@ -214,10 +214,12 @@ export interface Picker {
   /** Deduped-by-language display set (see `dedupByLanguage` in extract.ts) —
    *  one entry per distinct language, for counting/labelling/tooltip use. */
   links: ClassifiedLink[];
-  /** Shape of the picker, as {@link PickerLayout} defines it. Optional so
-   *  hand-built test fixtures that only set `container`/`links` keep compiling;
-   *  consumers read an absent value as `'inline'`, the historical behaviour. */
-  layout?: PickerLayout;
+  /** Shape of the picker, as {@link PickerLayout} defines it. Required: an
+   *  absent value would read as `'inline'`, which on a native `<select>` means
+   *  survivor tooltips anchored to `<option>`s that can never be opened — the
+   *  defect this field exists to route around, and one no type error would
+   *  catch. */
+  layout: PickerLayout;
   /** Every classified link inside the container BEFORE the language dedup
    *  that produces `links` above — includes regional-variant duplicates
    *  (e.g. both `ru-RU` and `ru-UA`) that dedup collapsed away. Filtering

@@ -541,6 +541,20 @@ test.describe('content script — mocked sites', () => {
       hasBox: true,
       startsAfter: true,
     });
+    // ...and it actually sits NEXT to the control. The fixture's shell is
+    // `body { position: relative; max-width: 600px; margin: 0 auto }`, which
+    // makes body a containing block: a `position: absolute` host with page
+    // coordinates resolved against body's padding box and landed 386px away.
+    // `position: fixed` + viewport coordinates is what keeps this tight.
+    const gap = await movarPage.evaluate(() => {
+      const sel = document.querySelector<HTMLElement>('#lang-select')!.getBoundingClientRect();
+      const host = document
+        .querySelector<HTMLElement>('[data-movar-kind="picker-badge"]')!
+        .getBoundingClientRect();
+      return { dx: Math.round(host.left - sel.right), dy: Math.round(host.top - sel.top) };
+    });
+    expect(gap.dx).toBeLessThanOrEqual(12);
+    expect(Math.abs(gap.dy)).toBeLessThanOrEqual(12);
   });
 
   test('the badge cannot block the visitor: no clicks, no tab stop, no layout shift', async ({

@@ -10,11 +10,16 @@ import type {
   PresenterHandle,
 } from './content-presenter';
 import { attachCurtain, defaultHiddenIcon, detachAllCurtains } from './curtain';
-import { getContentMessages } from './i18n/content';
+import { getContentLocale, getContentMessages } from './i18n/content';
 import { attachTooltip, detachAllTooltips } from './tooltip';
 
 export interface ContentPresenterAdapterOptions {
   getColorScheme: () => PageMode;
+}
+
+/** Placeholder until the real teardown is built, below. */
+function noop(): void {
+  // nothing to release yet
 }
 
 function endonym(code: LanguageCode): string {
@@ -30,6 +35,9 @@ export function createContentPresenterAdapter({
 }: ContentPresenterAdapterOptions): ContentPresenter {
   return {
     hasVisiblePresentation: true,
+    copyRevision(): string {
+      return getContentLocale();
+    },
     attachContentCurtain(request: ContentCurtainRequest): PresenterHandle {
       const content = getContentMessages();
       return attachCurtain(request.target, {
@@ -135,6 +143,11 @@ export function createContentPresenterAdapter({
       // someone happens to hover it — but it is deliberately inert: floating,
       // pointer-events:none, aria-hidden, no tab stop, so it can neither take a
       // click nor add a stop to the page's keyboard order.
+      // Declared before the curtain so `onDetach` can close over them: the
+      // page-wide sweep resolves the handle off the host and runs ONLY the
+      // curtain's detach, so anything else this surface owns has to be torn
+      // down from there or it survives every teardown.
+      let releaseControl: () => void = noop;
       const badge = attachCurtain(request.control, {
         mode: 'badge',
         skin: 'chip',
@@ -144,6 +157,9 @@ export function createContentPresenterAdapter({
         ariaLabel: body,
         colorScheme: getColorScheme(),
         actions: [],
+        onDetach: () => {
+          releaseControl();
+        },
       });
       // Everything interactive hangs off the CONTROL, which the visitor is
       // already aiming at and which is already in the tab order — so the
@@ -173,12 +189,16 @@ export function createContentPresenterAdapter({
       const COLLAPSE_EVENTS = ['mouseleave', 'blur'] as const;
       for (const type of EXPAND_EVENTS) request.control.addEventListener(type, expand);
       for (const type of COLLAPSE_EVENTS) request.control.addEventListener(type, collapse);
+      releaseControl = (): void => {
+        for (const type of EXPAND_EVENTS) request.control.removeEventListener(type, expand);
+        for (const type of COLLAPSE_EVENTS) request.control.removeEventListener(type, collapse);
+        tip.detach();
+      };
       return {
         host: badge.host,
         detach(): void {
-          for (const type of EXPAND_EVENTS) request.control.removeEventListener(type, expand);
-          for (const type of COLLAPSE_EVENTS) request.control.removeEventListener(type, collapse);
-          tip.detach();
+          // Delegates to the curtain, whose onDetach runs releaseControl — so
+          // this path and the page-wide sweep tear down exactly the same set.
           badge.detach();
         },
       };

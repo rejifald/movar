@@ -36,7 +36,7 @@ package only reads.
 All exported from `src/index.ts` (wildcard subpath `@movar/lang-pickers/*`
 also works directly, e.g. `@movar/lang-pickers/extract`):
 
-- **Types** — `Picker`, `ClassifiedLink`, `FilterResult`, `FilterOptions`,
+- **Types** — `Picker`, `PickerLayout`, `ClassifiedLink`, `FilterResult`, `FilterOptions`,
   `RedirectTarget`, `PickedRedirect`, `PickerModel`; DOM-attribute constants `HIDDEN_ATTR`,
   `ORIGINAL_DISPLAY_ATTR`, `ORIGINAL_DISPLAY_PRIORITY_ATTR`, `ORIGINAL_TEXT_ATTR`,
   `RESTORED_ATTR`, `TEXT_DIVIDER_KIND`, `LEADING_SEPARATOR_RUN`,
@@ -48,7 +48,7 @@ also works directly, e.g. `@movar/lang-pickers/extract`):
   `activeLanguageFromPicker(picker, currentHref?)`.
 - **extract** — `deepQuerySelectorAll(root, selector)`, `dedupNested(items)`,
   `classifyContainerChildren(container, preClassified)`, `pruneOuterContainers(containers)`,
-  `findLanguagePickers(root?)`.
+  `findLanguagePickers(root?)`, `pickerLayout(container, links)`.
 - **build-model** — `buildPickerModel(pickers, currentHref)`.
 - **detect-page-language** — `detectPickerActiveLanguage(model)`.
 - **redirect** — `pickRedirectTarget(pickers, priority)`. Returns the first
@@ -63,7 +63,9 @@ also works directly, e.g. `@movar/lang-pickers/extract`):
 - `@movar/lang-pickers/picker.test-utils` — shared test helpers (`setBody`,
   `elFromHtml`, `expectSinglePickerWithLangs`, `setup001ComUaPicker`,
   `setupTwoLanguagePicker`, `setupFlagPickerUA_RU`, `setupDeeplyNestedPicker`,
-  `setupSelectPicker`, `expectContainerCurtained`, `getTooltipHosts`). Imported
+  `setupSelectPicker`, `setupListboxPicker`, `expectContainerCurtained`,
+  `expectEntryCurtained`, `getTooltipHosts`, `getEntryCurtainHosts`,
+  `getControlBadges`). Imported
   by `apps/extension/src/lib/picker.filter.test.ts` and `picker.find.test.ts`.
 
 ## Layout

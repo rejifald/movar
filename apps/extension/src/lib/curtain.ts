@@ -146,6 +146,16 @@ export interface CurtainOptions {
    * the curtain has no way to recover the number on its own.
    */
   minHeight?: number;
+  /**
+   * Extra teardown to run from {@link CurtainHandle.detach}.
+   *
+   * `detachAllCurtains` resolves the handle off the host, so ONLY this handle's
+   * detach ever runs in a page-wide sweep. A caller that pairs a curtain with
+   * something else — a tooltip, listeners on the site's own control — has to
+   * hang that teardown here, or the sweep silently removes the host and leaks
+   * the rest. Runs once; `detach` is idempotent.
+   */
+  onDetach?: () => void;
   /** Leading mark. String is rendered as text (emoji); Node is appended verbatim. */
   icon?: string | Node;
   title: string;
@@ -366,7 +376,7 @@ const STYLES = `
    The label is clipped rather than removed so the chip's accessible name is the
    same at every width; max-width (not width) animates without measuring text. */
 :host([data-mode="badge"]) {
-  position: absolute;
+  position: fixed;
   display: inline-flex;
   pointer-events: none;
   user-select: none;
@@ -1042,17 +1052,49 @@ function revertReplaceSideEffects(target: HTMLElement, restore: ReplaceRestore):
 
 /** Gap between the control's trailing edge and the badge, in px. */
 const BADGE_GAP_PX = 6;
+/** Keep the badge this far inside the viewport edge when the control sits flush
+ *  against it — a right-aligned language control is the usual placement. */
+const BADGE_EDGE_MARGIN_PX = 4;
 
 /** Every mounted badge, so one shared pair of page listeners can keep them all
- *  pinned instead of each attaching its own. */
+ *  pinned instead of each attaching its own.
+ *
+ *  A strong Map, unlike the WeakMaps in picker-filter, because the values are
+ *  what we iterate — so {@link repositionAllBadges} is also what evicts: any
+ *  entry whose host or target has left the document is dropped (and its orphan
+ *  host removed) on the next pass, which is the only thing standing between an
+ *  SPA that re-renders its control and an unbounded leak of pinned subtrees. */
 const badgeAnchors = new Map<HTMLElement, HTMLElement>();
 let badgeListenersInstalled = false;
+let badgeFrame = 0;
+/** Watches each badge's control for a box that appears, changes or goes away.
+ *  Scroll and resize miss all three: a control inside a collapsed hamburger or
+ *  an inactive tab panel has NO box when the filter runs, so its badge mounts
+ *  hidden — and the menu opening later is a layout change that fires neither
+ *  event, leaving the filtered picker permanently unmarked. */
+let badgeResizeObserver: ResizeObserver | null = null;
 
-/** Pin `host` just past `target`'s trailing edge, vertically centred, in PAGE
- *  coordinates (position: absolute on body) so it stays put through ordinary
- *  scrolling without a listener firing. A target with no box — a control the
- *  site has hidden, or one not laid out yet — hides the badge rather than
- *  parking it at 0,0. */
+function badgeObserver(): ResizeObserver | null {
+  if (typeof ResizeObserver === 'undefined') return null;
+  badgeResizeObserver ??= new ResizeObserver(scheduleBadgeReposition);
+  return badgeResizeObserver;
+}
+
+/**
+ * Pin `host` just past `target`'s trailing edge, vertically centred, in VIEWPORT
+ * coordinates — the host is `position: fixed`, matching tooltip.ts.
+ *
+ * Page coordinates on a `position: absolute` host were wrong: an absolutely
+ * positioned element resolves against its nearest POSITIONED ancestor, so the
+ * ubiquitous `body { position: relative; max-width: …; margin: 0 auto }` shell
+ * made the offsets resolve against body's padding box. Measured in Chromium,
+ * the badge landed 386px from its control. `fixed` also keeps an off-edge badge
+ * from extending the document's scrollable overflow and giving the site a
+ * horizontal scrollbar.
+ *
+ * A target with no box — a control inside a collapsed menu, or one not laid out
+ * yet — hides the badge rather than parking it at 0,0.
+ */
 function positionBadge(host: HTMLElement, target: HTMLElement): void {
   const rect = target.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) {
@@ -1061,22 +1103,62 @@ function positionBadge(host: HTMLElement, target: HTMLElement): void {
   }
   host.style.visibility = '';
   const own = host.getBoundingClientRect();
-  host.style.left = `${String(rect.right + globalThis.scrollX + BADGE_GAP_PX)}px`;
-  host.style.top = `${String(rect.top + globalThis.scrollY + (rect.height - own.height) / 2)}px`;
+  const maxLeft = globalThis.innerWidth - own.width - BADGE_EDGE_MARGIN_PX;
+  const left = Math.max(BADGE_EDGE_MARGIN_PX, Math.min(rect.right + BADGE_GAP_PX, maxLeft));
+  host.style.left = `${String(left)}px`;
+  host.style.top = `${String(rect.top + (rect.height - own.height) / 2)}px`;
 }
 
+/** Reposition every live badge and evict every dead one. Also the teardown
+ *  trigger: once nothing is left to track, the page listeners come off. */
 function repositionAllBadges(): void {
-  for (const [host, target] of badgeAnchors) positionBadge(host, target);
+  for (const [host, target] of badgeAnchors) {
+    if (!host.isConnected || !target.isConnected) {
+      unmountBadge(host);
+      host.remove();
+      continue;
+    }
+    positionBadge(host, target);
+  }
+  if (badgeAnchors.size === 0) teardownBadgeListeners();
 }
 
-/** Reposition on the things that move a rect without moving the page: a
- *  scrolling ancestor (capture, so inner scrollers count) and a resize. Plain
- *  page scrolling needs none of this — page coordinates already absorb it. */
+/** Coalesce to one reposition per frame. The scroll listener is capture-phase,
+ *  so it fires for every scroller on the page at native scroll rate; without
+ *  this each event would force a synchronous layout per badge, mid-scroll and
+ *  outside the frame's own layout pass. */
+function scheduleBadgeReposition(): void {
+  if (badgeFrame !== 0) return;
+  badgeFrame = globalThis.requestAnimationFrame(() => {
+    badgeFrame = 0;
+    repositionAllBadges();
+  });
+}
+
 function installBadgeListeners(): void {
   if (badgeListenersInstalled) return;
   badgeListenersInstalled = true;
-  globalThis.addEventListener('scroll', repositionAllBadges, { capture: true, passive: true });
-  globalThis.addEventListener('resize', repositionAllBadges);
+  globalThis.addEventListener('scroll', scheduleBadgeReposition, {
+    capture: true,
+    passive: true,
+  });
+  globalThis.addEventListener('resize', scheduleBadgeReposition);
+}
+
+/** The half tooltip.ts has and the first cut of this did not: with no badges
+ *  left, nothing should still be listening. "Turn Movar off" has to be able to
+ *  remove every global the module installed. */
+function teardownBadgeListeners(): void {
+  if (!badgeListenersInstalled) return;
+  badgeListenersInstalled = false;
+  globalThis.removeEventListener('scroll', scheduleBadgeReposition, { capture: true });
+  globalThis.removeEventListener('resize', scheduleBadgeReposition);
+  badgeResizeObserver?.disconnect();
+  badgeResizeObserver = null;
+  if (badgeFrame !== 0) {
+    globalThis.cancelAnimationFrame(badgeFrame);
+    badgeFrame = 0;
+  }
 }
 
 /** Append the badge to `document.body` — never into the site's own tree, so no
@@ -1086,7 +1168,17 @@ function mountBadge(host: HTMLElement, target: HTMLElement): void {
   document.body.append(host);
   badgeAnchors.set(host, target);
   installBadgeListeners();
+  badgeObserver()?.observe(target);
   positionBadge(host, target);
+}
+
+/** Drop `host` from tracking, and stop listening once the last badge is gone. */
+function unmountBadge(host: HTMLElement): void {
+  const target = badgeAnchors.get(host);
+  if (target === undefined) return;
+  badgeAnchors.delete(host);
+  badgeObserver()?.unobserve(target);
+  if (badgeAnchors.size === 0) teardownBadgeListeners();
 }
 
 /** Build the curtain's shadow host element (no side effects on the target).
@@ -1190,8 +1282,9 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
     detached = true;
     if (coverRestore) revertCoverSideEffects(target, coverRestore);
     if (replaceRestore) revertReplaceSideEffects(target, replaceRestore);
-    badgeAnchors.delete(host);
+    unmountBadge(host);
     host.remove();
+    opts.onDetach?.();
   }
 
   const handle: CurtainHandle = { detach, host };

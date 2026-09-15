@@ -50,6 +50,12 @@ export interface PickerControlBadgeRequest {
 
 export interface ContentPresenter {
   readonly hasVisiblePresentation: boolean;
+  /** Token that changes whenever an already-mounted surface would now render
+   *  DIFFERENT words — today, the active UI locale. Callers that skip rebuilding
+   *  an unchanged surface fold this into their key: a locale change re-runs the
+   *  filter without a teardown, so a surface keyed only on the hidden languages
+   *  would keep the previous language's copy for the life of the page. */
+  copyRevision(): string;
   attachContentCurtain(request: ContentCurtainRequest): PresenterHandle | null;
   detachCurtains(root?: ParentNode): void;
   attachPickerContainerCurtain(request: PickerContainerCurtainRequest): PresenterHandle | null;

@@ -174,3 +174,74 @@ describe('findLanguagePickers — layout', () => {
     expect(findLanguagePickers()[0]!.layout).toBe('inline');
   });
 });
+
+describe('findLanguagePickers — layout, the shapes the first cut misread', () => {
+  it('reads a wrapped option row as a list (the common dropdown markup)', () => {
+    // classifyContainerChildren prefers the innermost classified descendant, so
+    // the ClassifiedLink here is the <a>, which carries no role at all. Reading
+    // the classified element with `matches` sent every Bootstrap/HeadlessUI
+    // dropdown to 'inline' — i.e. back to the tooltip fan-out.
+    setBody(`
+      <ul id="picker" class="dropdown-menu">
+        <li role="option"><a href="/uk/">Українська</a></li>
+        <li role="option"><a href="/ru/">Русский</a></li>
+        <li role="option"><a href="/en/">English</a></li>
+      </ul>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('reads a grouped <select> as native — its container is the <optgroup>', () => {
+    // findPickerContainer stops at the first ancestor holding two languages,
+    // which never reaches the <select>, so a tag test on the container missed it
+    // and anchored tooltips on 0x0 <option>s.
+    setBody(`
+      <select id="picker">
+        <optgroup label="Languages">
+          <option value="uk">Українська</option>
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+        </optgroup>
+      </select>
+    `);
+    const picker = findLanguagePickers()[0]!;
+    expect(picker.container.tagName).toBe('OPTGROUP');
+    expect(picker.layout).toBe('native');
+  });
+
+  it('reads a role="menubar" strip as inline, not as a stacked list', () => {
+    // menubar is the one menu role that means a ROW; its children legitimately
+    // carry role="menuitem", which would otherwise earn them a full-width band.
+    setBody(`
+      <ul id="picker" role="menubar">
+        <li role="menuitem"><a href="/uk/">UA</a></li>
+        <li role="menuitem"><a href="/ru/">RU</a></li>
+      </ul>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
+  });
+
+  it('reads role="menuitemcheckbox" rows as a list', () => {
+    setBody(`
+      <div id="picker" class="menu">
+        <div role="menuitemcheckbox" value="uk">Українська</div>
+        <div role="menuitemcheckbox" value="ru">Русский</div>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('does not read a row role from outside the picker container', () => {
+    // closest() walks up without bound; the row it finds must be inside the
+    // container or an unrelated menu ancestor would flip the verdict.
+    setBody(`
+      <div role="option">
+        <div id="picker" class="lang">
+          <a href="/uk/">UA</a>
+          <a href="/ru/">RU</a>
+        </div>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
+  });
+});

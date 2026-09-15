@@ -13,6 +13,7 @@
 export type {
   ClassifiedLink,
   Picker,
+  PickerLayout,
   FilterResult,
   FilterOptions,
   RedirectTarget,
@@ -50,6 +51,7 @@ export {
   deepQuerySelectorAll,
   pruneOuterContainers,
   findLanguagePickers,
+  pickerLayout,
 } from './extract';
 
 // ── build-model ───────────────────────────────────────────────────────────────

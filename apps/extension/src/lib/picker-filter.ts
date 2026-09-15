@@ -1,5 +1,6 @@
 import type { LanguageCode } from '@movar/lang-detect';
 import type { ContentPresenter, PresenterHandle } from './content-presenter';
+import { CURTAIN_HOST_ATTR } from './movar-markers';
 import {
   HIDDEN_ATTR,
   LABEL_SEPARATORS,
@@ -57,6 +58,10 @@ const anchorTooltipKeys = new WeakMap<HTMLElement, string>();
  *  on every filter pass, so the previous one has to be reachable to detach.
  *  WeakMap so an entry the site re-renders away takes its handle with it. */
 const entryCurtains = new WeakMap<HTMLElement, PresenterHandle>();
+/** What each live chip SAYS — its language plus the copy revision. A chip's copy
+ *  is per-entry, so a virtualised list that recycles a row for a different
+ *  language would otherwise keep a chip naming the wrong one. */
+const entryCurtainKeys = new WeakMap<HTMLElement, string>();
 
 /** Per-control badge handles for native `<select>` pickers, with the copy each
  *  currently carries — same idempotence bookkeeping as {@link anchorTooltips} /
@@ -448,10 +453,17 @@ function restorePickerInPlace(picker: Picker): void {
     restoreOriginalDisplay(link.el);
     if (link.el instanceof HTMLOptionElement) link.el.hidden = false;
   }
-  // Un-hide divider siblings hidden as a consequence.
+  // Un-hide divider siblings hidden as a consequence — and any entry this
+  // picker object does not know about. `picker.links` is a snapshot; a row the
+  // site added after it was taken is still hidden and may still carry a chip, so
+  // detaching only the snapshot's chips left an orphan chip beside a row it had
+  // just un-hidden, and a second click on that orphan wrote the snapshotted
+  // `display: none !important` back onto an entry no longer carrying
+  // HIDDEN_ATTR — invisible, and unreachable by any later pass or sweep.
   for (const child of picker.container.children) {
     if (!(child instanceof HTMLElement)) continue;
     if (!child.hasAttribute(HIDDEN_ATTR)) continue;
+    detachEntryCurtain(child);
     child.removeAttribute(HIDDEN_ATTR);
     restoreOriginalDisplay(child);
   }
@@ -482,12 +494,12 @@ function restorePickerInPlace(picker: Picker): void {
     }
     span.replaceWith(picker.container.ownerDocument.createTextNode(original));
   }
-  // Detach the tooltips Movar attached to surviving links — and the one a
-  // native <select> carries on the control instead of on its options.
+  // Detach the tooltips Movar attached to surviving links, and the badge a
+  // native <select> carries beside its control — the badge owns the tooltip
+  // anchored on it, so detaching the badge takes both.
   for (const link of picker.links) {
     detachSurvivorTooltip(link.el);
   }
-  detachSurvivorTooltip(picker.container);
   detachControlBadge(picker.container);
   // Mark the container so filterPickers' next pass leaves it alone.
   picker.container.setAttribute(RESTORED_ATTR, '');
@@ -510,15 +522,38 @@ function detachSurvivorTooltip(anchor: HTMLElement): void {
   anchorTooltipKeys.delete(anchor);
 }
 
-/** True when `anchor` already carries a live tooltip saying exactly this — so
- *  rebuilding it would change nothing on screen except to close it. */
-function tooltipIsCurrent(anchor: HTMLElement, key: string): boolean {
-  return anchorTooltips.has(anchor) && anchorTooltipKeys.get(anchor) === key;
+/**
+ * True when `el` already carries a surface from `handles` saying exactly `key`
+ * AND that surface is still ON THE PAGE.
+ *
+ * The `isConnected` half is what keeps idempotence from becoming erasure. The
+ * page-wide sweeps (`detachAllCurtains` / `detachAllTooltips`) resolve handles
+ * off the DOM and cannot reach these module-level maps, so after a pause,
+ * a settings toggle or "Show everything" the map still holds a handle whose host
+ * is long gone. Keyed on presence alone, the next pass then concluded "already
+ * marked" and attached nothing — re-hiding the entry with no explanation and no
+ * way back, which is the exact silent concealment this file exists to prevent.
+ */
+function surfaceIsCurrent(
+  handles: WeakMap<HTMLElement, PresenterHandle>,
+  keys: WeakMap<HTMLElement, string>,
+  el: HTMLElement,
+  key: string,
+): boolean {
+  if (keys.get(el) !== key) return false;
+  const handle = handles.get(el);
+  return handle?.host.isConnected === true;
 }
 
-/** Stable identity for a tooltip's copy: the hidden languages, in picker order. */
-function hiddenLanguageKey(hiddenLanguages: readonly LanguageCode[]): string {
-  return hiddenLanguages.join(',');
+/** Stable identity for a surface's copy: the hidden languages it names, plus the
+ *  presenter's copy revision — the locale, which changes the WORDS without
+ *  changing the languages, and which a locale-only settings change applies with
+ *  no teardown behind it. */
+function surfaceKey(
+  hiddenLanguages: readonly LanguageCode[],
+  presenter: ContentPresenter | undefined,
+): string {
+  return `${hiddenLanguages.join(',')}|${presenter?.copyRevision() ?? ''}`;
 }
 
 /**
@@ -541,7 +576,7 @@ function slotHeightFor(entry: HTMLElement): number {
   for (const sibling of parent.children) {
     if (sibling === entry || !(sibling instanceof HTMLElement)) continue;
     if (sibling.hasAttribute(HIDDEN_ATTR)) continue;
-    if (Object.hasOwn(sibling.dataset, 'movarCurtain')) continue;
+    if (sibling.hasAttribute(CURTAIN_HOST_ATTR)) continue;
     if (sibling.offsetHeight > 0) return sibling.offsetHeight;
   }
   return 0;
@@ -555,6 +590,7 @@ function detachEntryCurtain(entry: HTMLElement): void {
   if (!existing) return;
   existing.detach();
   entryCurtains.delete(entry);
+  entryCurtainKeys.delete(entry);
 }
 
 /**
@@ -579,18 +615,29 @@ function detachEntryCurtain(entry: HTMLElement): void {
  * first, the same way {@link annotateSurvivingLinks} handles its tooltips.
  */
 function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefined): void {
+  const visible = presenter?.hasVisiblePresentation === true;
   for (const link of picker.links) {
-    // A chip is always on screen, so a rebuild is not destructive the way a
-    // tooltip's is — but it still repaints and restarts the fade, so skip it
-    // when the row already carries the chip it should.
-    if (link.el.hasAttribute(HIDDEN_ATTR) && entryCurtains.has(link.el)) continue;
+    const hidden = link.el.hasAttribute(HIDDEN_ATTR);
+    // The eligibility checks come BEFORE the skip, never after it: a conceal-mode
+    // flip to 'hide' drops the presenter without changing the hidden languages,
+    // and a guard that ran first would leave curtain-mode chips standing in the
+    // mode whose contract is that Movar adds no surface.
+    if (!hidden || !visible) {
+      detachEntryCurtain(link.el);
+      continue;
+    }
+    // The measured height is part of the key: a list picker is usually inside a
+    // dropdown that is CLOSED when the filter runs, where every row measures 0,
+    // so a chip keyed only on its language would keep the floorless height it
+    // was born with and render at half its neighbours' for the life of the page.
+    const slotHeight = slotHeightFor(link.el);
+    const key = `${surfaceKey([link.language], presenter)}|${String(slotHeight)}`;
+    if (surfaceIsCurrent(entryCurtains, entryCurtainKeys, link.el, key)) continue;
     detachEntryCurtain(link.el);
-    if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
-    if (presenter?.hasVisiblePresentation !== true) continue;
     const handle = presenter.attachPickerEntryCurtain({
       entry: link.el,
       language: link.language,
-      slotHeight: slotHeightFor(link.el),
+      slotHeight,
       restore: () => {
         restorePickerInPlace(picker);
       },
@@ -598,6 +645,7 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
     if (handle === null) continue;
     handle.host.dataset['movarKind'] = PICKER_ENTRY_CURTAIN_KIND;
     entryCurtains.set(link.el, handle);
+    entryCurtainKeys.set(link.el, key);
   }
 }
 
@@ -613,12 +661,13 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
  *
  * Anchoring on the `<select>` itself works, but says nothing until someone
  * happens to hover it — and on a control the visitor is aiming at anyway, that
- * is a coin flip. The badge is the fix: an always-visible mark in the flow
- * beside the control, resting as the bare sigil and expanding to its label on
- * hover or keyboard focus, with the detail and the restore action in a tooltip
- * anchored on the badge. In-flow rather than floating, so it tracks the control
- * through scrolling and sticky headers for free and can never come to rest on
- * top of the site's own UI.
+ * is a coin flip. The badge is the fix: an always-visible mark floating beside
+ * the control, resting as the bare sigil and expanding to its label while the
+ * control is hovered or focused, with the detail and the restore action in a
+ * tooltip anchored on the control. It is appended to `document.body` rather
+ * than the site's tree — so no sibling selector, child index or flex gap count
+ * changes and nothing shifts — and is `pointer-events: none`, `aria-hidden` and
+ * untabbable, so it cannot take a click, a focus or a screen-reader stop.
  *
  * Idempotent across MutationObserver re-fires the same way the tooltip paths
  * are, and for a sharper reason: a rebuilt badge would restart its fade and drop
@@ -629,11 +678,13 @@ function markNativeControl(
   hiddenLanguages: LanguageCode[],
   presenter: ContentPresenter | undefined,
 ): void {
-  const key = hiddenLanguageKey(hiddenLanguages);
-  if (controlBadgeKeys.get(picker.container) === key && controlBadges.has(picker.container)) return;
+  const key = surfaceKey(hiddenLanguages, presenter);
+  if (hiddenLanguages.length === 0 || presenter?.hasVisiblePresentation !== true) {
+    detachControlBadge(picker.container);
+    return;
+  }
+  if (surfaceIsCurrent(controlBadges, controlBadgeKeys, picker.container, key)) return;
   detachControlBadge(picker.container);
-  if (hiddenLanguages.length === 0) return;
-  if (presenter?.hasVisiblePresentation !== true) return;
   const handle = presenter.attachPickerControlBadge({
     control: picker.container,
     hiddenLanguages,
@@ -667,14 +718,20 @@ function annotateSurvivingLinks(
   hiddenLanguages: LanguageCode[],
   presenter: ContentPresenter | undefined,
 ): void {
-  if (hiddenLanguages.length === 0) return;
-
-  const key = hiddenLanguageKey(hiddenLanguages);
+  const key = surfaceKey(hiddenLanguages, presenter);
+  // Nothing hidden means nothing to explain — and any tooltip still up is now
+  // stale, so this is a detach, never a bare return.
+  const visible = hiddenLanguages.length > 0 && presenter?.hasVisiblePresentation === true;
   for (const link of picker.links) {
-    if (tooltipIsCurrent(link.el, key)) continue;
+    // Eligibility first, skip second — see markHiddenEntries. Running the skip
+    // first also re-opened movar#303: an anchor that stops being a candidate
+    // without changing the key kept its stale tooltip.
+    if (link.el.hasAttribute(HIDDEN_ATTR) || !visible) {
+      detachSurvivorTooltip(link.el);
+      continue;
+    }
+    if (surfaceIsCurrent(anchorTooltips, anchorTooltipKeys, link.el, key)) continue;
     detachSurvivorTooltip(link.el);
-    if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
-    if (presenter?.hasVisiblePresentation !== true) continue;
     const handle = presenter.attachPickerSurvivorTooltip({
       anchor: link.el,
       hiddenLanguages,
@@ -786,6 +843,30 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
 }
 
 /**
+ * Drop any surface belonging to a layout this picker no longer has.
+ *
+ * `pickerLayout` is re-derived from live ARIA roles on every pass, so the
+ * verdict can change mid-life — a react-aria picker that stamps `role="listbox"`
+ * on after hydration is read as `inline` on the pass before and `list` on the
+ * pass after. Each mark path only ever detached its OWN kind, so the earlier
+ * verdict's surfaces stayed attached: on exactly the shape this work targets,
+ * the chip went up while the inline-era survivor tooltips remained as hover
+ * traps over the listbox rows — the defect being fixed, re-created by the fix.
+ *
+ * Every call is a no-op when there is nothing of that kind to drop, so this
+ * costs nothing in the steady state.
+ */
+function detachForeignSurfaces(picker: Picker): void {
+  if (picker.layout !== 'inline') {
+    for (const link of picker.links) detachSurvivorTooltip(link.el);
+  }
+  if (picker.layout !== 'list') {
+    for (const link of picker.links) detachEntryCurtain(link.el);
+  }
+  if (picker.layout !== 'native') detachControlBadge(picker.container);
+}
+
+/**
  * In-container cleanup for a picker that stays visible after some links were
  * hidden: drop stranded `|` divider siblings, zero separator borders left
  * facing the gap, trim bare-text orphan separators (inside surviving leaves
@@ -812,6 +893,7 @@ function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter |
   hideOrphanEdgeBorders(picker);
   trimOrphanSeparators(picker);
   trimContainerTextSeparators(picker);
+  detachForeignSurfaces(picker);
   if (picker.layout === 'list') {
     markHiddenEntries(picker, presenter);
     return;

@@ -262,6 +262,77 @@ const DARK_TOKENS = `
   --movar-action-primary-hover: rgba(255, 255, 255, 0.10);
 `;
 
+/**
+ * STYLES notes — the long-form "why" for four rules below.
+ *
+ * They live here rather than beside their rules because STYLES is a template
+ * literal injected VERBATIM into every shadow root: a comment inside it is
+ * shipped payload on every page that mounts a curtain, not documentation. These
+ * four were 4 KB of it. A comment out here is stripped by the build instead, so
+ * the rules keep a one-line marker and the reasoning keeps its full length.
+ *
+ * (1) Responsive collapse
+ *     Responsive collapse (cover mode only — keyed on the movar-cover size
+ *     container above). The vertical card is sized for a roomy content card; on a
+ *     target too short to seat it, it would overflow and — since short/inline
+ *     targets don't clip an overlay reliably — pile up on its neighbours. So fold
+ *     the pill into a single horizontal bar and drop the description; then shed
+ *     the secondary action, and finally the title, as the target also narrows. The
+ *     headline + primary Show survive to the smallest sizes. Motivating cases:
+ *     Google People-also-ask rows and small inline targets. And finally, when even
+ *     the icon plus one action will not fit, down to just the slashed-eye mark (a
+ *     single eye symbol). Thresholds are containerBand rungs (see that token's doc
+ *     for why the ladder doubles); moving one may only ever collapse EARLIER,
+ *     since collapsing later re-opens the overflow this block exists to prevent.
+ *     Note a size container is queried on its CONTENT box: each rung fires at rung
+ *     + .curtain's 20px padding + the target's border, so the lg fold lands on a
+ *     ~278px-tall target. The fixture header for curtain-tiers-ru records the
+ *     measured boundaries. Why the fold is lg (256) and not something snug like
+ *     the card's own height: the vertical card is NOT a fixed size — the
+ *     description wraps at narrow widths, so it stands 87px tall at card widths,
+ *     113px once the description takes two lines, 129px once the actions wrap as
+ *     well. A max-height rung cannot express a fit constraint that depends on
+ *     width. Folding at 256 puts the vertical card's floor an order above its own
+ *     tallest form, so no target that reaches the card tier can be too short to
+ *     seat it, whatever its width. Measured on real pages, not assumed: YouTube's
+ *     card heights run a continuum from ~93 (watch-page rail) through ~217
+ *     (results) to ~235 (home grid) as the window resizes, with no gap to hide a
+ *     boundary in — and the rail's own cards vary ~7px between siblings, so a rung
+ *     anywhere inside that range splits visually identical cards across tiers. 256
+ *     clears the whole distribution.
+ *
+ * (2) Centering the pill
+ *     Center the pill in the target, both axes. Tall blocks are the exception and
+ *     re-anchor to the top via the @container rule just below: sites collapse tall
+ *     blocks to a short preview — Google's AI Overview shows ~1 screenful with a
+ *     "show more" while the concealed element stays 700–1300px tall in the DOM —
+ *     so a centered pill would land in the collapsed-away region and be clipped
+ *     out of view, leaving blur with no reachable reveal control at any scroll
+ *     position. That override has to ride align-self on the .pill child, not
+ *     align-items here, because .curtain is its own size container and an element
+ *     can't respond to its own container query. (The short-target collapse the
+ *     other @container rules handle folds the pill into a bar; there center and
+ *     flex-start coincide.)
+ *
+ * (3) Tall-block exception
+ *     Tall-block exception to the centered .curtain above. Re-anchor the pill to
+ *     the top so a viewport-collapsed block (AI Overview: ~1 screenful shown, the
+ *     rest 700–1300px tall in the DOM) still surfaces the reveal control instead
+ *     of burying it in the clipped-away middle. Keyed to min-height so only
+ *     genuinely tall targets top-anchor — normal content cards stay centered.
+ *     align-self on the item, since .curtain can't query its own size (it IS the
+ *     movar-cover container). On the containerBand ladder (see the collapse block
+ *     below) this is the xl rung — the same ladder every other movar-cover
+ *     threshold snaps to.
+ *
+ * (4) Size query container
+ *     Size query container for the pill. .curtain fills the target via inset:0, so
+ *     its box IS the target's box — making it the reference the pill's @container
+ *     rules (below) respond to, so the pill collapses to fit short or small
+ *     targets instead of overflowing them. The name scopes those rules to cover
+ *     curtains: the replace/chip skin establishes no such container, so a stray
+ *     page container can't drive them either.
+ */
 const STYLES = `
 :host {
   /* Neutral palette — the curtain should sit on the page like a quiet note,
@@ -316,16 +387,7 @@ const STYLES = `
   position: absolute;
   inset: 0;
   display: flex;
-  /* Center the pill in the target, both axes. Tall blocks are the exception and
-     re-anchor to the top via the @container rule just below: sites collapse tall
-     blocks to a short preview — Google's AI Overview shows ~1 screenful with a
-     "show more" while the concealed element stays 700–1300px tall in the DOM — so
-     a centered pill would land in the collapsed-away region and be clipped out of
-     view, leaving blur with no reachable reveal control at any scroll position.
-     That override has to ride align-self on the .pill child, not align-items
-     here, because .curtain is its own size container and an element can't respond
-     to its own container query. (The short-target collapse the other @container
-     rules handle folds the pill into a bar; there center and flex-start coincide.) */
+  /* Centered in the target; tall blocks top-anchor below. Notes (2). */
   align-items: center;
   justify-content: center;
   padding: 10px;
@@ -339,26 +401,14 @@ const STYLES = `
   background: var(--movar-backdrop);
   border-radius: inherit;
   transition: background ${duration.slow} ${easing.standard};
-  /* Size query container for the pill. .curtain fills the target via inset:0,
-     so its box IS the target's box — making it the reference the pill's
-     @container rules (below) respond to, so the pill collapses to fit short or
-     small targets instead of overflowing them. The name scopes those rules to
-     cover curtains: the replace/chip skin establishes no such container, so a
-     stray page container can't drive them either. */
+  /* Size query container for the pill. Notes (4). */
   container: movar-cover / size;
 }
 :host([data-mode="cover"][data-peek="true"]) .curtain:hover,
 :host([data-mode="cover"][data-peek="true"]) .curtain:focus-within {
   background: transparent;
 }
-/* Tall-block exception to the centered .curtain above. Re-anchor the pill to the
-   top so a viewport-collapsed block (AI Overview: ~1 screenful shown, the rest
-   700–1300px tall in the DOM) still surfaces the reveal control instead of
-   burying it in the clipped-away middle. Keyed to min-height so only genuinely
-   tall targets top-anchor — normal content cards stay centered. align-self on the
-   item, since .curtain can't query its own size (it IS the movar-cover container).
-   On the containerBand ladder (see the collapse block below) this is the xl
-   rung — the same ladder every other movar-cover threshold snaps to. */
+/* Tall-block exception to the centered .curtain above. Notes (3). */
 @container movar-cover (min-height: ${containerBand.xl}px) {
   .pill {
     align-self: flex-start;
@@ -519,36 +569,7 @@ const STYLES = `
   outline-offset: 1px;
 }
 
-/* Responsive collapse (cover mode only — keyed on the movar-cover size
-   container above). The vertical card is sized for a roomy content card; on a
-   target too short to seat it, it would overflow and — since short/inline
-   targets don't clip an overlay reliably — pile up on its neighbours. So fold
-   the pill into a single horizontal bar and drop the description; then shed the
-   secondary action, and finally the title, as the target also narrows. The
-   headline + primary Show survive to the smallest sizes. Motivating cases:
-   Google People-also-ask rows and small inline targets. And finally, when even
-   the icon plus one action will not fit, down to just the slashed-eye mark (a
-   single eye symbol).
-
-   Thresholds are containerBand rungs (see that token's doc for why the ladder
-   doubles); moving one may only ever collapse EARLIER, since collapsing later
-   re-opens the overflow this block exists to prevent. Note a size container is
-   queried on its CONTENT box: each rung fires at rung + .curtain's 20px padding
-   + the target's border, so the lg fold lands on a ~278px-tall target. The
-   fixture header for curtain-tiers-ru records the measured boundaries.
-
-   Why the fold is lg (256) and not something snug like the card's own height:
-   the vertical card is NOT a fixed size — the description wraps at narrow
-   widths, so it stands 87px tall at card widths, 113px once the description
-   takes two lines, 129px once the actions wrap as well. A max-height rung
-   cannot express a fit constraint that depends on width. Folding at 256 puts
-   the vertical card's floor an order above its own tallest form, so no target
-   that reaches the card tier can be too short to seat it, whatever its width.
-   Measured on real pages, not assumed: YouTube's card heights run a continuum
-   from ~93 (watch-page rail) through ~217 (results) to ~235 (home grid) as the
-   window resizes, with no gap to hide a boundary in — and the rail's own cards
-   vary ~7px between siblings, so a rung anywhere inside that range splits
-   visually identical cards across tiers. 256 clears the whole distribution. */
+/* Responsive collapse (cover mode only). See STYLES notes (1). */
 @container movar-cover (max-height: ${containerBand.lg}px) {
   .pill {
     flex-direction: row;

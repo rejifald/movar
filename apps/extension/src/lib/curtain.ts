@@ -1195,6 +1195,18 @@ function unmountBadge(host: HTMLElement): void {
   if (badgeAnchors.size === 0) teardownBadgeListeners();
 }
 
+/** Mark a block replace-mode host and floor it at the slot it stands in. The
+ *  min-height is inline rather than a CSS rule because the value is measured per
+ *  slot; the host is ours, so it leaves with the curtain on detach. No-op for
+ *  every other mode. */
+function applyBlockSizing(host: HTMLElement, opts: CurtainOptions): void {
+  if (opts.mode !== 'replace' || opts.block !== true) return;
+  host.dataset['block'] = 'true';
+  if (opts.minHeight !== undefined && opts.minHeight > 0) {
+    host.style.minHeight = `${String(opts.minHeight)}px`;
+  }
+}
+
 /** Build the curtain's shadow host element (no side effects on the target).
  *  Sets the data-attributes the STYLES key off, threads the explicit color
  *  scheme, and — for the chip skin — mirrors the description into the native
@@ -1207,14 +1219,7 @@ function buildCurtainHost(opts: CurtainOptions, skin: CurtainSkin): HostWithHand
   host.setAttribute(HOST_ATTR, '');
   host.dataset['mode'] = opts.mode;
   host.dataset['skin'] = skin;
-  if (opts.mode === 'replace' && opts.block === true) {
-    host.dataset['block'] = 'true';
-    // Inline rather than a CSS rule: the value is measured per slot, and the
-    // host is ours, so it leaves with the curtain on detach.
-    if (opts.minHeight !== undefined && opts.minHeight > 0) {
-      host.style.minHeight = `${String(opts.minHeight)}px`;
-    }
-  }
+  applyBlockSizing(host, opts);
   if (opts.mode === 'cover') {
     host.dataset['peek'] = String(opts.peek ?? true);
   }

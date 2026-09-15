@@ -1749,3 +1749,79 @@ describe('filterPickers — a locale change refreshes the copy', () => {
     expect(hosts[0]).not.toBe(first);
   });
 });
+
+describe('filterPickers — a presenter that declines to mount', () => {
+  // Every attach method on ContentPresenter is declared `PresenterHandle | null`.
+  // A presenter that is visible but returns null for a given surface must leave
+  // the filter working and the bookkeeping empty, not half-registered.
+  const decliningPresenter = {
+    ...testContentPresenter,
+    attachPickerEntryCurtain: () => null,
+    attachPickerControlBadge: () => null,
+    attachPickerSurvivorTooltip: () => null,
+  };
+
+  it('still hides, and registers nothing, on a list picker', () => {
+    setupListboxPicker();
+    const result = filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      decliningPresenter,
+    );
+
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+  });
+
+  it('still hides, and registers nothing, on a native <select>', () => {
+    setupSelectPicker();
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      decliningPresenter,
+    );
+
+    expect(document.querySelector<HTMLOptionElement>('option[value="ru"]')!.hidden).toBe(true);
+    expect(getControlBadges()).toHaveLength(0);
+  });
+
+  it('still hides, and registers nothing, on an inline strip', () => {
+    setupTwoLanguagePicker();
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk'],
+      { blocked: ['ru'] },
+      decliningPresenter,
+    );
+
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+    expect(getTooltipHosts()).toHaveLength(0);
+  });
+});
+
+describe('restorePickerInPlace — a text-divider wrapper with no snapshot', () => {
+  it('removes the wrapper rather than leaving a fake entry behind', () => {
+    // trimContainerTextSeparators always records the original text, so a
+    // wrapper without it is one a site re-render (or another extension) left
+    // in the container. There is nothing to put back, so the structural span
+    // goes — leaving it would strand a node the picker never rendered.
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <span data-movar-kind="text-divider">|</span>
+        <a id="ru" href="/ru/x">RU</a>
+        <a id="en" href="/en/x">EN</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const orphan = document.querySelector<HTMLElement>('[data-movar-kind="text-divider"]')!;
+    expect(orphan.hasAttribute('data-movar-original-text')).toBe(false);
+
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(document.querySelector('[data-movar-kind="text-divider"]')).toBeNull();
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('');
+  });
+});

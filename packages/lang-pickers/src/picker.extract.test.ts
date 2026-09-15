@@ -245,3 +245,22 @@ describe('findLanguagePickers — layout, the shapes the first cut misread', () 
     expect(findLanguagePickers()[0]!.layout).toBe('inline');
   });
 });
+
+describe("classifyContainerChildren — Movar's own markers stay out of the model", () => {
+  it('never classifies a text-divider wrapper as a language entry', () => {
+    // The wrapper trimContainerTextSeparators leaves around a separator text
+    // node is structural. Classified, it would enter picker.links as a fake
+    // entry and be subjected to hide/restore logic meant for real switchers.
+    setBody(`
+      <div id="picker">
+        <a href="/ua/x">UA</a>
+        <span data-movar-kind="text-divider"> | </span>
+        <a href="/ru/x">RU</a>
+      </div>
+    `);
+    const picker = findLanguagePickers()[0]!;
+
+    expect(picker.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+    expect(picker.links.some((l) => l.el.dataset['movarKind'] === 'text-divider')).toBe(false);
+  });
+});

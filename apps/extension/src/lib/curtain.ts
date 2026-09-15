@@ -369,12 +369,7 @@ const STYLES = `
   display: inline-flex;
   vertical-align: middle;
 }
-/* Badge — a floating mark the visitor can never collide with. pointer-events
-   and user-select are off so it can neither take a click nor join a text
-   selection; position/z-index are written inline from the target's rect. It
-   rests as the mark alone and grows to its label while data-expanded is set.
-   The label is clipped rather than removed so the chip's accessible name is the
-   same at every width; max-width (not width) animates without measuring text. */
+/* Badge — inert floating mark; grows to its label while data-expanded. */
 :host([data-mode="badge"]) {
   position: fixed;
   display: inline-flex;
@@ -416,9 +411,7 @@ const STYLES = `
   flex: 1;
   justify-content: flex-start;
   background: var(--movar-action-primary-bg);
-  /* Full size, not the 0.8em shrink the strip chip takes: that floor exists so
-     a chip squeezed into tiny header chrome stays legible, and here the chip
-     owns a whole row and should read at the same weight as the rows around it. */
+  /* Full size, not the strip chip's 0.8em shrink — it owns a whole row. */
   font-size: inherit;
 }
 :host([data-mode="replace"][data-block="true"]) .chip:hover {

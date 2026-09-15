@@ -30,52 +30,63 @@ const PICKER_CURTAIN_KIND = 'picker-container';
 const PICKER_ENTRY_CURTAIN_KIND = 'picker-entry';
 const PICKER_BADGE_KIND = 'picker-badge';
 
-/** Per-anchor tooltip handles, used to detach a previously-attached
- *  tooltip when annotateSurvivingLinks re-runs (MutationObserver, settings
- *  change) and the hidden-language list might have changed. WeakMap so
- *  detached/removed anchors are GC'd along with their handles. */
-const anchorTooltips = new WeakMap<HTMLElement, PresenterHandle>();
+/**
+ * One mark Movar has put on the page, and what it currently says.
+ *
+ * Three registries share this shape — survivor tooltips (keyed by the anchor),
+ * in-row chips (by the hidden entry) and control badges (by the control) — so
+ * one detach and one currency check serve all of them. They were five maps and
+ * three near-identical helpers, whose paired key/handle writes could drift and
+ * leave a permanently-stale guard.
+ *
+ * WeakMap throughout: an anchor the site re-renders away takes its mark with it.
+ */
+interface Mark {
+  handle: PresenterHandle;
+  /** What this mark SAYS — see {@link surfaceKey}. */
+  key: string;
+}
+type MarkRegistry = WeakMap<HTMLElement, Mark>;
+
+const survivorTooltips: MarkRegistry = new WeakMap();
+const entryChips: MarkRegistry = new WeakMap();
+const controlBadgeMarks: MarkRegistry = new WeakMap();
+
+/** Detach `el`'s mark from `registry`, if any — removing its host and its entry
+ *  in the overlay's own registry. Idempotent. */
+function detachMark(registry: MarkRegistry, el: HTMLElement): void {
+  const mark = registry.get(el);
+  if (!mark) return;
+  mark.handle.detach();
+  registry.delete(el);
+}
 
 /**
- * What each live tooltip currently SAYS, keyed by its anchor — the hidden
- * languages joined in order.
+ * True when `el` already carries a mark saying exactly `key` AND that mark is
+ * still ON THE PAGE.
  *
- * Without it, every MutationObserver re-fire detached the anchor's tooltip and
- * attached an identical replacement. That is invisible for a mark that is always
- * on screen, and destructive for one that is not: the replacement starts closed,
- * and the pointer is already inside the anchor, so no fresh `mouseenter` ever
- * fires and the explanation the visitor was reading simply disappears. Measured
- * in Chromium on the `picker-select-ru` fixture, the host was replaced ~600ms
- * into a hover that never moved.
- *
- * So a re-annotate is now a no-op while the copy would be identical, and only
- * rebuilds when the hidden-language list actually changed.
+ * The connected check is what keeps idempotence from becoming erasure. The
+ * page-wide sweeps (`detachAllCurtains` / `detachAllTooltips`) resolve handles
+ * off the DOM and cannot reach these module-level maps, so after a pause, a
+ * settings toggle or "Show everything" a registry still holds a mark whose host
+ * is long gone. Keyed on presence alone, the next pass concluded "already
+ * marked" and attached nothing — re-hiding the entry with no explanation and no
+ * way back, which is the exact silent concealment this file exists to prevent.
  */
-const anchorTooltipKeys = new WeakMap<HTMLElement, string>();
+function markIsCurrent(registry: MarkRegistry, el: HTMLElement, key: string): boolean {
+  const mark = registry.get(el);
+  return mark?.key === key && mark.handle.host.isConnected;
+}
 
-/** Per-entry chip handles for list-shaped pickers, keyed by the hidden entry
- *  they stand in for. Mirrors {@link anchorTooltips}: the marker is re-derived
- *  on every filter pass, so the previous one has to be reachable to detach.
- *  WeakMap so an entry the site re-renders away takes its handle with it. */
-const entryCurtains = new WeakMap<HTMLElement, PresenterHandle>();
-/** What each live chip SAYS — its language plus the copy revision. A chip's copy
- *  is per-entry, so a virtualised list that recycles a row for a different
- *  language would otherwise keep a chip naming the wrong one. */
-const entryCurtainKeys = new WeakMap<HTMLElement, string>();
-
-/** Per-control badge handles for native `<select>` pickers, with the copy each
- *  currently carries — same idempotence bookkeeping as {@link anchorTooltips} /
- *  {@link anchorTooltipKeys}, keyed by the control rather than by an entry. */
-const controlBadges = new WeakMap<HTMLElement, PresenterHandle>();
-const controlBadgeKeys = new WeakMap<HTMLElement, string>();
-
-/** Detach a control's badge (and the tooltip anchored on it). Idempotent. */
-function detachControlBadge(control: HTMLElement): void {
-  const existing = controlBadges.get(control);
-  if (!existing) return;
-  existing.detach();
-  controlBadges.delete(control);
-  controlBadgeKeys.delete(control);
+/** Stable identity for a mark's copy: the hidden languages it names, plus the
+ *  presenter's copy revision — the locale, which changes the WORDS without
+ *  changing the languages, and which a locale-only settings change applies with
+ *  no teardown behind it. */
+function surfaceKey(
+  hiddenLanguages: readonly LanguageCode[],
+  presenter: ContentPresenter | undefined,
+): string {
+  return `${hiddenLanguages.join(',')}|${presenter?.copyRevision() ?? ''}`;
 }
 
 /** Text that is entirely separator characters and whitespace, and contains
@@ -440,7 +451,7 @@ function restorePickerInPlace(picker: Picker): void {
   // to the value it snapshotted — `none !important`, written by hideElement
   // before the chip went up — so the un-hide below has to be what runs last.
   for (const link of picker.links) {
-    detachEntryCurtain(link.el);
+    detachMark(entryChips, link.el);
   }
   // Un-hide classified links. Iterates the full pre-dedup set (falling back
   // to `links` when a caller never populated it) so a regional-variant
@@ -463,7 +474,7 @@ function restorePickerInPlace(picker: Picker): void {
   for (const child of picker.container.children) {
     if (!(child instanceof HTMLElement)) continue;
     if (!child.hasAttribute(HIDDEN_ATTR)) continue;
-    detachEntryCurtain(child);
+    detachMark(entryChips, child);
     child.removeAttribute(HIDDEN_ATTR);
     restoreOriginalDisplay(child);
   }
@@ -498,63 +509,13 @@ function restorePickerInPlace(picker: Picker): void {
   // native <select> carries beside its control — the badge owns the tooltip
   // anchored on it, so detaching the badge takes both.
   for (const link of picker.links) {
-    detachSurvivorTooltip(link.el);
+    detachMark(survivorTooltips, link.el);
   }
-  detachControlBadge(picker.container);
+  detachMark(controlBadgeMarks, picker.container);
   // Mark the container so filterPickers' next pass leaves it alone.
   picker.container.setAttribute(RESTORED_ATTR, '');
 }
 /* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
-
-/** Detach `anchor`'s previously-attached survivor tooltip, if any — removing
- *  both its host (appended to `document.body`, outside the picker subtree)
- *  and its entry in tooltip.ts's `tooltipRegistry` — and drop it from
- *  `anchorTooltips`. Idempotent: a no-op when the anchor never had one. Must
- *  run for every anchor leaving tooltip-eligibility, not just re-annotated
- *  ones — otherwise the host/registry entry orphans permanently (movar#303).
- *  Takes an element rather than a ClassifiedLink because the native-`<select>`
- *  path anchors on the CONTROL, which is not a classified entry. */
-function detachSurvivorTooltip(anchor: HTMLElement): void {
-  const existing = anchorTooltips.get(anchor);
-  if (!existing) return;
-  existing.detach();
-  anchorTooltips.delete(anchor);
-  anchorTooltipKeys.delete(anchor);
-}
-
-/**
- * True when `el` already carries a surface from `handles` saying exactly `key`
- * AND that surface is still ON THE PAGE.
- *
- * The `isConnected` half is what keeps idempotence from becoming erasure. The
- * page-wide sweeps (`detachAllCurtains` / `detachAllTooltips`) resolve handles
- * off the DOM and cannot reach these module-level maps, so after a pause,
- * a settings toggle or "Show everything" the map still holds a handle whose host
- * is long gone. Keyed on presence alone, the next pass then concluded "already
- * marked" and attached nothing — re-hiding the entry with no explanation and no
- * way back, which is the exact silent concealment this file exists to prevent.
- */
-function surfaceIsCurrent(
-  handles: WeakMap<HTMLElement, PresenterHandle>,
-  keys: WeakMap<HTMLElement, string>,
-  el: HTMLElement,
-  key: string,
-): boolean {
-  if (keys.get(el) !== key) return false;
-  const handle = handles.get(el);
-  return handle?.host.isConnected === true;
-}
-
-/** Stable identity for a surface's copy: the hidden languages it names, plus the
- *  presenter's copy revision — the locale, which changes the WORDS without
- *  changing the languages, and which a locale-only settings change applies with
- *  no teardown behind it. */
-function surfaceKey(
-  hiddenLanguages: readonly LanguageCode[],
-  presenter: ContentPresenter | undefined,
-): string {
-  return `${hiddenLanguages.join(',')}|${presenter?.copyRevision() ?? ''}`;
-}
 
 /**
  * Height of the box `entry` used to occupy, taken from a still-visible sibling
@@ -581,18 +542,6 @@ function slotHeightFor(entry: HTMLElement): number {
   }
   return 0;
 }
-
-/** Detach `entry`'s previously-attached chip, if any. Idempotent. Must run
- *  before the entry's display is restored: the chip's own detach puts back the
- *  `display` it snapshotted, which is the `none !important` hideElement wrote. */
-function detachEntryCurtain(entry: HTMLElement): void {
-  const existing = entryCurtains.get(entry);
-  if (!existing) return;
-  existing.detach();
-  entryCurtains.delete(entry);
-  entryCurtainKeys.delete(entry);
-}
-
 /**
  * Mark each hidden entry of a LIST-shaped picker with a chip in its own row,
  * instead of hanging a tooltip off every survivor.
@@ -623,7 +572,7 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
     // and a guard that ran first would leave curtain-mode chips standing in the
     // mode whose contract is that Movar adds no surface.
     if (!hidden || !visible) {
-      detachEntryCurtain(link.el);
+      detachMark(entryChips, link.el);
       continue;
     }
     // The measured height is part of the key: a list picker is usually inside a
@@ -632,8 +581,8 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
     // was born with and render at half its neighbours' for the life of the page.
     const slotHeight = slotHeightFor(link.el);
     const key = `${surfaceKey([link.language], presenter)}|${String(slotHeight)}`;
-    if (surfaceIsCurrent(entryCurtains, entryCurtainKeys, link.el, key)) continue;
-    detachEntryCurtain(link.el);
+    if (markIsCurrent(entryChips, link.el, key)) continue;
+    detachMark(entryChips, link.el);
     const handle = presenter.attachPickerEntryCurtain({
       entry: link.el,
       language: link.language,
@@ -644,8 +593,7 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
     });
     if (handle === null) continue;
     handle.host.dataset['movarKind'] = PICKER_ENTRY_CURTAIN_KIND;
-    entryCurtains.set(link.el, handle);
-    entryCurtainKeys.set(link.el, key);
+    entryChips.set(link.el, { handle, key });
   }
 }
 
@@ -680,11 +628,11 @@ function markNativeControl(
 ): void {
   const key = surfaceKey(hiddenLanguages, presenter);
   if (hiddenLanguages.length === 0 || presenter?.hasVisiblePresentation !== true) {
-    detachControlBadge(picker.container);
+    detachMark(controlBadgeMarks, picker.container);
     return;
   }
-  if (surfaceIsCurrent(controlBadges, controlBadgeKeys, picker.container, key)) return;
-  detachControlBadge(picker.container);
+  if (markIsCurrent(controlBadgeMarks, picker.container, key)) return;
+  detachMark(controlBadgeMarks, picker.container);
   const handle = presenter.attachPickerControlBadge({
     control: picker.container,
     hiddenLanguages,
@@ -694,8 +642,7 @@ function markNativeControl(
   });
   if (handle === null) return;
   handle.host.dataset['movarKind'] = PICKER_BADGE_KIND;
-  controlBadges.set(picker.container, handle);
-  controlBadgeKeys.set(picker.container, key);
+  controlBadgeMarks.set(picker.container, { handle, key });
 }
 
 /**
@@ -706,8 +653,8 @@ function markNativeControl(
  * container — without touching curtains or other pickers).
  *
  * Idempotent across MutationObserver re-fires: each anchor's previous
- * tooltip handle is tracked in `anchorTooltips` and always detached first
- * (via {@link detachSurvivorTooltip}), so the body stays in sync if the
+ * tooltip mark is tracked in `survivorTooltips` and always detached first
+ * (via {@link detachMark}), so the body stays in sync if the
  * hidden-language list changed since the last call. That detach runs even
  * for links this pass then skips — now HIDDEN_ATTR, or no visible
  * presenter — so a link that stops being a tooltip candidate never leaves
@@ -727,11 +674,11 @@ function annotateSurvivingLinks(
     // first also re-opened movar#303: an anchor that stops being a candidate
     // without changing the key kept its stale tooltip.
     if (link.el.hasAttribute(HIDDEN_ATTR) || !visible) {
-      detachSurvivorTooltip(link.el);
+      detachMark(survivorTooltips, link.el);
       continue;
     }
-    if (surfaceIsCurrent(anchorTooltips, anchorTooltipKeys, link.el, key)) continue;
-    detachSurvivorTooltip(link.el);
+    if (markIsCurrent(survivorTooltips, link.el, key)) continue;
+    detachMark(survivorTooltips, link.el);
     const handle = presenter.attachPickerSurvivorTooltip({
       anchor: link.el,
       hiddenLanguages,
@@ -740,8 +687,7 @@ function annotateSurvivingLinks(
       },
     });
     if (handle === null) continue;
-    anchorTooltips.set(link.el, handle);
-    anchorTooltipKeys.set(link.el, key);
+    survivorTooltips.set(link.el, { handle, key });
   }
 }
 
@@ -857,13 +803,13 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
  * costs nothing in the steady state.
  */
 function detachForeignSurfaces(picker: Picker): void {
-  if (picker.layout !== 'inline') {
-    for (const link of picker.links) detachSurvivorTooltip(link.el);
+  const dropTooltips = picker.layout !== 'inline';
+  const dropChips = picker.layout !== 'list';
+  for (const link of picker.links) {
+    if (dropTooltips) detachMark(survivorTooltips, link.el);
+    if (dropChips) detachMark(entryChips, link.el);
   }
-  if (picker.layout !== 'list') {
-    for (const link of picker.links) detachEntryCurtain(link.el);
-  }
-  if (picker.layout !== 'native') detachControlBadge(picker.container);
+  if (picker.layout !== 'native') detachMark(controlBadgeMarks, picker.container);
 }
 
 /**

@@ -168,9 +168,10 @@ export function pruneOuterContainers(containers: HTMLElement[]): HTMLElement[] {
 export function pickerLayout(container: HTMLElement, links: ClassifiedLink[]): PickerLayout {
   if (container.closest('select') !== null) return 'native';
   if (container.matches('[role="menubar"]')) return 'inline';
-  if (container.matches('[role="listbox"], [role="menu"]')) return 'list';
-  const rowRoles =
-    '[role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
+  if (container.matches('[role="listbox"],[role="menu"]')) return 'list';
+  // Prefix-matched: covers menuitem, menuitemradio and menuitemcheckbox in one,
+  // and any future menuitem* role, in a fraction of the shipped bytes.
+  const rowRoles = '[role="option"],[role^="menuitem"]';
   return links.some((link) => {
     const row = link.el.closest(rowRoles);
     return row !== null && container.contains(row);

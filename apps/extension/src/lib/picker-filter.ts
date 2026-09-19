@@ -517,16 +517,49 @@ function restorePickerInPlace(picker: Picker): void {
 }
 /* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
 
+/** The commonest value in `heights`, or 0 for an empty list. Ties go to the
+ *  SMALLER height: a floor under the row is invisible (the chip's own content
+ *  fills it), a floor over it is the too-tall band this measurement exists to
+ *  prevent. */
+function commonestHeight(heights: readonly number[]): number {
+  const counts = new Map<number, number>();
+  let best = 0;
+  let bestCount = 0;
+  for (const height of heights) {
+    const count = (counts.get(height) ?? 0) + 1;
+    counts.set(height, count);
+    if (count > bestCount || (count === bestCount && height < best)) {
+      best = height;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 /**
- * Height of the box `entry` used to occupy, taken from a still-visible sibling
- * row — 0 when none can be measured.
+ * Height of the box `entry` used to occupy, taken from the still-visible
+ * siblings that are ROWS LIKE IT — 0 when none can be measured.
  *
- * Measured off a sibling rather than off the entry itself because by the time a
+ * Measured off siblings rather than off the entry itself because by the time a
  * chip goes up, `filterPickerLinks` has already hidden the entry and its box is
  * gone; un-hiding it to measure would mean a write, a forced reflow and a
- * re-hide on every observer re-fire. A list picker's rows are uniform by
- * construction — that uniformity is most of what makes it a list rather than a
- * strip — so a sibling's box IS the hidden row's box.
+ * re-hide on every observer re-fire.
+ *
+ * A list picker's ROWS are uniform by construction — that uniformity is most of
+ * what makes it a list rather than a strip — but its child list holds more than
+ * rows. Grouped listboxes (MUI's ListSubheader, HeadlessUI's section labels,
+ * every "Recently used / All languages" split) put a `role="presentation"`
+ * header first, and separators and "clear selection" affordances sit there too;
+ * all of them are deliberately NOT row-shaped. Taking the first visible sibling
+ * whatever it was measured a header at 37px against 28px option rows — a 32%
+ * overshoot, one band in the list taller than everything around it.
+ *
+ * So the entry's own `role` picks its peers, and the commonest height among
+ * them is the answer — the mode rather than the first, so one row that wrapped
+ * to two lines doesn't set the floor for the rest either. Siblings with a
+ * different role are the fallback for the picker that has no peers at all (one
+ * classified row among unclassifiable ones is common; one row, full stop, is
+ * not), where the shape of the list is all there is to go on.
  *
  * Skips Movar's own hosts and anything else already hidden, so a second chip in
  * the same container never measures the first one.
@@ -534,13 +567,104 @@ function restorePickerInPlace(picker: Picker): void {
 function slotHeightFor(entry: HTMLElement): number {
   const parent = entry.parentElement;
   if (!parent) return 0;
+  const role = entry.getAttribute('role');
+  const peers: number[] = [];
+  const rest: number[] = [];
   for (const sibling of parent.children) {
     if (sibling === entry || !(sibling instanceof HTMLElement)) continue;
     if (sibling.hasAttribute(HIDDEN_ATTR)) continue;
     if (sibling.hasAttribute(CURTAIN_HOST_ATTR)) continue;
-    if (sibling.offsetHeight > 0) return sibling.offsetHeight;
+    if (sibling.offsetHeight <= 0) continue;
+    (sibling.getAttribute('role') === role ? peers : rest).push(sibling.offsetHeight);
   }
-  return 0;
+  return commonestHeight(peers.length > 0 ? peers : rest);
+}
+
+/**
+ * Picker containers being watched for a box that arrives after the filter has
+ * already run, each with the re-measure to run when one does.
+ *
+ * {@link slotHeightFor} needs a laid-out row, and a list picker is usually
+ * inside a dropdown that is CLOSED on the pass that hides the entry, where every
+ * row reports `offsetHeight === 0`. Recovering from that needs a LATER pass, and
+ * the content script has exactly two triggers for one: a MutationObserver
+ * configured `{ childList: true, subtree: true }` and `wxt:locationchange`
+ * (both in content-runtime.ts). Neither fires for the shape this exists for — a
+ * panel that is in the DOM from the first byte and opens by toggling a CLASS
+ * (Bootstrap's `.dropdown-menu.show`, a HeadlessUI static panel, `<details>`, a
+ * pure-CSS `:hover` menu), which adds and removes nothing. Measured in Chromium
+ * on the Bootstrap-shaped fixture: rows 28px, chip 21px, the host's inline
+ * `min-height` never set, for the life of the page.
+ *
+ * A ResizeObserver is what turns "the panel opened" into an event the filter can
+ * hear: the closed container has no box and gains one the moment the class
+ * lands. It re-runs {@link markHiddenEntries} for that picker, and the height in
+ * the mark key does the rest — a rebuild only when the number actually changed.
+ *
+ * No feedback loop with the page-wide observer: a rebuilt chip is a curtain host
+ * carrying CURTAIN_HOST_ATTR, so the batch reads as Movar's own and
+ * `isMovarOwnedMutation` (movar-markers.ts) drops it. And no loop with itself —
+ * the rebuild changes the container's height, the re-measure that follows reads
+ * the same row height, the key matches and nothing moves.
+ */
+const slotWatchers = new Map<HTMLElement, () => void>();
+let slotObserver: ResizeObserver | null = null;
+
+/** Re-measure every watched picker, and evict the ones whose container has left
+ *  the page. One observation per picker and a page has one or two, so sweeping
+ *  the whole map costs a handful of offsetHeight reads and buys the eviction in
+ *  the same loop — the same bargain `repositionAllBadges` makes in curtain.ts.
+ *  Iterates a copy: a re-measure can unwatch. */
+function onSlotResize(): void {
+  // eslint-disable-next-line unicorn/no-useless-spread -- deliberate copy: a re-measure can unwatch and re-watch its own container, which a live Map iterator would then visit a second time
+  for (const [container, remeasure] of [...slotWatchers]) {
+    if (container.isConnected) remeasure();
+    else unwatchSlot(container);
+  }
+}
+
+function watchSlot(container: HTMLElement, remeasure: () => void): void {
+  // No ResizeObserver — jsdom, and any engine old enough to lack it. The chip
+  // keeps the recovery it had before this watcher existed: whatever the next
+  // page-wide pass happens to measure.
+  if (typeof ResizeObserver === 'undefined') return;
+  slotObserver ??= new ResizeObserver(onSlotResize);
+  if (!slotWatchers.has(container)) slotObserver.observe(container);
+  // Always the newest closure. It holds the picker snapshot and the presenter of
+  // the pass that installed it, and a settings change re-runs the filter with no
+  // teardown behind it — so a stale closure would keep re-asserting the previous
+  // settings' surface every time the dropdown moved.
+  slotWatchers.set(container, remeasure);
+}
+
+/** Stop watching `container`, and put the observer away once the last watcher is
+ *  gone. The half curtain.ts's badge listeners learned to have: "Turn Movar off"
+ *  must be able to remove every global this module installs. */
+function unwatchSlot(container: HTMLElement): void {
+  if (!slotWatchers.delete(container)) return;
+  slotObserver?.unobserve(container);
+  if (slotWatchers.size > 0) return;
+  slotObserver?.disconnect();
+  slotObserver = null;
+}
+
+/**
+ * A chip's curtain has come down — by its own "Show", by a picker-level restore,
+ * or by the page-wide sweep behind "Turn Movar off", which resolves handles off
+ * the DOM and never reaches this module's registries. That last path is the
+ * reason this is an `onDetach` hook rather than a line in {@link detachMark}:
+ * the same lesson the control badge's `releaseControl` records.
+ *
+ * Once the last chip of a picker is gone there is nothing left to re-measure, so
+ * the watcher goes with it. A REBUILD also passes through here, one line before
+ * the replacement goes up — the pass re-registers the watcher when it ends, at
+ * the cost of one no-op observation.
+ */
+function releaseSlotWatch(picker: Picker): void {
+  const standing = picker.links.some(
+    (link) => entryChips.get(link.el)?.handle.host.isConnected === true,
+  );
+  if (!standing) unwatchSlot(picker.container);
 }
 /**
  * Mark each hidden entry of a LIST-shaped picker with a chip in its own row,
@@ -562,26 +686,42 @@ function slotHeightFor(entry: HTMLElement): number {
  *
  * Idempotent across MutationObserver re-fires — the previous chip is detached
  * first, the same way {@link annotateSurvivingLinks} handles its tooltips.
+ *
+ * Re-entrant by design: {@link slotWatchers} calls this again, for one picker,
+ * when that picker's container gains the box it did not have on the first pass.
  */
 function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefined): void {
   const visible = presenter?.hasVisiblePresentation === true;
+  let standing = false;
   for (const link of picker.links) {
     const hidden = link.el.hasAttribute(HIDDEN_ATTR);
     // The eligibility checks come BEFORE the skip, never after it: a conceal-mode
     // flip to 'hide' drops the presenter without changing the hidden languages,
     // and a guard that ran first would leave curtain-mode chips standing in the
     // mode whose contract is that Movar adds no surface.
-    if (!hidden || !visible) {
+    //
+    // A PARENTLESS entry is one the site re-rendered away since `picker.links`
+    // was taken: it can measure nothing and can hold nothing (a replace-mode
+    // curtain inserts itself before its target, and attachCurtain throws without
+    // a parent). Only reachable since the slot watcher started calling this with
+    // a snapshot that can outlive its DOM.
+    if (!hidden || !visible || link.el.parentElement === null) {
       detachMark(entryChips, link.el);
       continue;
     }
-    // The measured height is part of the key: a list picker is usually inside a
-    // dropdown that is CLOSED when the filter runs, where every row measures 0,
-    // so a chip keyed only on its language would keep the floorless height it
-    // was born with and render at half its neighbours' for the life of the page.
+    // The measured height is part of the key, and a rebuild is how a chip takes
+    // a new measurement: a list picker is usually inside a dropdown that is
+    // CLOSED when the filter runs, where every row measures 0, so a chip keyed
+    // only on its language would keep the floorless height it was born with and
+    // render at half its neighbours' for the life of the page. What re-runs this
+    // function once the rows have a box is {@link slotWatchers} — the page-wide
+    // observer cannot, because opening such a dropdown mutates no childList.
     const slotHeight = slotHeightFor(link.el);
     const key = `${surfaceKey([link.language], presenter)}|${String(slotHeight)}`;
-    if (markIsCurrent(entryChips, link.el, key)) continue;
+    if (markIsCurrent(entryChips, link.el, key)) {
+      standing = true;
+      continue;
+    }
     detachMark(entryChips, link.el);
     const handle = presenter.attachPickerEntryCurtain({
       entry: link.el,
@@ -590,10 +730,26 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
       restore: () => {
         restorePickerInPlace(picker);
       },
+      onDetach: () => {
+        releaseSlotWatch(picker);
+      },
     });
     if (handle === null) continue;
     handle.host.dataset['movarKind'] = PICKER_ENTRY_CURTAIN_KIND;
     entryChips.set(link.el, { handle, key });
+    standing = true;
+  }
+  // Watch for a slot that becomes measurable only while there is a chip to
+  // re-floor. Nothing standing — no hidden rows, no presenter, or a presenter
+  // that declined to mount — means this module has nothing left to do for this
+  // picker, and holding a live observer on its container would be one more
+  // global for "Turn Movar off" to have to find.
+  if (standing) {
+    watchSlot(picker.container, () => {
+      markHiddenEntries(picker, presenter);
+    });
+  } else {
+    unwatchSlot(picker.container);
   }
 }
 

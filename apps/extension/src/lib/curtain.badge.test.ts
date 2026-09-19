@@ -16,13 +16,14 @@ function stubRect(el: Element, rect: Partial<DOMRect>): void {
   vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({ ...full, toJSON: () => full });
 }
 
-function attachBadge(target: HTMLElement): { detach(): void } {
+function attachBadge(target: HTMLElement, onDetach?: () => void): { detach(): void } {
   return attachCurtain(target, {
     mode: 'badge',
     skin: 'chip',
     icon: '⚑',
     title: 'Movar: hidden',
     actions: [],
+    ...(onDetach ? { onDetach } : {}),
   });
 }
 
@@ -31,9 +32,18 @@ function flushFrames(): void {
   vi.advanceTimersByTime(32);
 }
 
+/** A right-aligned control in a narrow window, which is where every placement
+ *  defect lives: the control ends 8px from the viewport edge, so the badge's
+ *  resting mark (24px) and its hovered form (~98px) both have to go somewhere
+ *  other than "after the control". The numbers are the ones Chromium produces
+ *  on the picker-badge-edge-ru e2e fixture. */
+const NARROW_VIEWPORT = 600;
+const EDGE_CONTROL = { top: 0, left: 503, right: 592, width: 89, height: 20 };
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('curtain badge — placement', () => {
@@ -50,21 +60,80 @@ describe('curtain badge — placement', () => {
     // beside its control on a centred-column shell.
     // Just past the trailing edge (right 300 + the 6px gap)...
     expect(host.style.left).toBe('306px');
+    // ...anchored from that edge alone, so the label grows into the free space
+    // the side was chosen for...
+    expect(host.style.right).toBe('');
     // ...and vertically centred on it. jsdom gives the host no height, so the
     // centre of a 20px-tall control at top 100 is 110.
     expect(host.style.top).toBe('110px');
     expect(host.style.visibility).toBe('');
   });
 
-  it('clamps to the viewport instead of pushing past the edge', () => {
+  it('flips to the leading side rather than sitting on the control', () => {
+    // A right-aligned language control — the usual placement. Clamping the
+    // badge into the viewport put it at left=572 over a control ending at 592,
+    // covering its last 20px: the <select>'s own dropdown arrow.
+    vi.stubGlobal('innerWidth', NARROW_VIEWPORT);
     setBody('<header><select id="c"></select></header>');
     const target = document.querySelector<HTMLElement>('#c')!;
-    // A right-aligned language control — the usual placement.
-    stubRect(target, { top: 0, right: window.innerWidth, width: 100, height: 20 });
+    stubRect(target, EDGE_CONTROL);
 
     attachBadge(target);
+    const host = getHost()!;
 
-    expect(Number.parseInt(getHost()!.style.left, 10)).toBeLessThan(window.innerWidth);
+    // Anchored by its RIGHT edge, 6px before the control's left edge, so it
+    // grows leftwards into the 503px of room on that side and never crosses
+    // the control however wide its label gets.
+    expect(host.style.right).toBe(`${String(NARROW_VIEWPORT - EDGE_CONTROL.left + 6)}px`);
+    expect(host.style.left).toBe('');
+  });
+
+  it('places from the control alone, not from its own current width', () => {
+    // The badge is two sizes: a 24px mark at rest, ~98px while the control is
+    // hovered. A reposition landing in the middle of that (a resize, a scroll)
+    // used to capture the wide measurement, and the collapse repositions
+    // nothing — leaving a 24px badge at left=498, floating over a control
+    // spanning 503-592.
+    vi.useFakeTimers();
+    vi.stubGlobal('innerWidth', NARROW_VIEWPORT);
+    setBody('<header><select id="c"></select></header>');
+    const target = document.querySelector<HTMLElement>('#c')!;
+    stubRect(target, EDGE_CONTROL);
+    attachBadge(target);
+    const host = getHost()!;
+    const atRest = { left: host.style.left, right: host.style.right };
+
+    // Same control, same viewport — only the badge is expanded now.
+    stubRect(host, { top: 0, left: 399, right: 497, width: 98, height: 20 });
+    globalThis.dispatchEvent(new Event('scroll'));
+    flushFrames();
+
+    expect({ left: host.style.left, right: host.style.right }).toEqual(atRest);
+  });
+
+  it('hugs the roomier viewport edge when neither side fits', () => {
+    // A control nearly as wide as the viewport — a full-bleed <select> on a
+    // narrow window. There is no "beside" left, so the badge takes the side
+    // with more room and pins to the viewport edge, growing inwards. Covering
+    // part of the control is the least-bad answer only once both sides are out.
+    vi.useFakeTimers();
+    vi.stubGlobal('innerWidth', NARROW_VIEWPORT);
+    setBody('<header><select id="c"></select></header>');
+    const target = document.querySelector<HTMLElement>('#c')!;
+    stubRect(target, { top: 0, left: 125, right: 485, width: 360, height: 20 });
+    attachBadge(target);
+    const host = getHost()!;
+
+    // 115px before the control against 105px after it: the leading side wins.
+    expect({ left: host.style.left, right: host.style.right }).toEqual({ left: '4px', right: '' });
+
+    stubRect(target, { top: 0, left: 115, right: 475, width: 360, height: 20 });
+    globalThis.dispatchEvent(new Event('scroll'));
+    flushFrames();
+
+    // Mirrored, the winner swaps — and the anchor swaps with it instead of
+    // leaving both edges set, which would stretch the badge across the gap.
+    expect({ left: host.style.left, right: host.style.right }).toEqual({ left: '', right: '4px' });
   });
 
   it('hides rather than parking at 0,0 when the control has no box', () => {
@@ -106,6 +175,26 @@ describe('curtain badge — it never outlives its control', () => {
     expect(host.isConnected).toBe(false);
   });
 
+  it('evicts through the curtain’s own detach, so onDetach runs', () => {
+    // The badge is half a surface: its `onDetach` is what releases the control
+    // listeners and the PAIRED tooltip host, a second element on document.body
+    // that nothing else owns. Evicting by removing the node tore down only the
+    // half the eviction could see — measured over five re-renders of one
+    // control, badge hosts stayed at 1 and tooltip hosts went 1 → 6.
+    vi.useFakeTimers();
+    setBody('<header><select id="c"></select></header>');
+    const target = document.querySelector<HTMLElement>('#c')!;
+    stubRect(target, { top: 10, right: 50, width: 40, height: 20 });
+    const onDetach = vi.fn();
+    attachBadge(target, onDetach);
+
+    target.remove();
+    globalThis.dispatchEvent(new Event('scroll'));
+    flushFrames();
+
+    expect(onDetach).toHaveBeenCalledTimes(1);
+  });
+
   it('stops listening once the last badge is gone', () => {
     vi.useFakeTimers();
     const remove = vi.spyOn(globalThis, 'removeEventListener');
@@ -140,7 +229,12 @@ describe('curtain badge — it never outlives its control', () => {
 describe('curtain badge — a control whose box arrives late', () => {
   /** jsdom ships no ResizeObserver, so the badge's observer is never built
    *  unless one is installed. This is the fake that makes the path reachable —
-   *  and it records what got observed, which is the behaviour under test. */
+   *  and it records what got observed, which is the behaviour under test.
+   *
+   *  `observe` de-duplicates and `disconnect` drops everything, both to match
+   *  the real observer: the badge re-observes the document element on every
+   *  mount, so a fake that appended blindly would report page-per-badge
+   *  observations the browser never makes. */
   class FakeResizeObserver {
     static instances: FakeResizeObserver[] = [];
     readonly observed: Element[] = [];
@@ -149,13 +243,14 @@ describe('curtain badge — a control whose box arrives late', () => {
       FakeResizeObserver.instances.push(this);
     }
     observe(el: Element): void {
-      this.observed.push(el);
+      if (!this.observed.includes(el)) this.observed.push(el);
     }
     unobserve(el: Element): void {
       this.observed.splice(this.observed.indexOf(el), 1);
     }
     disconnect(): void {
       this.disconnected = true;
+      this.observed.length = 0;
     }
   }
 
@@ -165,13 +260,10 @@ describe('curtain badge — a control whose box arrives late', () => {
     return FakeResizeObserver;
   }
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('watches the control for a box that appears later', () => {
+  it('watches the control for a box that appears later, and the page for a move', () => {
     // Scroll and resize both miss a menu opening, which is the case that left a
-    // filtered picker permanently unmarked.
+    // filtered picker permanently unmarked. They miss a control that only
+    // MOVES too, and so does watching the control — hence the second target.
     const Fake = installFakeObserver();
     setBody('<header><select id="c"></select></header>');
     const target = document.querySelector<HTMLElement>('#c')!;
@@ -179,18 +271,49 @@ describe('curtain badge — a control whose box arrives late', () => {
     attachBadge(target);
 
     expect(Fake.instances).toHaveLength(1);
-    expect(Fake.instances[0]!.observed).toEqual([target]);
+    expect(Fake.instances[0]!.observed).toEqual([document.documentElement, target]);
   });
 
-  it('stops watching, and disconnects, once the badge is gone', () => {
+  it('repins a control that a growing page pushed down', () => {
+    // The measured case: a banner slot filling in above the control moved it
+    // 120px down, its own box unchanged. No scroll, no resize, nothing for an
+    // observer of the control to see — the badge sat 120px high of its control
+    // until the visitor's next scroll. What did change is the page's height.
+    vi.useFakeTimers();
     const Fake = installFakeObserver();
     setBody('<header><select id="c"></select></header>');
-    const badge = attachBadge(document.querySelector<HTMLElement>('#c')!);
+    const target = document.querySelector<HTMLElement>('#c')!;
+    stubRect(target, { top: 40, right: 300, width: 100, height: 20 });
+    attachBadge(target);
+    const host = getHost()!;
+    expect(host.style.top).toBe('50px');
 
-    badge.detach();
+    stubRect(target, { top: 160, right: 300, width: 100, height: 20 });
+    Fake.instances[0]!.cb();
+    flushFrames();
 
-    expect(Fake.instances[0]!.observed).toEqual([]);
+    expect(host.style.top).toBe('170px');
+  });
+
+  it('stops watching, and disconnects, once the LAST badge is gone', () => {
+    const Fake = installFakeObserver();
+    setBody('<header><select id="a"></select><select id="b"></select></header>');
+    const a = document.querySelector<HTMLElement>('#a')!;
+    const b = document.querySelector<HTMLElement>('#b')!;
+    const first = attachBadge(a);
+    const second = attachBadge(b);
+
+    first.detach();
+
+    // One badge down, one still pinned: its control keeps its observation, and
+    // the page observation the survivor also depends on stays up with it.
+    expect(Fake.instances[0]!.observed).toEqual([document.documentElement, b]);
+    expect(Fake.instances[0]!.disconnected).toBe(false);
+
+    second.detach();
+
     expect(Fake.instances[0]!.disconnected).toBe(true);
+    expect(Fake.instances[0]!.observed).toEqual([]);
   });
 
   it('cancels a pending frame on teardown', () => {

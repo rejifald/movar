@@ -33,11 +33,25 @@ export interface PickerEntryCurtainRequest {
    *  of language names, and a visible endonym there reads as one more option to
    *  pick rather than as the mark of one taken away. */
   language: LanguageCode;
-  /** Height in px of the box the row used to occupy, measured off a still-
-   *  visible sibling. 0 when nothing could be measured, in which case the
-   *  curtain sizes to its own content. */
+  /** Height in px of the box the row used to occupy, measured off the still-
+   *  visible siblings that are rows like it. 0 when nothing could be measured,
+   *  in which case the curtain sizes to its own content — and the caller is
+   *  expected to come back with a real number once the row has a box. */
   slotHeight: number;
   restore(): void;
+  /** Called when this chip comes down by ANY path: its own "Show", a
+   *  picker-level restore, or the page-wide sweep behind "Turn Movar off" —
+   *  which resolves handles off the DOM and so never reaches the caller's own
+   *  registries. Anything the chip owns BESIDES its host (the caller's
+   *  re-measure watcher) has to be released from here, or it survives every
+   *  teardown. Same contract as the control badge's `releaseControl` — required
+   *  rather than optional because a chip that owns nothing is not a shape this
+   *  seam has, and an optional one would be silently droppable.
+   *
+   *  A property rather than a method (the shape `restore` has) because it is
+   *  handed to the curtain by reference rather than called on the request, and a
+   *  method signature declares a `this` the reference would lose. */
+  onDetach: () => void;
 }
 
 /** The control of a picker whose entries Movar cannot mark — a native

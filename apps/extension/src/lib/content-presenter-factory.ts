@@ -119,6 +119,9 @@ export function createContentPresenterAdapter({
         description,
         ariaLabel: description,
         colorScheme: getColorScheme(),
+        // Forwarded so the caller hears the page-wide sweep too, not just its
+        // own detaches — see PickerEntryCurtainRequest.onDetach.
+        onDetach: request.onDetach,
         actions: [
           {
             label: content.pickerEntry.show,

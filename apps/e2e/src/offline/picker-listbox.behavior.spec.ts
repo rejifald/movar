@@ -22,22 +22,57 @@ import { mockSite } from '../fixtures/content-mock';
 import { readMovarDomState, waitForMovarSettled } from '../fixtures/movar-state';
 
 const PICKER_URL = 'https://mocked-picker-listbox.example.test/';
+/** The same list, inside a panel that is `display: none` until a class lands on
+ *  it — served from its own host so each fixture owns one route. */
+const DROPDOWN_URL = 'https://mocked-picker-dropdown.example.test/';
+/** The same list again, with a `role="presentation"` group header above the
+ *  rows. */
+const GROUPED_URL = 'https://mocked-picker-grouped.example.test/';
 
 /** Rows whose language Movar classifies: de, en, fr, pl, ru, es, uk. Thai and
  *  Albanian are outside its roster and stay untouched. */
 const CLASSIFIED_ROWS = 7;
 
+/** What the fixtures state, and what the chip therefore has to match. Asserted
+ *  against the live DOM in each sizing test, so a fixture edit that changes the
+ *  geometry fails here rather than quietly weakening the comparison. */
+const ROW_HEIGHT_PX = 28;
+/** The grouped fixture's header. Taller than a row by design — which is what
+ *  makes "first visible sibling" the wrong thing to measure. */
+const GROUP_HEADER_PX = 37;
+
 async function openFixture(
   movarContext: Parameters<typeof mockSite>[0],
   movarPage: Parameters<typeof waitForMovarSettled>[0],
+  fixture = 'picker-listbox-ru',
+  url = PICKER_URL,
 ): Promise<void> {
   await movarPage.setViewportSize({ width: 460, height: 420 });
-  const route = await mockSite(movarContext, `${PICKER_URL}**`, 'picker-listbox-ru');
-  await movarPage.goto(PICKER_URL, { waitUntil: 'domcontentloaded' });
+  const route = await mockSite(movarContext, `${url}**`, fixture);
+  await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
   await waitForMovarSettled(movarPage, { timeoutMs: 10_000 });
   // Guard the "URL typo → 404 → nothing hidden → passes for the wrong reason"
   // failure mode the sibling specs guard.
   expect(route.hits).toBeGreaterThanOrEqual(1);
+}
+
+/** The chip's box next to the boxes of the rows it stands among. Re-queried on
+ *  every call (never held as a locator) because the chip is REBUILT when its
+ *  measurement changes — the host that was there a moment ago is gone. */
+async function readSlotSizes(
+  movarPage: Parameters<typeof waitForMovarSettled>[0],
+): Promise<{ rowHeights: number[]; curtainHeight: number; minHeight: string }> {
+  return movarPage.evaluate(() => {
+    const rows = [...document.querySelectorAll<HTMLElement>('li[role="option"]')].filter(
+      (r) => getComputedStyle(r).display !== 'none',
+    );
+    const host = document.querySelector<HTMLElement>('[data-movar-kind="picker-entry"]');
+    return {
+      rowHeights: [...new Set(rows.map((r) => r.offsetHeight))],
+      curtainHeight: host?.offsetHeight ?? -1,
+      minHeight: host?.style.minHeight ?? '',
+    };
+  });
 }
 
 test('a list picker gets no survivor tooltips at all', async ({ movarContext, movarPage }) => {
@@ -152,6 +187,73 @@ test('hide mode removes the row outright, with no chip', async ({
   expect(state.pickerEntryCurtainCount).toBe(0);
   await expect(movarPage.locator('[data-movar-tooltip]')).toHaveCount(0);
   await expect(movarPage.locator('li[value="ru"]')).toBeHidden();
+});
+
+test('a dropdown that opens with no DOM change still re-floors the chip', async ({
+  movarContext,
+  movarPage,
+}) => {
+  // The shape the measured-height key was written for, and the one it could not
+  // actually reach. The panel is in the DOM from the first byte and `display:
+  // none` until a class lands on it, so the filter runs against rows that have
+  // no box, and the ONLY page-wide re-apply triggers — a childList
+  // MutationObserver and `wxt:locationchange` — never fire again.
+  await openFixture(movarContext, movarPage, 'picker-listbox-dropdown-uk', DROPDOWN_URL);
+
+  const state = await readMovarDomState(movarPage);
+  expect(state.hiddenLinkCount).toBe(1);
+  expect(state.pickerEntryCurtainCount).toBe(1);
+  // Nothing measurable while the panel is closed: no floor, by design.
+  expect((await readSlotSizes(movarPage)).minHeight).toBe('');
+
+  // Open it exactly as Bootstrap's own bundle does: one class, nothing added or
+  // removed. `takeRecords` right after the toggle drains the page's OWN
+  // synchronous churn, so this is a direct assertion that no childList record
+  // exists for the content script's observer to wake on.
+  const pageChurn = await movarPage.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      /* records are drained synchronously below */
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.querySelector<HTMLElement>('#language-menu')!.classList.add('show');
+    const records = observer.takeRecords().length;
+    observer.disconnect();
+    return records;
+  });
+  expect(pageChurn).toBe(0);
+
+  // Before the fix this settled at a 21px chip against 28px rows, with the
+  // host's inline min-height still unset, for the life of the page.
+  await expect
+    .poll(async () => readSlotSizes(movarPage), { timeout: 5_000 })
+    .toEqual({
+      rowHeights: [ROW_HEIGHT_PX],
+      curtainHeight: ROW_HEIGHT_PX,
+      minHeight: `${ROW_HEIGHT_PX}px`,
+    });
+  // Re-measuring rebuilds the chip; it must replace the old one, not join it.
+  expect((await readMovarDomState(movarPage)).pickerEntryCurtainCount).toBe(1);
+});
+
+test('a group header is not mistaken for a row', async ({ movarContext, movarPage }) => {
+  // Grouped lists put something that is not a row first in the child list: a
+  // `role="presentation"` header, a separator, a "clear selection" affordance.
+  // Measuring the first visible sibling measured the header — 37px against 28px
+  // rows, one band in the list taller than everything around it.
+  await openFixture(movarContext, movarPage, 'picker-listbox-grouped-uk', GROUPED_URL);
+
+  const state = await readMovarDomState(movarPage);
+  expect(state.hiddenLinkCount).toBe(1);
+  expect(state.pickerEntryCurtainCount).toBe(1);
+
+  const header = await movarPage
+    .locator('li[role="presentation"]')
+    .evaluate((el: HTMLElement) => el.offsetHeight);
+  expect(header).toBe(GROUP_HEADER_PX);
+
+  const sizes = await readSlotSizes(movarPage);
+  expect(sizes.rowHeights).toEqual([ROW_HEIGHT_PX]);
+  expect(sizes.curtainHeight).toBe(sizes.rowHeights[0]);
 });
 
 test('clicking the chip puts the hidden row back', async ({ movarContext, movarPage }) => {

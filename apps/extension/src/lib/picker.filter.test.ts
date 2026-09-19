@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers as filterPickersWithPresenter } from './picker-filter';
 import { testContentPresenter } from './dom-test-helpers';
+import { detachAllCurtains } from './curtain';
 import { detachAllTooltips } from './tooltip';
 import {
   setBody,
@@ -1728,6 +1729,221 @@ describe('filterPickers — a chip measured in a closed dropdown gets its height
 
     expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
     expect(getEntryCurtainHosts()).toHaveLength(1);
+  });
+});
+
+/** jsdom lays nothing out, so every offsetHeight is 0 and a measured row has to
+ *  be declared. The numbers these tests use are the ones measured in Chromium on
+ *  the e2e fixtures: 28px option rows, a 37px group header. */
+function stubHeight(selector: string, px: number): void {
+  Object.defineProperty(document.querySelector<HTMLElement>(selector)!, 'offsetHeight', {
+    value: px,
+    configurable: true,
+  });
+}
+
+/** The grouped-listbox shape: a `role="presentation"` header as the FIRST child,
+ *  the option rows under it. Heights are stubbed by the caller. */
+function setupGroupedListbox(): void {
+  setBody(`
+    <div data-slot="popover">
+      <ul id="picker" role="listbox">
+        <li role="presentation" id="group-head">Популярні</li>
+        <li role="option" id="opt-uk" value="uk">Українська</li>
+        <li role="option" id="opt-ru" value="ru">Русский</li>
+        <li role="option" id="opt-en" value="en">English</li>
+      </ul>
+    </div>
+  `);
+}
+
+describe('filterPickers — a chip in a grouped list measures rows, not whatever is first', () => {
+  // "A list picker's rows are uniform by construction" is true of the ROWS. The
+  // child list holds more than rows: a group header, a separator, a "clear
+  // selection" affordance — all of them deliberately not row-shaped. Measured in
+  // Chromium on the grouped fixture, taking the first visible sibling took the
+  // header: a 37px floor under 28px rows, one band taller than the whole list.
+
+  it('skips a role="presentation" header taller than the rows', () => {
+    setupGroupedListbox();
+    stubHeight('#group-head', 37);
+    stubHeight('#opt-uk', 28);
+    stubHeight('#opt-en', 28);
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+  });
+
+  it('takes the commonest row height, not the first one it finds', () => {
+    // A row whose label wrapped to two lines is the same defect in miniature,
+    // and role-matching alone would not catch it — it IS a row.
+    setupListboxPicker();
+    const rows = [...document.querySelectorAll<HTMLElement>('li[role="option"]')];
+    for (const row of rows) {
+      Object.defineProperty(row, 'offsetHeight', { value: 28, configurable: true });
+    }
+    Object.defineProperty(rows[0]!, 'offsetHeight', { value: 52, configurable: true });
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+  });
+
+  it('falls back to a differently-shaped sibling when the row has no peers', () => {
+    // One classified row among unclassifiable ones is the common case; one row,
+    // full stop, is not — but when it happens the shape of the list is all there
+    // is to go on, and a floor off the header beats no floor at all.
+    setBody(`
+      <div data-slot="popover">
+        <ul id="picker" role="listbox">
+          <li role="presentation" id="group-head">Популярні</li>
+          <li role="option" id="opt-ru" value="ru">Русский</li>
+          <li id="opt-uk" value="uk">Українська</li>
+        </ul>
+      </div>
+    `);
+    stubHeight('#group-head', 37);
+    stubHeight('#opt-uk', 37);
+
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('37px');
+  });
+});
+
+describe('filterPickers — a dropdown that opens without touching the DOM', () => {
+  /** jsdom ships no ResizeObserver, so the slot watcher is never built unless
+   *  one is installed — which is also why every other test in this file
+   *  exercises the no-observer path for free. This fake makes it reachable and
+   *  records what got observed, which is half the behaviour under test. */
+  class FakeResizeObserver {
+    static instances: FakeResizeObserver[] = [];
+    readonly observed: Element[] = [];
+    disconnected = false;
+    constructor(readonly cb: () => void) {
+      FakeResizeObserver.instances.push(this);
+    }
+    observe(el: Element): void {
+      this.observed.push(el);
+    }
+    unobserve(el: Element): void {
+      this.observed.splice(this.observed.indexOf(el), 1);
+    }
+    disconnect(): void {
+      this.disconnected = true;
+    }
+  }
+
+  function installFakeObserver(): typeof FakeResizeObserver {
+    FakeResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    return FakeResizeObserver;
+  }
+
+  /** The module keeps ONE observer for the whole page and drops it when the last
+   *  watcher goes, so a test that leaves a chip standing would hand the next one
+   *  a live observer from a stubbed class that no longer exists. The page-wide
+   *  sweep is what a real teardown runs, and it releases the watcher through the
+   *  chip's own onDetach — so it is also the honest way to reset. */
+  afterEach(() => {
+    detachAllCurtains();
+    vi.unstubAllGlobals();
+  });
+
+  /** The dropdown opens: every row gains a box, and NOTHING is added or removed
+   *  — which is the whole problem, since childList is all the content script's
+   *  page-wide observer watches. */
+  function openDropdown(Fake: typeof FakeResizeObserver, px = 28): void {
+    for (const row of document.querySelectorAll<HTMLElement>('li[role="option"]')) {
+      Object.defineProperty(row, 'offsetHeight', { value: px, configurable: true });
+    }
+    Fake.instances[0]!.cb();
+  }
+
+  it('watches the picker container while a chip is standing', () => {
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(Fake.instances).toHaveLength(1);
+    expect(Fake.instances[0]!.observed).toEqual([document.querySelector('#picker')]);
+  });
+
+  it('re-floors the chip when the rows gain a box, with no second pass', () => {
+    // The defect: the only page-wide re-apply triggers are a childList observer
+    // and wxt:locationchange, and a `.dropdown-menu.show` class toggle is
+    // neither. Measured in Chromium before this watcher: a 21px chip against
+    // 28px rows, for the life of the page.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('');
+
+    openDropdown(Fake);
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+    // Rebuilt, not doubled — and still one chip after the observation that the
+    // rebuild's own re-registration triggers.
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+  });
+
+  it('settles: a re-measure that changes nothing rebuilds nothing', () => {
+    // The rebuild changes the container's height, which is another resize. The
+    // key is what stops that becoming a loop.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    openDropdown(Fake);
+    const settled = expectEntryCurtained('#opt-ru');
+
+    Fake.instances[0]!.cb();
+
+    expect(expectEntryCurtained('#opt-ru')).toBe(settled);
+  });
+
+  it('stops watching, and disconnects, once the page-wide sweep takes the chip', () => {
+    // "Turn Movar off" detaches every curtain by resolving handles off the DOM;
+    // it cannot reach this module's registries, so the watcher has to come down
+    // from the chip's own onDetach or it survives the teardown.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    detachAllCurtains();
+
+    expect(Fake.instances[0]!.observed).toEqual([]);
+    expect(Fake.instances[0]!.disconnected).toBe(true);
+  });
+
+  it('installs no watcher when the presenter declines to mount', () => {
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      { ...testContentPresenter, attachPickerEntryCurtain: () => null },
+    );
+
+    expect(Fake.instances).toHaveLength(0);
+  });
+
+  it('drops the chip of a row the site removed instead of re-attaching to nothing', () => {
+    // The watcher is the one caller that can re-enter markHiddenEntries with a
+    // `picker.links` snapshot older than the DOM it names. A replace-mode
+    // curtain inserts itself BEFORE its target, so an entry whose parent is gone
+    // is not a smaller chip — it is a throw, inside a ResizeObserver callback.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    document.querySelector<HTMLElement>('#opt-ru')!.remove();
+
+    openDropdown(Fake);
+
+    expect(getEntryCurtainHosts()).toHaveLength(0);
   });
 });
 

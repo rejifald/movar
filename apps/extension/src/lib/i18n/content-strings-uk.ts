@@ -9,6 +9,11 @@ export const contentStringsUk: ContentStrings = {
     chipLabelNoLang: 'Мовар приховав перемикач мов — натисніть, щоб показати',
     show: 'Показати',
   },
+  pickerEntry: {
+    label: 'Мовар: приховано',
+    chipLabel: 'Мовар приховав варіант {endonym} — натисніть, щоб показати',
+    show: 'Показати',
+  },
   pickerSurvivor: {
     title: 'Деякі варіанти приховано',
     body: 'Мовар приховав: {languages}.',

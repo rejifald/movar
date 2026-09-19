@@ -98,6 +98,9 @@ function fakePresenter() {
     attachContentCurtain: vi.fn(() => null),
     detachCurtains: vi.fn(),
     attachPickerContainerCurtain: vi.fn(() => null),
+    attachPickerEntryCurtain: vi.fn(() => null),
+    attachPickerControlBadge: vi.fn(() => null),
+    copyRevision: vi.fn(() => 'en'),
     attachPickerSurvivorTooltip: vi.fn(() => null),
     detachAllTooltips: vi.fn(),
     setLocale: vi.fn(async () => {

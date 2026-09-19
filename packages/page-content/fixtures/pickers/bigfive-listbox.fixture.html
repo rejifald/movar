@@ -1,0 +1,105 @@
+<!doctype html>
+<!--
+  bigfive-test.com (https://bigfive-test.com/uk) language <Select>, captured
+  2026-09-14 and trimmed per the corpus README: the portalled listbox popover
+  with all 42 option rows, plus the trigger button that opens it.
+
+  Why this fixture exists: it is the first LIST-shaped picker in the corpus.
+  Every other picker fixture is a header strip — a handful of entries on one
+  line — and the survivor-tooltip surface was built for that shape. Here the
+  entries are a 42-row dropdown the visitor scans with the pointer, and
+  attaching a hover tooltip to each survivor (nine rows classify; hiding ru
+  leaves eight) put eight popups inside the list, each opening over the rows
+  around the cursor at a z-index above the site's own popover. Picking any
+  other language meant dodging them. `layout: "list"` is the verdict that
+  routes this shape to an in-row chip instead.
+
+  The site is HeroUI/react-aria: the listbox is portalled to a body-level
+  `div[data-slot="popover"]`, and the rows carry NO language class hint at all
+  — `value` + `role="option"` are the entire signal, which is why the shape pin
+  anchors there. The Tailwind class soup and react-aria's per-render ids
+  (`react-aria-:R55hjtaH1:`) are dropped per the trim policy: both rotate, and
+  the ids differ on every render of the same page.
+
+  Labels are the site's own — English names for every language except German
+  ("Deutsch"), exactly as served. Nine of the 42 resolve to languages Movar
+  classifies (bg, de, en, es, fr, it, pl, ru, uk); the other 33 — Portuguese,
+  Japanese, Thai and the rest — are outside its roster and stay unclassified.
+  That ratio is the point: the fan-out was eight tooltips scattered down a
+  42-row list, not eight in a list of nine.
+
+  No `<link rel="alternate" hreflang>` — the live page carries none, and one
+  here would fire the hreflang strategy and navigate before the picker surface
+  ever mounts.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Безкоштовний тест особистості від BigFive з відкритим кодом</title>
+  </head>
+  <body>
+    <header>
+      <nav>
+        <a href="/uk">Домашня сторінка</a>
+        <a href="/uk/result">Результати</a>
+        <a href="/uk/compare">Порівняти</a>
+      </nav>
+      <div data-slot="mainWrapper">
+        <button data-slot="trigger" type="button" aria-label="Select language">
+          <span data-slot="value">Ukrainian</span>
+        </button>
+      </div>
+    </header>
+    <main>
+      <h1>Дізнайтеся себе краще за допомогою цього безкоштовного тесту особистості.</h1>
+    </main>
+    <div data-slot="popover">
+      <div data-slot="content">
+        <ul id="language-listbox" data-slot="listbox" role="listbox" aria-label="Select language">
+          <li role="option" data-key="sq" value="sq" aria-selected="false">Albanian</li>
+          <li role="option" data-key="ar" value="ar" aria-selected="false">Arabic</li>
+          <li role="option" data-key="hy" value="hy" aria-selected="false">Armenian</li>
+          <li role="option" data-key="bn" value="bn" aria-selected="false">Bengali</li>
+          <li role="option" data-key="pt-br" value="pt-br" aria-selected="false">Brazilian Portuguese</li>
+          <li role="option" data-key="bg" value="bg" aria-selected="false">Bulgarian</li>
+          <li role="option" data-key="ca" value="ca" aria-selected="false">Catalan</li>
+          <li role="option" data-key="zh-cn" value="zh-cn" aria-selected="false">Chinese (Simplified)</li>
+          <li role="option" data-key="zh-hant" value="zh-hant" aria-selected="false">Chinese (Traditional)</li>
+          <li role="option" data-key="hr" value="hr" aria-selected="false">Croatian</li>
+          <li role="option" data-key="cs" value="cs" aria-selected="false">Czech</li>
+          <li role="option" data-key="da" value="da" aria-selected="false">Danish</li>
+          <li role="option" data-key="de" value="de" aria-selected="false">Deutsch</li>
+          <li role="option" data-key="nl" value="nl" aria-selected="false">Dutch</li>
+          <li role="option" data-key="en" value="en" aria-selected="false">English</li>
+          <li role="option" data-key="et" value="et" aria-selected="false">Estonian</li>
+          <li role="option" data-key="fi" value="fi" aria-selected="false">Finnish</li>
+          <li role="option" data-key="fr" value="fr" aria-selected="false">French</li>
+          <li role="option" data-key="he" value="he" aria-selected="false">Hebrew</li>
+          <li role="option" data-key="hi" value="hi" aria-selected="false">Hindi</li>
+          <li role="option" data-key="hu" value="hu" aria-selected="false">Hungarian</li>
+          <li role="option" data-key="is" value="is" aria-selected="false">Icelandic</li>
+          <li role="option" data-key="id" value="id" aria-selected="false">Indonesian</li>
+          <li role="option" data-key="it" value="it" aria-selected="false">Italian</li>
+          <li role="option" data-key="ja" value="ja" aria-selected="false">Japanese</li>
+          <li role="option" data-key="ko" value="ko" aria-selected="false">Korean</li>
+          <li role="option" data-key="no" value="no" aria-selected="false">Norwegian</li>
+          <li role="option" data-key="fa" value="fa" aria-selected="false">Persian</li>
+          <li role="option" data-key="pl" value="pl" aria-selected="false">Polish</li>
+          <li role="option" data-key="pt" value="pt" aria-selected="false">Portuguese</li>
+          <li role="option" data-key="ro" value="ro" aria-selected="false">Romanian</li>
+          <li role="option" data-key="ru" value="ru" aria-selected="false">Russian</li>
+          <li role="option" data-key="sr" value="sr" aria-selected="false">Serbian</li>
+          <li role="option" data-key="ss" value="ss" aria-selected="false">Siswati</li>
+          <li role="option" data-key="sl" value="sl" aria-selected="false">Slovenian</li>
+          <li role="option" data-key="es" value="es" aria-selected="false">Spanish</li>
+          <li role="option" data-key="sv" value="sv" aria-selected="false">Swedish</li>
+          <li role="option" data-key="th" value="th" aria-selected="false">Thai</li>
+          <li role="option" data-key="tr" value="tr" aria-selected="false">Turkish</li>
+          <li role="option" data-key="uk" value="uk" aria-selected="true" data-selected="true">Ukrainian</li>
+          <li role="option" data-key="ur" value="ur" aria-selected="false">Urdu</li>
+          <li role="option" data-key="vi" value="vi" aria-selected="false">Vietnamese</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

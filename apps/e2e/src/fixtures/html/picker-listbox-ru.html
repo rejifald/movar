@@ -1,0 +1,136 @@
+<!doctype html>
+<!--
+  LIST-shaped picker fixture — the bigfive-test.com shape, for the offline
+  behaviour suite.
+
+  Every other picker fixture here is a header strip: a handful of entries on one
+  line. This one is the other shape — an ARIA listbox of stacked `role="option"`
+  rows, the dropdown a HeroUI/react-aria `<Select>` portals into the page. The
+  distinction is not cosmetic: the survivor tooltip attaches to EVERY surviving
+  classified entry, so on a list that put a hover popup on each recognised row,
+  each one opening over the rows around the cursor at a z-index above the site's
+  own dropdown. Reading down the list to pick another language meant dodging
+  them. `Picker.layout === 'list'` routes this shape to a chip in the hidden
+  row instead, and to no tooltips at all.
+
+  Shape: a Ukrainian page whose language list is OPEN (the live site renders it
+  on click into a body-level popover; here it is simply rendered, so the content
+  script meets the same DOM without needing the click). Seven of the rows carry
+  languages Movar classifies; `defaultSettings` blocks `ru`, so exactly one row
+  is hidden and six survive — the annotate branch, not the container-curtain one.
+  Two rows (Thai, Albanian) stay unclassified on purpose: on the real site 33 of
+  42 are, and a list that was ALL recognised languages would hide how scattered
+  the tooltips were.
+
+  Ukrainian, not Russian, for the same reason picker-survivor-uk is: the picker
+  filter strips blocked entries regardless of the page's own language, so this
+  shows the true product story. The active row carries `aria-selected` +
+  `data-selected` exactly as the site does — neither is an active-entry marker
+  (aria-CURRENT is), so the picker model abstains and `<html lang>` carries the
+  page. No `<link rel="alternate" hreflang>`: one would fire the hreflang
+  strategy and navigate before the picker surface ever mounts.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Тест особистості — вибір мови</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
+        background: #fafaf9;
+        color: #1c1917;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      p {
+        margin: 0 0 16px;
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #57534e;
+      }
+      /* The site's own dropdown geometry: a narrow, scrollable column of rows
+         floating over the page — which is what makes a hover popup anchored to
+         a row land on top of its neighbours. */
+      .popover {
+        width: 190px;
+        border: 1px solid #d6d3d1;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+        padding: 4px;
+      }
+      .popover ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .popover li {
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .popover li[data-selected='true'] {
+        background: #f5f5f4;
+        font-weight: 600;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+          color: #fafaf9;
+        }
+        p {
+          color: #a8a29e;
+        }
+        .popover {
+          border-color: #44403c;
+          background: #1c1917;
+        }
+        .popover li[data-selected='true'] {
+          background: #292524;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Тест особистості</h1>
+      <p>
+        Наступний тест складається зі 120 питань і займе приблизно десять хвилин вашого часу.
+        Реєстрація не потрібна.
+      </p>
+    </main>
+    <div data-slot="popover" class="popover">
+      <ul id="language-listbox" role="listbox" aria-label="Select language">
+        <li role="option" data-key="sq" value="sq" aria-selected="false">Albanian</li>
+        <li role="option" data-key="de" value="de" aria-selected="false">Deutsch</li>
+        <li role="option" data-key="en" value="en" aria-selected="false">English</li>
+        <li role="option" data-key="fr" value="fr" aria-selected="false">French</li>
+        <li role="option" data-key="pl" value="pl" aria-selected="false">Polish</li>
+        <li role="option" data-key="ru" value="ru" aria-selected="false">Russian</li>
+        <li role="option" data-key="es" value="es" aria-selected="false">Spanish</li>
+        <li role="option" data-key="th" value="th" aria-selected="false">Thai</li>
+        <li role="option" data-key="uk" value="uk" aria-selected="true" data-selected="true">
+          Ukrainian
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>

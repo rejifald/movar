@@ -90,7 +90,9 @@ describe('activeLanguageFromPicker — marker signals', () => {
     const links: ClassifiedLink[] = [
       { el: container.querySelector<HTMLAnchorElement>('#uk')!, language: 'uk' },
     ];
-    expect(activeLanguageFromPicker({ container, links }, 'http://localhost/')).toBe('uk');
+    expect(
+      activeLanguageFromPicker({ container, links, layout: 'inline' }, 'http://localhost/'),
+    ).toBe('uk');
   });
 
   it('treats an anchor whose href is the current URL as the active language', () => {
@@ -122,7 +124,9 @@ describe('activeLanguageFromPicker — marker signals', () => {
       { el: container.querySelector<HTMLAnchorElement>('#ru')!, language: 'ru' },
       { el: container.querySelector<HTMLAnchorElement>('#en')!, language: 'en' },
     ];
-    expect(activeLanguageFromPicker({ container, links }, 'http://localhost/')).toBe('uk');
+    expect(
+      activeLanguageFromPicker({ container, links, layout: 'inline' }, 'http://localhost/'),
+    ).toBe('uk');
   });
 
   it('abstains (null) when no entry is marked active', () => {
@@ -180,7 +184,9 @@ describe('activeLanguageFromPicker — marker signals', () => {
       { el: container.querySelector<HTMLAnchorElement>('#ru')!, language: 'ru' },
       { el: container.querySelector<HTMLAnchorElement>('#en')!, language: 'en' },
     ];
-    expect(activeLanguageFromPicker({ container, links }, 'http://localhost/')).toBeNull();
+    expect(
+      activeLanguageFromPicker({ container, links, layout: 'inline' }, 'http://localhost/'),
+    ).toBeNull();
   });
 });
 
@@ -200,6 +206,7 @@ describe('buildPickerModel', () => {
       '<div><span class="lang-ru">RU</span><a href="/uk/x">UK</a></div>',
     );
     const p1: Picker = {
+      layout: 'inline',
       container: c1,
       links: [
         { el: c1.querySelector('span')!, language: 'uk' },
@@ -207,6 +214,7 @@ describe('buildPickerModel', () => {
       ],
     };
     const p2: Picker = {
+      layout: 'inline',
       container: c2,
       links: [
         { el: c2.querySelector('span')!, language: 'ru' },
@@ -252,7 +260,9 @@ describe('activeLanguageFromPicker — a non-discriminating signal abstains', ()
       el,
       language: 'ru' as const,
     }));
-    expect(activeLanguageFromPicker({ container: c, links }, 'https://example.com/')).toBe('ru');
+    expect(
+      activeLanguageFromPicker({ container: c, links, layout: 'inline' }, 'https://example.com/'),
+    ).toBe('ru');
   });
 
   it('abstains when two DIFFERENT languages both carry the active class', () => {
@@ -264,7 +274,9 @@ describe('activeLanguageFromPicker — a non-discriminating signal abstains', ()
       { el: anchors[0]!, language: 'uk' },
       { el: anchors[1]!, language: 'ru' },
     ];
-    expect(activeLanguageFromPicker({ container: c, links }, 'https://example.com/')).toBeNull();
+    expect(
+      activeLanguageFromPicker({ container: c, links, layout: 'inline' }, 'https://example.com/'),
+    ).toBeNull();
   });
 });
 

@@ -1,5 +1,5 @@
 import { MAX_PICKER_DEPTH, SEED_SELECTORS, TEXT_DIVIDER_KIND } from './types';
-import type { ClassifiedLink, Picker } from './types';
+import type { ClassifiedLink, Picker, PickerLayout } from './types';
 import { classifyLanguageElement } from './classify';
 
 /** Keep only outer elements when a classified element is nested inside another. */
@@ -135,6 +135,52 @@ export function pruneOuterContainers(containers: HTMLElement[]): HTMLElement[] {
 }
 
 /**
+ * Decide a picker's {@link PickerLayout} from its ARIA roles alone.
+ *
+ * Roles, not tags or classes, because they are the only signal that survives a
+ * redesign AND separates the two shapes. `<ul>` fails on both counts: a header
+ * strip is just as likely to be a `<ul>` laid out with `display: flex` (see the
+ * `picker-survivor-uk` e2e fixture) as a dropdown is, so reading the tag would
+ * misclassify the common case. Explicit `role="listbox"` / `role="menu"` (or the
+ * matching per-row roles) is a deliberate authoring act that says "this is a
+ * stacked menu of options" — which is exactly the distinction that matters here.
+ *
+ * Anything inside a native `<select>` short-circuits to `native` whatever role it
+ * claims: the browser draws its popup outside the document, so neither a marker
+ * inserted among its `<option>`s nor one anchored to them is ever reachable.
+ * Tested with `closest`, not on the container's own tag — a grouped select's
+ * container is the `<optgroup>`, since that already holds two languages and
+ * `findPickerContainer` stops at the first ancestor that does.
+ *
+ * `role="menubar"` is the one menu role that means a ROW of items, so it is
+ * pinned to `inline` before the per-row roles are consulted; its children
+ * legitimately carry `role="menuitem"` and would otherwise read as a stacked
+ * list and be handed a full-width band.
+ *
+ * Row roles are matched with `closest` (bounded to the container) rather than
+ * `matches`, because `classifyContainerChildren` prefers the innermost
+ * classified descendant: in the overwhelmingly common
+ * `<li role="option"><a hreflang="ru">…</a></li>` the ClassifiedLink is the
+ * `<a>`, which carries no role at all. Reading only the classified element made
+ * every Bootstrap/HeadlessUI-shaped dropdown fall through to `inline` — i.e. to
+ * the survivor-tooltip fan-out this whole layout split exists to avoid.
+ */
+export function pickerLayout(container: HTMLElement, links: ClassifiedLink[]): PickerLayout {
+  if (container.closest('select') !== null) return 'native';
+  if (container.matches('[role="menubar"]')) return 'inline';
+  if (container.matches('[role="listbox"],[role="menu"]')) return 'list';
+  // Prefix-matched: covers menuitem, menuitemradio and menuitemcheckbox in one,
+  // and any future menuitem* role, in a fraction of the shipped bytes.
+  const rowRoles = '[role="option"],[role^="menuitem"]';
+  return links.some((link) => {
+    const row = link.el.closest(rowRoles);
+    return row !== null && container.contains(row);
+  })
+    ? 'list'
+    : 'inline';
+}
+
+/**
  * Find language pickers on the page. Seeded broadly (anchors, data-lang, class
  * hints, hreflang); once at least two classified elements share a small common
  * ancestor, that ancestor becomes the picker. Direct children of the candidate
@@ -171,6 +217,11 @@ export function findLanguagePickers(root: ParentNode = document): Picker[] {
     // `allLinks` keeps the full pre-dedup set so filterPickerLinks can hide
     // every regional-variant duplicate, not just the one dedup kept for
     // display in `links` (movar#293).
-    return { container, links: dedupByLanguage(links), allLinks: links };
+    return {
+      container,
+      links: dedupByLanguage(links),
+      allLinks: links,
+      layout: pickerLayout(container, links),
+    };
   });
 }

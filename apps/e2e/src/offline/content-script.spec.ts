@@ -483,14 +483,15 @@ test.describe('content script — mocked sites', () => {
     await expect(ruAnchor).not.toHaveAttribute('data-movar-hidden', /.*/);
   });
 
-  // Item 1: <select>-based language picker
-  test('picker filter hides the blocked-language <option> on a <select>-based language picker', async ({
+  // Item 1: <select>-based language picker — marked with a badge beside it
+  test('curtain mode hides the <option> and stands a badge beside the <select>', async ({
     movarContext,
     movarPage,
   }) => {
-    // picker-select-ru.html has a <select> with <option hreflang="ru|uk|en">.
-    // picker.ts classifies the options via languageFromHreflangAttr and
-    // filterPickers sets data-movar-hidden + option.hidden on the RU entry.
+    // An <option> can carry neither a chip (it may not contain an element) nor a
+    // hover — every <option> reports a 0x0 box even with the control on screen.
+    // The badge is Movar's own element beside the control: visible at rest, so
+    // the visitor is not relying on happening to hover the right thing.
     const url = 'https://mocked-select-picker.example.test/';
     const route = await mockSite(movarContext, `${url}**`, 'picker-select-ru');
 
@@ -502,10 +503,207 @@ test.describe('content script — mocked sites', () => {
     const state = await settleAndRead(movarPage);
     expect(route.hits).toBeGreaterThanOrEqual(1);
     expect(state.hiddenLinkCount).toBe(1);
+    await expect(movarPage.locator('option[hreflang="uk"]')).not.toHaveAttribute(
+      'data-movar-hidden',
+      /.*/,
+    );
 
-    // The UK option must NOT be hidden.
-    const ukOption = movarPage.locator('option[hreflang="uk"]');
-    await expect(ukOption).not.toHaveAttribute('data-movar-hidden', /.*/);
+    // The premise, measured rather than assumed: no <option> has a box at all.
+    const optionBoxes = await movarPage.evaluate(() =>
+      [...document.querySelectorAll('option')].map((o) => {
+        const r = o.getBoundingClientRect();
+        return r.width + r.height;
+      }),
+    );
+    expect(optionBoxes).toEqual([0, 0, 0]);
+
+    // The badge does, and it floats beside the control without joining the page.
+    const badge = movarPage.locator('[data-movar-kind="picker-badge"]');
+    await expect(badge).toHaveCount(1);
+    const placement = await movarPage.evaluate(() => {
+      const sel = document.querySelector<HTMLElement>('#lang-select')!;
+      const host = document.querySelector<HTMLElement>('[data-movar-kind="picker-badge"]')!;
+      const b = host.getBoundingClientRect();
+      const s = sel.getBoundingClientRect();
+      return {
+        // Appended to body, NOT into the site's tree: no new sibling next to
+        // the control, so `select + X`, :last-child and nth-child keep working.
+        inSiteTree: sel.parentElement!.contains(host),
+        parentIsBody: host.parentElement === document.body,
+        hasBox: b.width > 0 && b.height > 0,
+        // Beside the control, not over it.
+        startsAfter: Math.round(b.left) >= Math.round(s.right),
+      };
+    });
+    expect(placement).toEqual({
+      inSiteTree: false,
+      parentIsBody: true,
+      hasBox: true,
+      startsAfter: true,
+    });
+    // ...and it actually sits NEXT to the control. The fixture's shell is
+    // `body { position: relative; max-width: 600px; margin: 0 auto }`, which
+    // makes body a containing block: a `position: absolute` host with page
+    // coordinates resolved against body's padding box and landed 386px away.
+    // `position: fixed` + viewport coordinates is what keeps this tight.
+    const gap = await movarPage.evaluate(() => {
+      const sel = document.querySelector<HTMLElement>('#lang-select')!.getBoundingClientRect();
+      const host = document
+        .querySelector<HTMLElement>('[data-movar-kind="picker-badge"]')!
+        .getBoundingClientRect();
+      return { dx: Math.round(host.left - sel.right), dy: Math.round(host.top - sel.top) };
+    });
+    expect(gap.dx).toBeLessThanOrEqual(12);
+    expect(Math.abs(gap.dy)).toBeLessThanOrEqual(12);
+  });
+
+  test('the badge cannot block the visitor: no clicks, no tab stop, no layout shift', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    const url = 'https://mocked-select-picker.example.test/';
+    await mockSite(movarContext, `${url}**`, 'picker-select-ru');
+
+    // Measure the page BEFORE Movar mounts anything, so a layout shift shows up
+    // as a moved element rather than having to be eyeballed.
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+    const headingBefore = await movarPage.evaluate(
+      () => document.querySelector('h1')!.getBoundingClientRect().top,
+    );
+
+    await expect(movarPage.locator('[data-movar-kind="picker-badge"]')).toHaveCount(1, {
+      timeout: 5_000,
+    });
+
+    const audit = await movarPage.evaluate(() => {
+      const host = document.querySelector<HTMLElement>('[data-movar-kind="picker-badge"]')!;
+      const b = host.getBoundingClientRect();
+      return {
+        pointerEvents: getComputedStyle(host).pointerEvents,
+        userSelect: getComputedStyle(host).userSelect,
+        // A hit-test at the badge's own centre must fall THROUGH it.
+        hitIsBadge: document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2) === host,
+        ariaHidden: host.getAttribute('aria-hidden'),
+        headingTop: document.querySelector('h1')!.getBoundingClientRect().top,
+      };
+    });
+    expect(audit.pointerEvents).toBe('none');
+    expect(audit.userSelect).toBe('none');
+    expect(audit.hitIsBadge).toBe(false);
+    expect(audit.ariaHidden).toBe('true');
+    // Nothing on the page moved.
+    expect(audit.headingTop).toBe(headingBefore);
+
+    // Tab order is the page's own: the control, and never the badge.
+    await movarPage.evaluate(() => {
+      document.body.focus();
+    });
+    const stops: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      await movarPage.keyboard.press('Tab');
+      stops.push(
+        await movarPage.evaluate(() => {
+          const a = document.activeElement as HTMLElement | null;
+          return a?.dataset['movarKind'] ?? a?.id ?? a?.tagName ?? 'none';
+        }),
+      );
+    }
+    expect(stops).not.toContain('picker-badge');
+    expect(stops).toContain('lang-select');
+  });
+
+  test('tabbing to the control opens the explanation — the keyboard path', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    // Anchoring the tooltip on the badge passed a unit test and was unreachable
+    // in a real browser: a <div> host takes no focus, so tabbing opened nothing.
+    const url = 'https://mocked-select-picker.example.test/';
+    await mockSite(movarContext, `${url}**`, 'picker-select-ru');
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+    await expect(movarPage.locator('[data-movar-kind="picker-badge"]')).toHaveCount(1, {
+      timeout: 5_000,
+    });
+
+    await movarPage.locator('#lang-select').focus();
+
+    const open = movarPage.locator('[data-movar-tooltip][data-state="open"]');
+    await expect(open).toHaveCount(1);
+    await expect(open.locator('.body')).toContainText(/русск/i);
+    await expect(movarPage.locator('[data-movar-kind="picker-badge"]')).toHaveAttribute(
+      'data-expanded',
+      'true',
+    );
+  });
+
+  test('the badge expands on hover and opens the explanation', async ({
+    movarContext,
+    movarPage,
+  }) => {
+    const url = 'https://mocked-select-picker.example.test/';
+    await mockSite(movarContext, `${url}**`, 'picker-select-ru');
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+    const badge = movarPage.locator('[data-movar-kind="picker-badge"]');
+    await expect(badge).toHaveCount(1, { timeout: 5_000 });
+
+    const widthAtRest = (await badge.boundingBox())!.width;
+    // Hover the CONTROL — the badge is pointer-events:none and cannot feel a
+    // hover of its own, by design.
+    await movarPage.locator('#lang-select').hover();
+    const open = movarPage.locator('[data-movar-tooltip][data-state="open"]');
+    await expect(open).toHaveCount(1);
+    await expect(open.locator('.body')).toContainText(/русск/i);
+
+    // The chip grew to reveal its label — the "more data" half of the hover.
+    await expect.poll(async () => (await badge.boundingBox())!.width).toBeGreaterThan(widthAtRest);
+  });
+
+  test('the badge tooltip restores the hidden <option>', async ({ movarContext, movarPage }) => {
+    const url = 'https://mocked-select-picker.example.test/';
+    await mockSite(movarContext, `${url}**`, 'picker-select-ru');
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+    await expect(movarPage.locator('option[hreflang="ru"]')).toHaveAttribute(
+      'data-movar-hidden',
+      /.+/,
+      { timeout: 5_000 },
+    );
+
+    await movarPage.locator('#lang-select').hover();
+    await movarPage.locator('[data-movar-tooltip][data-state="open"] .action').click();
+
+    await expect(movarPage.locator('option[hreflang="ru"]')).not.toHaveAttribute(
+      'data-movar-hidden',
+      /.*/,
+    );
+    // `hidden` is the property a <select> actually honours, so assert it too.
+    const stillHidden = await movarPage.evaluate(
+      () => document.querySelector<HTMLOptionElement>('option[hreflang="ru"]')!.hidden,
+    );
+    expect(stillHidden).toBe(false);
+    // The badge goes with the restore — nothing left claiming Movar acted.
+    await expect(movarPage.locator('[data-movar-kind="picker-badge"]')).toHaveCount(0);
+  });
+
+  test('hide mode removes the blocked <option> and marks nothing', async ({
+    movarContext,
+    movarPage,
+    setMovarSettings,
+  }) => {
+    await setMovarSettings({ contentModification: true, concealMode: 'hide' });
+
+    const url = 'https://mocked-select-picker.example.test/';
+    const route = await mockSite(movarContext, `${url}**`, 'picker-select-ru');
+
+    await movarPage.goto(url, { waitUntil: 'domcontentloaded' });
+
+    const ruOption = movarPage.locator('option[hreflang="ru"]');
+    await expect(ruOption).toHaveAttribute('data-movar-hidden', /.+/, { timeout: 5_000 });
+
+    const state = await settleAndRead(movarPage);
+    expect(route.hits).toBeGreaterThanOrEqual(1);
+    expect(state.hiddenLinkCount).toBe(1);
+    await expect(movarPage.locator('[data-movar-tooltip]')).toHaveCount(0);
+    await expect(movarPage.locator('[data-movar-kind="picker-badge"]')).toHaveCount(0);
   });
 
   // Item 2: <button>-based language picker

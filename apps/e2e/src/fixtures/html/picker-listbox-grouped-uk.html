@@ -1,0 +1,148 @@
+<!doctype html>
+<!--
+  LIST-shaped picker whose first row is NOT a row — the grouped-listbox shape.
+
+  `picker-listbox-ru` is a flat list of uniform options, which is the case the
+  chip's "measure a still-visible sibling" rule was written for. Grouped lists
+  are just as common (MUI's ListSubheader, HeadlessUI's section labels, every
+  "Recently used / All languages" split) and they put something else in the same
+  child list: a `role="presentation"` header, a separator, a "clear selection"
+  affordance. Those siblings are deliberately NOT row-shaped — a header carries
+  its own top margin and a smaller, letter-spaced type — so measuring the first
+  visible one measures the wrong box.
+
+  Measured in Chromium before the fix: header 37px, option rows 28px, chip 37px —
+  a 32% overshoot, visible as one band in the list taller than every row around
+  it, which is precisely the rhythm break the floor exists to prevent.
+
+  The header is a flat sibling of the options rather than a `role="group"`
+  wrapper because that is how the component libraries above render it, and
+  because it is the only arrangement in which it can be mistaken for a row.
+
+  Rendered open (as `picker-listbox-ru` is) so this fixture isolates ONE defect:
+  the closed-dropdown re-measure is `picker-listbox-dropdown-uk`'s job. Both the
+  header and the rows carry explicit heights so the spec compares against the two
+  numbers this file states.
+
+  Ukrainian page, no `href`/`hreflang` on the rows, `defaultSettings` blocks `ru`
+  — the same contract as the sibling fixtures.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Бібліотека — вибір мови</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
+        background: #fafaf9;
+        color: #1c1917;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      p {
+        margin: 0 0 16px;
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #57534e;
+      }
+      .popover {
+        width: 190px;
+        border: 1px solid #d6d3d1;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+        padding: 4px;
+      }
+      .popover ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      /* The row box, stated rather than inferred. */
+      .popover li[role='option'] {
+        height: 28px;
+        box-sizing: border-box;
+        padding: 0 8px;
+        line-height: 28px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      /* The group header: a taller box by design — smaller type, but its own
+         breathing room above and below. 37px against the rows' 28px. */
+      .popover li[role='presentation'] {
+        height: 37px;
+        box-sizing: border-box;
+        padding: 12px 8px 4px;
+        line-height: 21px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #78716c;
+      }
+      .popover li[aria-selected='true'] {
+        background: #f5f5f4;
+        font-weight: 600;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+          color: #fafaf9;
+        }
+        p {
+          color: #a8a29e;
+        }
+        .popover {
+          border-color: #44403c;
+          background: #1c1917;
+        }
+        .popover li[role='presentation'] {
+          color: #a8a29e;
+        }
+        .popover li[aria-selected='true'] {
+          background: #292524;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Електронна бібліотека</h1>
+      <p>
+        Двадцять тисяч видань у відкритому доступі. Оберіть мову інтерфейсу — каталог залишиться тим
+        самим.
+      </p>
+    </main>
+    <div data-slot="popover" class="popover">
+      <ul id="language-listbox" role="listbox" aria-label="Оберіть мову">
+        <li role="presentation">Популярні</li>
+        <li role="option" data-key="de" value="de" aria-selected="false">Deutsch</li>
+        <li role="option" data-key="en" value="en" aria-selected="false">English</li>
+        <li role="option" data-key="fr" value="fr" aria-selected="false">French</li>
+        <li role="option" data-key="pl" value="pl" aria-selected="false">Polish</li>
+        <li role="option" data-key="ru" value="ru" aria-selected="false">Russian</li>
+        <li role="option" data-key="es" value="es" aria-selected="false">Spanish</li>
+        <li role="option" data-key="th" value="th" aria-selected="false">Thai</li>
+        <li role="option" data-key="uk" value="uk" aria-selected="true">Ukrainian</li>
+      </ul>
+    </div>
+  </body>
+</html>

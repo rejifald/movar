@@ -25,14 +25,42 @@ The extension runs a **two-layer pipeline** on every page:
      `display:none` replacement.
    - `filterPickers` (`src/lib/picker-filter.ts`) — finds on-site language
      pickers (via `@movar/lang-pickers`) and hides their Russian/blocked-
-     language entries, replacing removed text with a tooltip. Whatever
-     survives is then cleaned up in place by four passes, one per way a site
-     can draw a divider: a separator ELEMENT (`hideUselessDividers`), a CSS
-     BORDER on the survivor's edge (`hideOrphanEdgeBorders`), separator
-     characters inside a label (`trimOrphanSeparators`), and a separator TEXT
-     NODE (`trimContainerTextSeparators`). In blocked-only mode — the
-     production path — the container is never curtained: the tooltip is the
-     only surface Movar adds.
+     language entries. Whatever survives is then cleaned up in place by four
+     passes, one per way a site can draw a divider: a separator ELEMENT
+     (`hideUselessDividers`), a CSS BORDER on the survivor's edge
+     (`hideOrphanEdgeBorders`), separator characters inside a label
+     (`trimOrphanSeparators`), and a separator TEXT NODE
+     (`trimContainerTextSeparators`). In blocked-only mode — the production
+     path — the container is never curtained; what Movar adds instead is one
+     surface, picked by the picker's `layout`:
+     - `'list'` (an ARIA listbox/menu — a dropdown of `role="option"` rows):
+       a chip curtain standing in the hidden row's own slot, sized to it
+       (`markHiddenEntries`). A hover tooltip is wrong here — the rows are
+       what the visitor sweeps the pointer across to read the options.
+     - `'inline'` (the header strip, and everything else): the survivor
+       tooltip (`annotateSurvivingLinks`). The cleanup passes close the gap
+       completely, so there is no row left to mark.
+     - `'native'` (a native `<select>`): a **badge beside the control**
+       (`markNativeControl` → `attachCurtain` mode `'badge'`). The browser
+       draws the popup outside the document — an `<option>` may not contain an
+       element and reports a 0x0 box, so it can take neither a chip nor a
+       hover. The badge is built to be **incapable of getting in the way**: its
+       host is appended to `document.body` (the site's tree gains no sibling,
+       so `select + X`, `:last-child`, `nth-child` and flex gap counts keep
+       working, and nothing shifts), it is `pointer-events: none` (it cannot
+       take a click even where it overlaps — which is also what makes position
+       tracking safe: drift is cosmetic, never functional), and it is
+       `aria-hidden` with no `tabindex`, so it adds no tab stop and no second
+       announcement. Everything interactive hangs off the CONTROL instead,
+       which the visitor is already aiming at and which is already in the tab
+       order: hover or focus it and the tooltip opens (detail + restore) and
+       the badge expands to its label via `data-expanded`.
+
+   Re-annotation on every one of these paths is **idempotent** — a
+   MutationObserver re-fire that would rebuild an identical surface is skipped.
+   Rebuilding a tooltip is destructive: the replacement starts closed and the
+   pointer is already inside the anchor, so an open explanation silently
+   disappears mid-read.
 
 The background service worker (`src/entrypoints/background.ts`) owns the
 persistent `declarativeNetRequest` rule lifecycle, pause/resume (via

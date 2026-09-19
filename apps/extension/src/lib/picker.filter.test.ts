@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers as filterPickersWithPresenter } from './picker-filter';
 import { testContentPresenter } from './dom-test-helpers';
+import { detachAllCurtains } from './curtain';
 import { detachAllTooltips } from './tooltip';
 import {
   setBody,
@@ -10,7 +11,11 @@ import {
   setupSelectPicker,
   setupStlsStorePicker,
   expectContainerCurtained,
+  expectEntryCurtained,
+  getControlBadges,
+  getEntryCurtainHosts,
   getTooltipHosts,
+  setupListboxPicker,
 } from '@movar/lang-pickers/picker.test-utils';
 
 function filterPickers(
@@ -475,7 +480,9 @@ describe('filterPickers — orphan edge-border cleanup', () => {
       { el: ru, language: 'ru' as const },
     ];
 
-    filterPickers([{ container, links, allLinks: links }], ['uk'], { blocked: ['ru'] });
+    filterPickers([{ container, links, allLinks: links, layout: 'inline' }], ['uk'], {
+      blocked: ['ru'],
+    });
 
     // RU still gets hidden — only the border measurement is skipped, so UA
     // keeps the site's own 1px rule untouched and carries no snapshot.
@@ -947,28 +954,183 @@ describe('filterPickers — container curtain uses chip skin', () => {
   });
 });
 
-describe('filterPickers — native <select> per-picker restore', () => {
-  // The <option>-hide path (HTMLOptionElement.hidden = true) and its inverse
-  // in restorePickerInPlace (hidden = false) are the only place the option
-  // branch fires. Blocked-only mode keeps the container visible with two
-  // survivors, so the survivor tooltip's "show" action restores in place.
+describe('filterPickers — native <select> explains on the control', () => {
+  // An <option> can carry neither a chip (it may not contain an element) nor a
+  // hover (every <option> reports a 0x0 box even with the control on screen),
+  // so the inline path's one-tooltip-per-survivor left explanations that could
+  // never be opened. The <select> itself is an ordinary box that takes hover
+  // AND focus, so the explanation goes there instead.
 
-  it("clears each hidden <option>'s `hidden` flag on per-picker restore", () => {
+  it('still hides the blocked option', () => {
     setupSelectPicker(); // uk / ru / en
-    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const result = filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
     const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
     expect(ru.hidden).toBe(true);
     expect(ru.hasAttribute('data-movar-hidden')).toBe(true);
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+  });
 
-    // Two survivors (uk + en) → a survivor tooltip carries the restore action.
-    const uk = document.querySelector<HTMLOptionElement>('option[value="uk"]')!;
-    (uk as HTMLElement).focus();
+  it('adds nothing to the site tree and nothing to the tab order', () => {
+    // A wrapper, not the bare fixture: with the <select> as a direct child of
+    // <body> the badge would look like its sibling purely because body is where
+    // floating hosts live, and the assertion would pass for the wrong reason.
+    setBody(`
+      <header id="bar">
+        <select id="lang-select">
+          <option value="uk">Українська</option>
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+        </select>
+        <button id="after">Menu</button>
+      </header>
+    `);
+    const bar = document.querySelector<HTMLElement>('#bar')!;
+    const before = bar.children.length;
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const badges = getControlBadges();
+    expect(badges).toHaveLength(1);
+    const select = document.querySelector<HTMLElement>('#lang-select')!;
+    // The site's own tree is untouched, so `select + button` rules, :last-child,
+    // nth-child and flex gap counts all keep working.
+    expect(select.nextElementSibling).toBe(document.querySelector('#after'));
+    expect(bar.children.length).toBe(before);
+    expect(badges[0]!.parentElement).toBe(document.body);
+    // And no side effects on the control itself.
+    expect(select.style.getPropertyValue('display')).toBe('');
+    // Inert: not announced a second time (the tooltip on the control carries
+    // the message) and never a tab stop. `pointer-events: none` lives in the
+    // shadow root's :host rule, which jsdom does not apply to the host — the
+    // e2e spec asserts the computed value in a real browser instead.
+    expect(badges[0]!.getAttribute('aria-hidden')).toBe('true');
+    expect(badges[0]!.hasAttribute('tabindex')).toBe(false);
+    expect(badges[0]!.dataset['mode']).toBe('badge');
+  });
+
+  it('rests as the bare mark and carries its label for hover/screen readers', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const shadow = getControlBadges()[0]!.shadowRoot!;
+    // The label is clipped by CSS on hover-out, not removed — so it stays in
+    // the accessible name at every width.
+    expect(shadow.querySelector('.chip__label')?.textContent).toBe('Movar: hidden');
+    expect(shadow.querySelector('.chip__icon')).not.toBeNull();
+    // A bare mark, not a button: restoring is a real change, and a target this
+    // small beside a control the visitor is aiming at would fire by accident.
+    expect(shadow.querySelector('button.chip')).toBeNull();
+  });
+
+  it('opens its tooltip from the CONTROL, which is already in the tab order', () => {
+    // Anchoring on the badge looked fine in a unit test and was unreachable in
+    // a real browser: a <div> host takes no focus, so tabbing never opened it.
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const hosts = getTooltipHosts();
+    expect(hosts).toHaveLength(1);
+    const select = document.querySelector<HTMLElement>('#lang-select')!;
+    select.dispatchEvent(new Event('focus'));
+    expect(hosts[0]!.getAttribute('data-state')).toBe('open');
+  });
+
+  it('expands the badge while the control is hovered or focused', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const badge = getControlBadges()[0]!;
+    const select = document.querySelector<HTMLElement>('#lang-select')!;
+    expect(badge.dataset['expanded']).toBeUndefined();
+
+    select.dispatchEvent(new Event('focus'));
+    expect(badge.dataset['expanded']).toBe('true');
+
+    select.dispatchEvent(new Event('blur'));
+    expect(badge.dataset['expanded']).toBeUndefined();
+  });
+
+  it('names the hidden language in the control tooltip', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const body = getTooltipHosts()[0]!.shadowRoot!.querySelector('.body')?.textContent ?? '';
+    expect(body.toLowerCase()).toContain('русск');
+  });
+
+  it("restores in place from the control tooltip, clearing each option's `hidden` flag", () => {
+    // The <option>-hide path (HTMLOptionElement.hidden = true) and its inverse
+    // in restorePickerInPlace are the only place the option branch fires.
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+
     getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
 
-    // The option is back: `hidden` cleared, display restored, marker removed.
     expect(ru.hidden).toBe(false);
     expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
     expect(ru.style.getPropertyValue('display')).toBe('');
+    expect(getTooltipHosts()).toHaveLength(0);
+    expect(getControlBadges()).toHaveLength(0);
+  });
+
+  it('adds no surface at all in hide mode', () => {
+    // No presenter IS hide mode: applyContentModification passes one only when
+    // concealMode is 'curtain'. The option still goes; nothing explains it.
+    setupSelectPicker();
+    filterPickersWithPresenter(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(document.querySelector<HTMLOptionElement>('option[value="ru"]')!.hidden).toBe(true);
+    expect(getTooltipHosts()).toHaveLength(0);
+    expect(getControlBadges()).toHaveLength(0);
+  });
+
+  it('keeps the SAME badge and tooltip across MutationObserver re-fires', () => {
+    // Not just "one tooltip": the same host. A rebuild starts closed, and the
+    // pointer is already inside the anchor, so no fresh mouseenter fires and an
+    // open explanation just disappears — measured at ~600ms into a motionless
+    // hover before re-annotation became a no-op.
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const first = getTooltipHosts()[0]!;
+    const firstBadge = getControlBadges()[0]!;
+    first.dataset['probe'] = 'original';
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const hosts = getTooltipHosts();
+    expect(hosts).toHaveLength(1);
+    expect(hosts[0]).toBe(first);
+    expect(hosts[0]!.dataset['probe']).toBe('original');
+    expect(getControlBadges()).toEqual([firstBadge]);
+  });
+
+  it('stays open across a re-fire while the pointer never moved', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    document.querySelector<HTMLElement>('#lang-select')!.dispatchEvent(new Event('focus'));
+    expect(getTooltipHosts()[0]!.getAttribute('data-state')).toBe('open');
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(getTooltipHosts()[0]!.getAttribute('data-state')).toBe('open');
+  });
+
+  it('rebuilds when the hidden-language list actually changes', () => {
+    // Idempotence must not become staleness: a second blocked language means
+    // different copy, so the tooltip has to be replaced.
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    const first = getTooltipHosts()[0]!;
+
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'en'] });
+
+    const hosts = getTooltipHosts();
+    expect(hosts).toHaveLength(1);
+    expect(hosts[0]).not.toBe(first);
+    const body = hosts[0]!.shadowRoot!.querySelector('.body')?.textContent ?? '';
+    expect(body.toLowerCase()).toContain('русск');
+    expect(body.toLowerCase()).toContain('english');
   });
 });
 
@@ -1268,5 +1430,614 @@ describe('filterPickers — regional-variant duplicates of a blocked language (m
     expect(document.querySelector<HTMLElement>('#ru-ua')!.hasAttribute('data-movar-hidden')).toBe(
       false,
     );
+  });
+});
+
+describe('filterPickers — list-shaped pickers get an in-row chip, never tooltips', () => {
+  // The bigfive-test.com report: its language `<Select>` portals 42
+  // `<li role="option">` rows into a dropdown, nine of which are languages
+  // Movar classifies. The survivor tooltip attaches to EVERY survivor, so
+  // hovering the list to read the options opened a panel over the rows around
+  // the cursor — at a z-index above the site's own popover — and picking any
+  // other language meant dodging eight of them.
+  it('attaches no survivor tooltips to a listbox picker', () => {
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getTooltipHosts()).toHaveLength(0);
+  });
+
+  it('stands a chip in the hidden row instead, marked as Movar rather than as an option', () => {
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const host = expectEntryCurtained('#opt-ru');
+    expect(host.dataset['skin']).toBe('chip');
+    // The row it replaces owned a full-width line, so the curtain takes the
+    // whole slot rather than leaving most of the row blank.
+    expect(host.dataset['block']).toBe('true');
+    // The VISIBLE text names Movar, not the language: a row reading "русский"
+    // among "Polish" and "Spanish" reads as an option to pick, and clicking it
+    // restores rather than switches.
+    const label = host.shadowRoot!.querySelector('.chip__label')?.textContent ?? '';
+    expect(label).toBe('Movar: hidden');
+    expect(label.toLowerCase()).not.toContain('русск');
+    // The language it stands for survives in the hover / screen-reader copy.
+    const described = host.shadowRoot!.querySelector('.chip')?.getAttribute('aria-label') ?? '';
+    expect(described.toLowerCase()).toContain('русск');
+    expect(host.getAttribute('title')?.toLowerCase()).toContain('русск');
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+  });
+
+  it('floors the chip at the row height, measured off a still-visible sibling', () => {
+    // jsdom reports every offsetHeight as 0, so the sibling rows are given one.
+    // The hidden row is deliberately NOT given one: the measurement has to come
+    // from a sibling, since the entry's own box is gone by the time a chip goes
+    // up (filterPickerLinks hides before cleanupSurvivingContainer marks).
+    setupListboxPicker();
+    for (const row of document.querySelectorAll<HTMLElement>('li[role="option"]')) {
+      if (row.id === 'opt-ru') continue;
+      Object.defineProperty(row, 'offsetHeight', { value: 28, configurable: true });
+    }
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+  });
+
+  it('sizes to its own content when no sibling can be measured', () => {
+    // Every offsetHeight is 0 here (jsdom's default), which is also the real
+    // case of a list rendered but not laid out. No floor beats a 0px one.
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('');
+  });
+
+  it('leaves every surviving row untouched and clickable', () => {
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    for (const code of ['de', 'en', 'fr', 'uk']) {
+      expect(document.querySelector<HTMLElement>(`#opt-${code}`)!.style.display).toBe('');
+    }
+  });
+
+  it('restores the picker in place when the chip is clicked', () => {
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const host = expectEntryCurtained('#opt-ru');
+    host.shadowRoot!.querySelector<HTMLButtonElement>('button.chip')!.click();
+
+    const entry = document.querySelector<HTMLElement>('#opt-ru')!;
+    // Back to the site's own display value, not the `none !important` the chip
+    // snapshotted when it took the slot.
+    expect(entry.style.display).toBe('');
+    expect(entry.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+    expect(
+      document.querySelector<HTMLElement>('#picker')!.hasAttribute('data-movar-restored'),
+    ).toBe(true);
+  });
+
+  it('stays at one chip across MutationObserver re-fires', () => {
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+  });
+
+  it('marks one chip per hidden LANGUAGE while hiding every regional duplicate', () => {
+    setBody(`
+      <div data-slot="popover">
+        <ul id="picker" role="listbox">
+          <li role="option" id="opt-uk" value="uk">Українська</li>
+          <li role="option" id="opt-ru" value="ru-RU">Русский</li>
+          <li role="option" id="opt-ru-ua" value="ru-UA">Русский (Украина)</li>
+        </ul>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+    expect(document.querySelector<HTMLElement>('#opt-ru')!.style.display).toBe('none');
+    expect(document.querySelector<HTMLElement>('#opt-ru-ua')!.style.display).toBe('none');
+  });
+
+  it('still uses the survivor tooltip for an inline strip', () => {
+    // The other shape keeps the old surface: a header strip's cleanup passes
+    // close the gap completely, so there is no row left to mark.
+    setBody(`
+      <nav>
+        <ul id="picker" class="lang-switcher">
+          <li><a hreflang="ru" href="/ru/">Русский</a></li>
+          <li><a hreflang="uk" href="/">Українська</a></li>
+          <li><a hreflang="en" href="/en/">English</a></li>
+        </ul>
+      </nav>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+    expect(getTooltipHosts().length).toBeGreaterThan(0);
+  });
+});
+
+/** What a teardown does to the page: drop every injected host, leaving the
+ *  module-level bookkeeping behind exactly as the real sweeps do. */
+function sweepInjectedHosts(): void {
+  for (const host of document.querySelectorAll('[data-movar-curtain], [data-movar-tooltip]')) {
+    host.remove();
+  }
+  for (const el of document.querySelectorAll('[data-movar-restored]')) {
+    el.removeAttribute('data-movar-restored');
+  }
+}
+
+describe('filterPickers — surfaces survive the sweeps that do not know about them', () => {
+  // The page-wide sweeps (detachAllCurtains / detachAllTooltips) resolve handles
+  // off the DOM and cannot reach picker-filter's module-level maps. Guards keyed
+  // on presence alone therefore read "already marked" after a pause/resume,
+  // settings toggle or "Show everything" — and attached nothing, re-hiding the
+  // entry with no explanation and no way back.
+
+  it('re-marks a list row after a sweep', () => {
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+
+    sweepInjectedHosts();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+  });
+
+  it('re-marks a native <select> after a sweep', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getControlBadges()).toHaveLength(1);
+
+    sweepInjectedHosts();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(getControlBadges()).toHaveLength(1);
+  });
+
+  it('re-marks an inline strip after a sweep', () => {
+    setupTwoLanguagePicker();
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(getTooltipHosts().length).toBeGreaterThan(0);
+
+    sweepInjectedHosts();
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    expect(getTooltipHosts().length).toBeGreaterThan(0);
+  });
+});
+
+describe('filterPickers — a conceal-mode flip takes every surface with it', () => {
+  // settings-reaction applies a bare concealMode change WITHOUT a teardown, so
+  // the next pass simply runs with no presenter. Every mark path must treat that
+  // as "remove what you put up", not as "nothing changed".
+
+  it('drops the survivor tooltip when the presenter goes away', () => {
+    setupTwoLanguagePicker();
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(getTooltipHosts().length).toBeGreaterThan(0);
+
+    filterPickersWithPresenter(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    expect(getTooltipHosts()).toHaveLength(0);
+  });
+
+  it('drops the in-row chip when the presenter goes away', () => {
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+
+    filterPickersWithPresenter(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+  });
+
+  it('drops the control badge when the presenter goes away', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getControlBadges()).toHaveLength(1);
+
+    filterPickersWithPresenter(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(getControlBadges()).toHaveLength(0);
+    expect(getTooltipHosts()).toHaveLength(0);
+  });
+});
+
+describe('filterPickers — a layout verdict that changes takes its old surface down', () => {
+  it('removes inline-era tooltips once the picker reads as a list', () => {
+    // react-aria stamps role="listbox" after hydration, so Movar's first pass
+    // can read 'inline' and the next 'list'. Each path used to detach only its
+    // own kind, leaving the tooltips as hover traps over the very rows the chip
+    // was added to protect.
+    setBody(`
+      <div data-slot="popover">
+        <ul id="picker">
+          <li id="opt-uk" value="uk">Українська</li>
+          <li id="opt-ru" value="ru">Русский</li>
+          <li id="opt-en" value="en">English</li>
+        </ul>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getTooltipHosts().length).toBeGreaterThan(0);
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+
+    // Hydration lands: the rows gain their roles.
+    const list = document.querySelector<HTMLElement>('#picker')!;
+    list.setAttribute('role', 'listbox');
+    for (const row of list.children) row.setAttribute('role', 'option');
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+    expect(getTooltipHosts()).toHaveLength(0);
+  });
+});
+
+describe('filterPickers — restore covers rows the Picker snapshot never saw', () => {
+  it('detaches the chip of an entry added after the snapshot', () => {
+    // picker.links is a snapshot. A row the site adds later is hidden by a later
+    // pass and carries its own chip; restoring from the first chip un-hid that
+    // row but left its chip standing, and clicking the orphan wrote
+    // `display:none !important` back onto an entry with no HIDDEN_ATTR — gone,
+    // and unreachable by any later pass or sweep.
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const first = expectEntryCurtained('#opt-ru');
+
+    const list = document.querySelector<HTMLElement>('#picker')!;
+    const added = document.createElement('li');
+    added.setAttribute('role', 'option');
+    added.id = 'opt-be';
+    added.setAttribute('value', 'be');
+    added.textContent = 'Беларуская';
+    list.append(added);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru', 'be'] });
+    expect(getEntryCurtainHosts()).toHaveLength(2);
+
+    first.shadowRoot!.querySelector<HTMLButtonElement>('button.chip')!.click();
+
+    // Both rows are back and NO chip is left behind claiming otherwise.
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+    for (const id of ['#opt-ru', '#opt-be']) {
+      const row = document.querySelector<HTMLElement>(id)!;
+      expect(row.style.getPropertyValue('display')).toBe('');
+      expect(row.hasAttribute('data-movar-hidden')).toBe(false);
+    }
+  });
+});
+
+describe('filterPickers — a chip measured in a closed dropdown gets its height later', () => {
+  it('rebuilds the chip once the row has a box', () => {
+    // A list picker is usually inside a dropdown that is closed when the filter
+    // runs, where every row measures 0. Keyed only on its language, the chip
+    // kept the floorless height it was born with forever.
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('');
+
+    // The dropdown opens: the rows now have a box.
+    for (const row of document.querySelectorAll<HTMLElement>('li[role="option"]')) {
+      Object.defineProperty(row, 'offsetHeight', { value: 28, configurable: true });
+    }
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+  });
+});
+
+/** jsdom lays nothing out, so every offsetHeight is 0 and a measured row has to
+ *  be declared. The numbers these tests use are the ones measured in Chromium on
+ *  the e2e fixtures: 28px option rows, a 37px group header. */
+function stubHeight(selector: string, px: number): void {
+  Object.defineProperty(document.querySelector<HTMLElement>(selector)!, 'offsetHeight', {
+    value: px,
+    configurable: true,
+  });
+}
+
+/** The grouped-listbox shape: a `role="presentation"` header as the FIRST child,
+ *  the option rows under it. Heights are stubbed by the caller. */
+function setupGroupedListbox(): void {
+  setBody(`
+    <div data-slot="popover">
+      <ul id="picker" role="listbox">
+        <li role="presentation" id="group-head">Популярні</li>
+        <li role="option" id="opt-uk" value="uk">Українська</li>
+        <li role="option" id="opt-ru" value="ru">Русский</li>
+        <li role="option" id="opt-en" value="en">English</li>
+      </ul>
+    </div>
+  `);
+}
+
+describe('filterPickers — a chip in a grouped list measures rows, not whatever is first', () => {
+  // "A list picker's rows are uniform by construction" is true of the ROWS. The
+  // child list holds more than rows: a group header, a separator, a "clear
+  // selection" affordance — all of them deliberately not row-shaped. Measured in
+  // Chromium on the grouped fixture, taking the first visible sibling took the
+  // header: a 37px floor under 28px rows, one band taller than the whole list.
+
+  it('skips a role="presentation" header taller than the rows', () => {
+    setupGroupedListbox();
+    stubHeight('#group-head', 37);
+    stubHeight('#opt-uk', 28);
+    stubHeight('#opt-en', 28);
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+  });
+
+  it('takes the commonest row height, not the first one it finds', () => {
+    // A row whose label wrapped to two lines is the same defect in miniature,
+    // and role-matching alone would not catch it — it IS a row.
+    setupListboxPicker();
+    const rows = [...document.querySelectorAll<HTMLElement>('li[role="option"]')];
+    for (const row of rows) {
+      Object.defineProperty(row, 'offsetHeight', { value: 28, configurable: true });
+    }
+    Object.defineProperty(rows[0]!, 'offsetHeight', { value: 52, configurable: true });
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+  });
+
+  it('falls back to a differently-shaped sibling when the row has no peers', () => {
+    // One classified row among unclassifiable ones is the common case; one row,
+    // full stop, is not — but when it happens the shape of the list is all there
+    // is to go on, and a floor off the header beats no floor at all.
+    setBody(`
+      <div data-slot="popover">
+        <ul id="picker" role="listbox">
+          <li role="presentation" id="group-head">Популярні</li>
+          <li role="option" id="opt-ru" value="ru">Русский</li>
+          <li id="opt-uk" value="uk">Українська</li>
+        </ul>
+      </div>
+    `);
+    stubHeight('#group-head', 37);
+    stubHeight('#opt-uk', 37);
+
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('37px');
+  });
+});
+
+describe('filterPickers — a dropdown that opens without touching the DOM', () => {
+  /** jsdom ships no ResizeObserver, so the slot watcher is never built unless
+   *  one is installed — which is also why every other test in this file
+   *  exercises the no-observer path for free. This fake makes it reachable and
+   *  records what got observed, which is half the behaviour under test. */
+  class FakeResizeObserver {
+    static instances: FakeResizeObserver[] = [];
+    readonly observed: Element[] = [];
+    disconnected = false;
+    constructor(readonly cb: () => void) {
+      FakeResizeObserver.instances.push(this);
+    }
+    observe(el: Element): void {
+      this.observed.push(el);
+    }
+    unobserve(el: Element): void {
+      this.observed.splice(this.observed.indexOf(el), 1);
+    }
+    disconnect(): void {
+      this.disconnected = true;
+    }
+  }
+
+  function installFakeObserver(): typeof FakeResizeObserver {
+    FakeResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    return FakeResizeObserver;
+  }
+
+  /** The module keeps ONE observer for the whole page and drops it when the last
+   *  watcher goes, so a test that leaves a chip standing would hand the next one
+   *  a live observer from a stubbed class that no longer exists. The page-wide
+   *  sweep is what a real teardown runs, and it releases the watcher through the
+   *  chip's own onDetach — so it is also the honest way to reset. */
+  afterEach(() => {
+    detachAllCurtains();
+    vi.unstubAllGlobals();
+  });
+
+  /** The dropdown opens: every row gains a box, and NOTHING is added or removed
+   *  — which is the whole problem, since childList is all the content script's
+   *  page-wide observer watches. */
+  function openDropdown(Fake: typeof FakeResizeObserver, px = 28): void {
+    for (const row of document.querySelectorAll<HTMLElement>('li[role="option"]')) {
+      Object.defineProperty(row, 'offsetHeight', { value: px, configurable: true });
+    }
+    Fake.instances[0]!.cb();
+  }
+
+  it('watches the picker container while a chip is standing', () => {
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(Fake.instances).toHaveLength(1);
+    expect(Fake.instances[0]!.observed).toEqual([document.querySelector('#picker')]);
+  });
+
+  it('re-floors the chip when the rows gain a box, with no second pass', () => {
+    // The defect: the only page-wide re-apply triggers are a childList observer
+    // and wxt:locationchange, and a `.dropdown-menu.show` class toggle is
+    // neither. Measured in Chromium before this watcher: a 21px chip against
+    // 28px rows, for the life of the page.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('');
+
+    openDropdown(Fake);
+
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('28px');
+    // Rebuilt, not doubled — and still one chip after the observation that the
+    // rebuild's own re-registration triggers.
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+  });
+
+  it('settles: a re-measure that changes nothing rebuilds nothing', () => {
+    // The rebuild changes the container's height, which is another resize. The
+    // key is what stops that becoming a loop.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    openDropdown(Fake);
+    const settled = expectEntryCurtained('#opt-ru');
+
+    Fake.instances[0]!.cb();
+
+    expect(expectEntryCurtained('#opt-ru')).toBe(settled);
+  });
+
+  it('stops watching, and disconnects, once the page-wide sweep takes the chip', () => {
+    // "Turn Movar off" detaches every curtain by resolving handles off the DOM;
+    // it cannot reach this module's registries, so the watcher has to come down
+    // from the chip's own onDetach or it survives the teardown.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    detachAllCurtains();
+
+    expect(Fake.instances[0]!.observed).toEqual([]);
+    expect(Fake.instances[0]!.disconnected).toBe(true);
+  });
+
+  it('installs no watcher when the presenter declines to mount', () => {
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      { ...testContentPresenter, attachPickerEntryCurtain: () => null },
+    );
+
+    expect(Fake.instances).toHaveLength(0);
+  });
+
+  it('drops the chip of a row the site removed instead of re-attaching to nothing', () => {
+    // The watcher is the one caller that can re-enter markHiddenEntries with a
+    // `picker.links` snapshot older than the DOM it names. A replace-mode
+    // curtain inserts itself BEFORE its target, so an entry whose parent is gone
+    // is not a smaller chip — it is a throw, inside a ResizeObserver callback.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    document.querySelector<HTMLElement>('#opt-ru')!.remove();
+
+    openDropdown(Fake);
+
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+  });
+});
+
+describe('filterPickers — a locale change refreshes the copy', () => {
+  it('rebuilds a surface whose words would now render differently', () => {
+    // A locale-only settings change re-runs the filter with no teardown, so a
+    // surface keyed only on the languages it names kept the old language's copy.
+    setupTwoLanguagePicker();
+    const enPresenter = { ...testContentPresenter, copyRevision: () => 'en' };
+    const ukPresenter = { ...testContentPresenter, copyRevision: () => 'uk' };
+
+    filterPickersWithPresenter(findLanguagePickers(), ['uk'], { blocked: ['ru'] }, enPresenter);
+    const first = getTooltipHosts()[0]!;
+
+    filterPickersWithPresenter(findLanguagePickers(), ['uk'], { blocked: ['ru'] }, ukPresenter);
+
+    const hosts = getTooltipHosts();
+    expect(hosts.length).toBeGreaterThan(0);
+    expect(hosts[0]).not.toBe(first);
+  });
+});
+
+describe('filterPickers — a presenter that declines to mount', () => {
+  // Every attach method on ContentPresenter is declared `PresenterHandle | null`.
+  // A presenter that is visible but returns null for a given surface must leave
+  // the filter working and the bookkeeping empty, not half-registered.
+  const decliningPresenter = {
+    ...testContentPresenter,
+    attachPickerEntryCurtain: () => null,
+    attachPickerControlBadge: () => null,
+    attachPickerSurvivorTooltip: () => null,
+  };
+
+  it('still hides, and registers nothing, on a list picker', () => {
+    setupListboxPicker();
+    const result = filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      decliningPresenter,
+    );
+
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+  });
+
+  it('still hides, and registers nothing, on a native <select>', () => {
+    setupSelectPicker();
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      decliningPresenter,
+    );
+
+    expect(document.querySelector<HTMLOptionElement>('option[value="ru"]')!.hidden).toBe(true);
+    expect(getControlBadges()).toHaveLength(0);
+  });
+
+  it('still hides, and registers nothing, on an inline strip', () => {
+    setupTwoLanguagePicker();
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk'],
+      { blocked: ['ru'] },
+      decliningPresenter,
+    );
+
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+    expect(getTooltipHosts()).toHaveLength(0);
+  });
+});
+
+describe('restorePickerInPlace — a text-divider wrapper with no snapshot', () => {
+  it('removes the wrapper rather than leaving a fake entry behind', () => {
+    // trimContainerTextSeparators always records the original text, so a
+    // wrapper without it is one a site re-render (or another extension) left
+    // in the container. There is nothing to put back, so the structural span
+    // goes — leaving it would strand a node the picker never rendered.
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <span data-movar-kind="text-divider">|</span>
+        <a id="ru" href="/ru/x">RU</a>
+        <a id="en" href="/en/x">EN</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const orphan = document.querySelector<HTMLElement>('[data-movar-kind="text-divider"]')!;
+    expect(orphan.hasAttribute('data-movar-original-text')).toBe(false);
+
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(document.querySelector('[data-movar-kind="text-divider"]')).toBeNull();
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('');
   });
 });

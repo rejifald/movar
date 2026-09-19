@@ -1,0 +1,168 @@
+<!doctype html>
+<!--
+  LIST-shaped picker inside a dropdown that is CLOSED when the content script
+  runs — the Bootstrap / HeadlessUI-static-panel shape.
+
+  The sibling fixture `picker-listbox-ru` renders its listbox open, so every row
+  already has a box on the first filter pass. That is the easy half. On the real
+  sites this shape comes from, the panel is in the DOM from the first byte and
+  `display: none` until a CLASS is toggled on it:
+
+      .dropdown-menu        { display: none }
+      .dropdown-menu.show   { display: block }
+
+  Opening it therefore adds and removes NOTHING. The content script's only
+  page-wide re-apply triggers are a `childList` MutationObserver and
+  `wxt:locationchange` (content-runtime.ts) — neither of which a class toggle
+  reaches — so the chip in the hidden row is measured once, against rows that all
+  report `offsetHeight === 0`, and nothing ever re-measures it. Measured in
+  Chromium before the fix: rows 28px, chip 21px (its own content height), and the
+  host's inline `min-height` never set.
+
+  Everything else matches `picker-listbox-ru`: a Ukrainian page, `<li
+  role="option" value="xx">` rows with no `href` (an `href`/`hreflang` would fire
+  a language-switch strategy and navigate before the surface ever mounts), seven
+  rows Movar classifies and two (Thai, Albanian) it does not, and `defaultSettings`
+  blocking `ru` so exactly one row is hidden.
+
+  The rows are given an explicit 28px box rather than being left to padding and
+  line-height, so the spec's "the chip matches the row" assertion is a comparison
+  against a number this file states rather than against whatever the test
+  machine's default font metrics produce.
+
+  No script: the spec opens the menu by adding the class, which is exactly what
+  Bootstrap's own bundle does, and lets the spec prove — with its own observer —
+  that opening produced zero childList records.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Курси — вибір мови</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
+        background: #fafaf9;
+        color: #1c1917;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      p {
+        margin: 0 0 16px;
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #57534e;
+      }
+      .dropdown {
+        position: relative;
+        display: inline-block;
+      }
+      .dropdown-toggle {
+        font: inherit;
+        font-size: 13px;
+        padding: 6px 12px;
+        border: 1px solid #d6d3d1;
+        border-radius: 8px;
+        background: #ffffff;
+        color: inherit;
+        cursor: pointer;
+      }
+      /* The whole point of this fixture: closed is a CSS state, not a DOM one.
+         The panel and every row inside it are in the document from the first
+         byte; `.show` is the only thing that changes when it opens. */
+      .dropdown-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        width: 190px;
+        border: 1px solid #d6d3d1;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+        padding: 4px;
+      }
+      .dropdown-menu.show {
+        display: block;
+      }
+      .dropdown-menu ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      /* An explicit row box, so "the chip is as tall as a row" is a claim about
+         28px and not about this machine's font metrics. */
+      .dropdown-menu li {
+        height: 28px;
+        box-sizing: border-box;
+        padding: 0 8px;
+        line-height: 28px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .dropdown-menu li[aria-selected='true'] {
+        background: #f5f5f4;
+        font-weight: 600;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+          color: #fafaf9;
+        }
+        p {
+          color: #a8a29e;
+        }
+        .dropdown-toggle,
+        .dropdown-menu {
+          border-color: #44403c;
+          background: #1c1917;
+        }
+        .dropdown-menu li[aria-selected='true'] {
+          background: #292524;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Онлайн-курси</h1>
+      <p>
+        Понад двісті курсів з програмування, дизайну та мов. Оберіть мову інтерфейсу у меню
+        праворуч.
+      </p>
+    </main>
+    <div class="dropdown">
+      <button type="button" class="dropdown-toggle" aria-expanded="false">Мова</button>
+      <div class="dropdown-menu" id="language-menu">
+        <ul id="language-listbox" role="listbox" aria-label="Оберіть мову">
+          <li role="option" data-key="sq" value="sq" aria-selected="false">Albanian</li>
+          <li role="option" data-key="de" value="de" aria-selected="false">Deutsch</li>
+          <li role="option" data-key="en" value="en" aria-selected="false">English</li>
+          <li role="option" data-key="fr" value="fr" aria-selected="false">French</li>
+          <li role="option" data-key="pl" value="pl" aria-selected="false">Polish</li>
+          <li role="option" data-key="ru" value="ru" aria-selected="false">Russian</li>
+          <li role="option" data-key="es" value="es" aria-selected="false">Spanish</li>
+          <li role="option" data-key="th" value="th" aria-selected="false">Thai</li>
+          <li role="option" data-key="uk" value="uk" aria-selected="true">Ukrainian</li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

@@ -26,6 +26,19 @@ export interface ContentStrings {
     chipLabelNoLang: string;
     show: string;
   };
+  pickerEntry: {
+    /** The chip's VISIBLE text, standing in a row among language names. It has
+     *  to read as Movar's mark rather than as one more option to pick — so it
+     *  names Movar and the state, not the language. The language name lives in
+     *  {@link ContentStrings.pickerEntry.chipLabel} instead, which the row
+     *  surfaces on hover and to screen readers. */
+    label: string;
+    /** `{endonym}` → the HIDDEN language's own name — the opposite of
+     *  {@link ContentStrings.pickerHidden}'s surviving one. This chip sits in
+     *  the row that language used to occupy, so the sentence names what went. */
+    chipLabel: string;
+    show: string;
+  };
   pickerSurvivor: {
     title: string;
     /** `{languages}` → comma-joined hidden endonyms, in picker order. */
@@ -68,6 +81,15 @@ export interface ContentMessages {
     chipLabel: (endonym: string | null) => string;
     show: string;
   };
+  pickerEntry: {
+    /** The chip's visible row text — see {@link ContentStrings.pickerEntry.label}. */
+    label: string;
+    /** Hover/screen-reader sentence for the chip standing in a hidden row's
+     *  slot. Takes the HIDDEN language's endonym (already localised by the
+     *  caller via `Intl.DisplayNames`). */
+    chipLabel: (endonym: string) => string;
+    show: string;
+  };
   pickerSurvivor: {
     title: string;
     body: (hiddenEndonyms: string[]) => string;
@@ -100,6 +122,11 @@ export function adaptContentStrings(s: ContentStrings): ContentMessages {
           ? s.pickerHidden.chipLabelNoLang
           : s.pickerHidden.chipLabel.replace('{endonym}', endonym),
       show: s.pickerHidden.show,
+    },
+    pickerEntry: {
+      label: s.pickerEntry.label,
+      chipLabel: (endonym) => s.pickerEntry.chipLabel.replace('{endonym}', endonym),
+      show: s.pickerEntry.show,
     },
     pickerSurvivor: {
       title: s.pickerSurvivor.title,

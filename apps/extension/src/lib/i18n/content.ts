@@ -31,6 +31,14 @@ const FALLBACK: ContentMessages = adaptContentStrings(contentStringsEn);
 let currentMessages: ContentMessages = FALLBACK;
 let loaded = false;
 
+/** The locale the cached messages are for. Callers that cache a RENDERED string
+ *  need this to know when their copy went stale: a locale change re-runs the
+ *  filter without a teardown, so a surface keyed only on what it says ABOUT
+ *  (the hidden languages) would keep the previous language's words forever. */
+export function getContentLocale(): ResolvedLocale {
+  return currentLocale;
+}
+
 export function setContentLocale(locale: ResolvedLocale): void {
   currentLocale = locale;
   // A changed locale invalidates the cache: drop back to the English fallback

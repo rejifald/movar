@@ -13,6 +13,21 @@
   <head>
     <meta charset="utf-8" />
     <title>Select picker — тест выбора языка</title>
+    <style>
+      /* The centred-column shell, and NOT decoration: `body { position: relative }`
+         makes body a containing block, so an absolutely-positioned host appended
+         to it resolves against body's padding box instead of the viewport. The
+         badge was mounted `position: absolute` with page coordinates and landed
+         386px from its control on exactly this shape, measured in Chromium. A
+         fixture with no CSS at all could never have caught it. */
+      body {
+        position: relative;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: system-ui, sans-serif;
+      }
+    </style>
   </head>
   <body>
     <header>

@@ -1,5 +1,6 @@
 import type { LanguageCode } from '@movar/lang-detect';
 import type { ContentPresenter, PresenterHandle } from './content-presenter';
+import { CURTAIN_HOST_ATTR } from './movar-markers';
 import {
   HIDDEN_ATTR,
   LABEL_SEPARATORS,
@@ -26,12 +27,67 @@ import type {
 const DIVIDER_CLASS_PATTERN = /(^|[-_\s])(divider|separator|sep|bullet|pipe)([-_\s]|$)/i;
 
 const PICKER_CURTAIN_KIND = 'picker-container';
+const PICKER_ENTRY_CURTAIN_KIND = 'picker-entry';
+const PICKER_BADGE_KIND = 'picker-badge';
 
-/** Per-anchor tooltip handles, used to detach a previously-attached
- *  tooltip when annotateSurvivingLinks re-runs (MutationObserver, settings
- *  change) and the hidden-language list might have changed. WeakMap so
- *  detached/removed anchors are GC'd along with their handles. */
-const anchorTooltips = new WeakMap<HTMLElement, PresenterHandle>();
+/**
+ * One mark Movar has put on the page, and what it currently says.
+ *
+ * Three registries share this shape — survivor tooltips (keyed by the anchor),
+ * in-row chips (by the hidden entry) and control badges (by the control) — so
+ * one detach and one currency check serve all of them. They were five maps and
+ * three near-identical helpers, whose paired key/handle writes could drift and
+ * leave a permanently-stale guard.
+ *
+ * WeakMap throughout: an anchor the site re-renders away takes its mark with it.
+ */
+interface Mark {
+  handle: PresenterHandle;
+  /** What this mark SAYS — see {@link surfaceKey}. */
+  key: string;
+}
+type MarkRegistry = WeakMap<HTMLElement, Mark>;
+
+const survivorTooltips: MarkRegistry = new WeakMap();
+const entryChips: MarkRegistry = new WeakMap();
+const controlBadgeMarks: MarkRegistry = new WeakMap();
+
+/** Detach `el`'s mark from `registry`, if any — removing its host and its entry
+ *  in the overlay's own registry. Idempotent. */
+function detachMark(registry: MarkRegistry, el: HTMLElement): void {
+  const mark = registry.get(el);
+  if (!mark) return;
+  mark.handle.detach();
+  registry.delete(el);
+}
+
+/**
+ * True when `el` already carries a mark saying exactly `key` AND that mark is
+ * still ON THE PAGE.
+ *
+ * The connected check is what keeps idempotence from becoming erasure. The
+ * page-wide sweeps (`detachAllCurtains` / `detachAllTooltips`) resolve handles
+ * off the DOM and cannot reach these module-level maps, so after a pause, a
+ * settings toggle or "Show everything" a registry still holds a mark whose host
+ * is long gone. Keyed on presence alone, the next pass concluded "already
+ * marked" and attached nothing — re-hiding the entry with no explanation and no
+ * way back, which is the exact silent concealment this file exists to prevent.
+ */
+function markIsCurrent(registry: MarkRegistry, el: HTMLElement, key: string): boolean {
+  const mark = registry.get(el);
+  return mark?.key === key && mark.handle.host.isConnected;
+}
+
+/** Stable identity for a mark's copy: the hidden languages it names, plus the
+ *  presenter's copy revision — the locale, which changes the WORDS without
+ *  changing the languages, and which a locale-only settings change applies with
+ *  no teardown behind it. */
+function surfaceKey(
+  hiddenLanguages: readonly LanguageCode[],
+  presenter: ContentPresenter | undefined,
+): string {
+  return `${hiddenLanguages.join(',')}|${presenter?.copyRevision() ?? ''}`;
+}
 
 /** Text that is entirely separator characters and whitespace, and contains
  *  at least one non-whitespace separator. Pure-whitespace nodes are layout,
@@ -375,7 +431,8 @@ export function restoreOriginalBorders(el: HTMLElement): void {
  *     hideUselessDividers output)
  *   - put back any leaf-link textContent we trimmed via
  *     trimOrphanSeparators (ORIGINAL_TEXT_ATTR)
- *   - detach all tooltips Movar attached to surviving links
+ *   - detach all tooltips Movar attached to surviving links, and all in-row
+ *     chips it left standing in a list picker's hidden rows
  *   - mark the container with RESTORED_ATTR so the next MutationObserver
  *     re-fire of filterPickers skips it
  *
@@ -390,6 +447,12 @@ export function restoreOriginalBorders(el: HTMLElement): void {
 /* eslint-disable sonarjs/cognitive-complexity -- inverse of the multi-pass filter pipeline; splitting forces coupled exports */
 // fallow-ignore-next-line complexity
 function restorePickerInPlace(picker: Picker): void {
+  // Drop the in-row chips FIRST. Each one reverts the entry's inline `display`
+  // to the value it snapshotted — `none !important`, written by hideElement
+  // before the chip went up — so the un-hide below has to be what runs last.
+  for (const link of picker.links) {
+    detachMark(entryChips, link.el);
+  }
   // Un-hide classified links. Iterates the full pre-dedup set (falling back
   // to `links` when a caller never populated it) so a regional-variant
   // duplicate that filterPickerLinks hid via `allLinks` — and which may not
@@ -401,10 +464,17 @@ function restorePickerInPlace(picker: Picker): void {
     restoreOriginalDisplay(link.el);
     if (link.el instanceof HTMLOptionElement) link.el.hidden = false;
   }
-  // Un-hide divider siblings hidden as a consequence.
+  // Un-hide divider siblings hidden as a consequence — and any entry this
+  // picker object does not know about. `picker.links` is a snapshot; a row the
+  // site added after it was taken is still hidden and may still carry a chip, so
+  // detaching only the snapshot's chips left an orphan chip beside a row it had
+  // just un-hidden, and a second click on that orphan wrote the snapshotted
+  // `display: none !important` back onto an entry no longer carrying
+  // HIDDEN_ATTR — invisible, and unreachable by any later pass or sweep.
   for (const child of picker.container.children) {
     if (!(child instanceof HTMLElement)) continue;
     if (!child.hasAttribute(HIDDEN_ATTR)) continue;
+    detachMark(entryChips, child);
     child.removeAttribute(HIDDEN_ATTR);
     restoreOriginalDisplay(child);
   }
@@ -435,30 +505,314 @@ function restorePickerInPlace(picker: Picker): void {
     }
     span.replaceWith(picker.container.ownerDocument.createTextNode(original));
   }
-  // Detach the tooltips Movar attached to surviving links.
+  // Detach the tooltips Movar attached to surviving links, and the badge a
+  // native <select> carries beside its control — the badge owns the tooltip
+  // anchored on it, so detaching the badge takes both.
   for (const link of picker.links) {
-    const handle = anchorTooltips.get(link.el);
-    if (!handle) continue;
-    handle.detach();
-    anchorTooltips.delete(link.el);
+    detachMark(survivorTooltips, link.el);
   }
+  detachMark(controlBadgeMarks, picker.container);
   // Mark the container so filterPickers' next pass leaves it alone.
   picker.container.setAttribute(RESTORED_ATTR, '');
 }
 /* eslint-enable sonarjs/cognitive-complexity -- re-enable after restorePickerInPlace */
 
-/** Detach `link`'s previously-attached survivor tooltip, if any — removing
- *  both its host (appended to `document.body`, outside the picker subtree)
- *  and its entry in tooltip.ts's `tooltipRegistry` — and drop it from
- *  `anchorTooltips`. Idempotent: a no-op when the link never had one. Must
- *  run for every link leaving tooltip-eligibility, not just re-annotated
- *  survivors — otherwise the host/registry entry orphans permanently
- *  (movar#303). */
-function detachSurvivorTooltip(link: ClassifiedLink): void {
-  const existing = anchorTooltips.get(link.el);
-  if (!existing) return;
-  existing.detach();
-  anchorTooltips.delete(link.el);
+/** The commonest value in `heights`, or 0 for an empty list. Ties go to the
+ *  SMALLER height: a floor under the row is invisible (the chip's own content
+ *  fills it), a floor over it is the too-tall band this measurement exists to
+ *  prevent. */
+function commonestHeight(heights: readonly number[]): number {
+  const counts = new Map<number, number>();
+  let best = 0;
+  let bestCount = 0;
+  for (const height of heights) {
+    const count = (counts.get(height) ?? 0) + 1;
+    counts.set(height, count);
+    if (count > bestCount || (count === bestCount && height < best)) {
+      best = height;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/**
+ * Height of the box `entry` used to occupy, taken from the still-visible
+ * siblings that are ROWS LIKE IT — 0 when none can be measured.
+ *
+ * Measured off siblings rather than off the entry itself because by the time a
+ * chip goes up, `filterPickerLinks` has already hidden the entry and its box is
+ * gone; un-hiding it to measure would mean a write, a forced reflow and a
+ * re-hide on every observer re-fire.
+ *
+ * A list picker's ROWS are uniform by construction — that uniformity is most of
+ * what makes it a list rather than a strip — but its child list holds more than
+ * rows. Grouped listboxes (MUI's ListSubheader, HeadlessUI's section labels,
+ * every "Recently used / All languages" split) put a `role="presentation"`
+ * header first, and separators and "clear selection" affordances sit there too;
+ * all of them are deliberately NOT row-shaped. Taking the first visible sibling
+ * whatever it was measured a header at 37px against 28px option rows — a 32%
+ * overshoot, one band in the list taller than everything around it.
+ *
+ * So the entry's own `role` picks its peers, and the commonest height among
+ * them is the answer — the mode rather than the first, so one row that wrapped
+ * to two lines doesn't set the floor for the rest either. Siblings with a
+ * different role are the fallback for the picker that has no peers at all (one
+ * classified row among unclassifiable ones is common; one row, full stop, is
+ * not), where the shape of the list is all there is to go on.
+ *
+ * Skips Movar's own hosts and anything else already hidden, so a second chip in
+ * the same container never measures the first one.
+ */
+function slotHeightFor(entry: HTMLElement): number {
+  const parent = entry.parentElement;
+  if (!parent) return 0;
+  const role = entry.getAttribute('role');
+  const peers: number[] = [];
+  const rest: number[] = [];
+  for (const sibling of parent.children) {
+    if (!standsInForTheRow(sibling, entry)) continue;
+    (sibling.getAttribute('role') === role ? peers : rest).push(sibling.offsetHeight);
+  }
+  return commonestHeight(peers.length > 0 ? peers : rest);
+}
+
+/** Whether `sibling`'s box can stand in for the hidden `entry`'s: a laid-out
+ *  element that is neither the entry itself, nor something already hidden, nor
+ *  one of Movar's own hosts — so a second chip in the same container is never
+ *  what the first one measures.
+ *
+ *  Split out of {@link slotHeightFor} to keep it under the complexity gate;
+ *  the five clauses are one question, and reading them as one is the point. */
+function standsInForTheRow(sibling: Element, entry: HTMLElement): sibling is HTMLElement {
+  return (
+    sibling !== entry &&
+    sibling instanceof HTMLElement &&
+    !sibling.hasAttribute(HIDDEN_ATTR) &&
+    !sibling.hasAttribute(CURTAIN_HOST_ATTR) &&
+    sibling.offsetHeight > 0
+  );
+}
+
+/**
+ * Picker containers being watched for a box that arrives after the filter has
+ * already run, each with the re-measure to run when one does.
+ *
+ * {@link slotHeightFor} needs a laid-out row, and a list picker is usually
+ * inside a dropdown that is CLOSED on the pass that hides the entry, where every
+ * row reports `offsetHeight === 0`. Recovering from that needs a LATER pass, and
+ * the content script has exactly two triggers for one: a MutationObserver
+ * configured `{ childList: true, subtree: true }` and `wxt:locationchange`
+ * (both in content-runtime.ts). Neither fires for the shape this exists for — a
+ * panel that is in the DOM from the first byte and opens by toggling a CLASS
+ * (Bootstrap's `.dropdown-menu.show`, a HeadlessUI static panel, `<details>`, a
+ * pure-CSS `:hover` menu), which adds and removes nothing. Measured in Chromium
+ * on the Bootstrap-shaped fixture: rows 28px, chip 21px, the host's inline
+ * `min-height` never set, for the life of the page.
+ *
+ * A ResizeObserver is what turns "the panel opened" into an event the filter can
+ * hear: the closed container has no box and gains one the moment the class
+ * lands. It re-runs {@link markHiddenEntries} for that picker, and the height in
+ * the mark key does the rest — a rebuild only when the number actually changed.
+ *
+ * No feedback loop with the page-wide observer: a rebuilt chip is a curtain host
+ * carrying CURTAIN_HOST_ATTR, so the batch reads as Movar's own and
+ * `isMovarOwnedMutation` (movar-markers.ts) drops it. And no loop with itself —
+ * the rebuild changes the container's height, the re-measure that follows reads
+ * the same row height, the key matches and nothing moves.
+ */
+const slotWatchers = new Map<HTMLElement, () => void>();
+let slotObserver: ResizeObserver | null = null;
+
+/** Re-measure every watched picker, and evict the ones whose container has left
+ *  the page. One observation per picker and a page has one or two, so sweeping
+ *  the whole map costs a handful of offsetHeight reads and buys the eviction in
+ *  the same loop — the same bargain `repositionAllBadges` makes in curtain.ts.
+ *  Iterates a copy: a re-measure can unwatch. */
+function onSlotResize(): void {
+  // eslint-disable-next-line unicorn/no-useless-spread -- deliberate copy: a re-measure can unwatch and re-watch its own container, which a live Map iterator would then visit a second time
+  for (const [container, remeasure] of [...slotWatchers]) {
+    if (container.isConnected) remeasure();
+    else unwatchSlot(container);
+  }
+}
+
+function watchSlot(container: HTMLElement, remeasure: () => void): void {
+  // No ResizeObserver — jsdom, and any engine old enough to lack it. The chip
+  // keeps the recovery it had before this watcher existed: whatever the next
+  // page-wide pass happens to measure.
+  if (typeof ResizeObserver === 'undefined') return;
+  slotObserver ??= new ResizeObserver(onSlotResize);
+  if (!slotWatchers.has(container)) slotObserver.observe(container);
+  // Always the newest closure. It holds the picker snapshot and the presenter of
+  // the pass that installed it, and a settings change re-runs the filter with no
+  // teardown behind it — so a stale closure would keep re-asserting the previous
+  // settings' surface every time the dropdown moved.
+  slotWatchers.set(container, remeasure);
+}
+
+/** Stop watching `container`, and put the observer away once the last watcher is
+ *  gone. The half curtain.ts's badge listeners learned to have: "Turn Movar off"
+ *  must be able to remove every global this module installs. */
+function unwatchSlot(container: HTMLElement): void {
+  if (!slotWatchers.delete(container)) return;
+  slotObserver?.unobserve(container);
+  if (slotWatchers.size > 0) return;
+  slotObserver?.disconnect();
+  slotObserver = null;
+}
+
+/**
+ * A chip's curtain has come down — by its own "Show", by a picker-level restore,
+ * or by the page-wide sweep behind "Turn Movar off", which resolves handles off
+ * the DOM and never reaches this module's registries. That last path is the
+ * reason this is an `onDetach` hook rather than a line in {@link detachMark}:
+ * the same lesson the control badge's `releaseControl` records.
+ *
+ * Once the last chip of a picker is gone there is nothing left to re-measure, so
+ * the watcher goes with it. A REBUILD also passes through here, one line before
+ * the replacement goes up — the pass re-registers the watcher when it ends, at
+ * the cost of one no-op observation.
+ */
+function releaseSlotWatch(picker: Picker): void {
+  const standing = picker.links.some(
+    (link) => entryChips.get(link.el)?.handle.host.isConnected === true,
+  );
+  if (!standing) unwatchSlot(picker.container);
+}
+/**
+ * Mark each hidden entry of a LIST-shaped picker with a chip in its own row,
+ * instead of hanging a tooltip off every survivor.
+ *
+ * Why the two shapes diverge here: the survivor tooltip is a hover popup, and a
+ * list picker is the one shape where that is actively hostile. Its rows are what
+ * the visitor sweeps the pointer across to read the options — so a tooltip on
+ * each survivor turns every recognised row into a trap that opens a panel over
+ * the rows around it, at a z-index above the site's own dropdown. On
+ * bigfive-test.com (42 options, 9 of them languages Movar classifies) that was
+ * eight hover traps inside the list, and picking any other language meant
+ * dodging them. An inline strip has no such problem — and no row to mark either,
+ * since the cleanup passes close the gap completely — so it keeps the tooltip.
+ *
+ * One chip per hidden LANGUAGE, not per hidden element: `picker.links` is the
+ * deduped display set, so a picker carrying both `ru-RU` and `ru-UA` gets a
+ * single marker while `filterPickerLinks` still hides both elements.
+ *
+ * Idempotent across MutationObserver re-fires — the previous chip is detached
+ * first, the same way {@link annotateSurvivingLinks} handles its tooltips.
+ *
+ * Re-entrant by design: {@link slotWatchers} calls this again, for one picker,
+ * when that picker's container gains the box it did not have on the first pass.
+ */
+function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefined): void {
+  const visible = presenter?.hasVisiblePresentation === true;
+  let standing = false;
+  for (const link of picker.links) {
+    const hidden = link.el.hasAttribute(HIDDEN_ATTR);
+    // The eligibility checks come BEFORE the skip, never after it: a conceal-mode
+    // flip to 'hide' drops the presenter without changing the hidden languages,
+    // and a guard that ran first would leave curtain-mode chips standing in the
+    // mode whose contract is that Movar adds no surface.
+    //
+    // A PARENTLESS entry is one the site re-rendered away since `picker.links`
+    // was taken: it can measure nothing and can hold nothing (a replace-mode
+    // curtain inserts itself before its target, and attachCurtain throws without
+    // a parent). Only reachable since the slot watcher started calling this with
+    // a snapshot that can outlive its DOM.
+    if (!hidden || !visible || link.el.parentElement === null) {
+      detachMark(entryChips, link.el);
+      continue;
+    }
+    // The measured height is part of the key, and a rebuild is how a chip takes
+    // a new measurement: a list picker is usually inside a dropdown that is
+    // CLOSED when the filter runs, where every row measures 0, so a chip keyed
+    // only on its language would keep the floorless height it was born with and
+    // render at half its neighbours' for the life of the page. What re-runs this
+    // function once the rows have a box is {@link slotWatchers} — the page-wide
+    // observer cannot, because opening such a dropdown mutates no childList.
+    const slotHeight = slotHeightFor(link.el);
+    const key = `${surfaceKey([link.language], presenter)}|${String(slotHeight)}`;
+    if (markIsCurrent(entryChips, link.el, key)) {
+      standing = true;
+      continue;
+    }
+    detachMark(entryChips, link.el);
+    const handle = presenter.attachPickerEntryCurtain({
+      entry: link.el,
+      language: link.language,
+      slotHeight,
+      restore: () => {
+        restorePickerInPlace(picker);
+      },
+      onDetach: () => {
+        releaseSlotWatch(picker);
+      },
+    });
+    if (handle === null) continue;
+    handle.host.dataset['movarKind'] = PICKER_ENTRY_CURTAIN_KIND;
+    entryChips.set(link.el, { handle, key });
+    standing = true;
+  }
+  // Watch for a slot that becomes measurable only while there is a chip to
+  // re-floor. Nothing standing — no hidden rows, no presenter, or a presenter
+  // that declined to mount — means this module has nothing left to do for this
+  // picker, and holding a live observer on its container would be one more
+  // global for "Turn Movar off" to have to find.
+  if (standing) {
+    watchSlot(picker.container, () => {
+      markHiddenEntries(picker, presenter);
+    });
+  } else {
+    unwatchSlot(picker.container);
+  }
+}
+
+/**
+ * Mark a native `<select>` with a badge beside the control.
+ *
+ * Its `<option>`s can carry nothing: an `<option>` may not contain an element,
+ * and — measured in Chromium on the `picker-select-ru` fixture — every
+ * `<option>` reports a 0x0 box even with the control on screen, so it can take
+ * neither a chip nor a hover. Anchoring the survivor tooltip to each surviving
+ * option, which is what the inline path does, produced explanation surfaces that
+ * could never be opened.
+ *
+ * Anchoring on the `<select>` itself works, but says nothing until someone
+ * happens to hover it — and on a control the visitor is aiming at anyway, that
+ * is a coin flip. The badge is the fix: an always-visible mark floating beside
+ * the control, resting as the bare sigil and expanding to its label while the
+ * control is hovered or focused, with the detail and the restore action in a
+ * tooltip anchored on the control. It is appended to `document.body` rather
+ * than the site's tree — so no sibling selector, child index or flex gap count
+ * changes and nothing shifts — and is `pointer-events: none`, `aria-hidden` and
+ * untabbable, so it cannot take a click, a focus or a screen-reader stop.
+ *
+ * Idempotent across MutationObserver re-fires the same way the tooltip paths
+ * are, and for a sharper reason: a rebuilt badge would restart its fade and drop
+ * an open tooltip mid-read.
+ */
+function markNativeControl(
+  picker: Picker,
+  hiddenLanguages: LanguageCode[],
+  presenter: ContentPresenter | undefined,
+): void {
+  const key = surfaceKey(hiddenLanguages, presenter);
+  if (hiddenLanguages.length === 0 || presenter?.hasVisiblePresentation !== true) {
+    detachMark(controlBadgeMarks, picker.container);
+    return;
+  }
+  if (markIsCurrent(controlBadgeMarks, picker.container, key)) return;
+  detachMark(controlBadgeMarks, picker.container);
+  const handle = presenter.attachPickerControlBadge({
+    control: picker.container,
+    hiddenLanguages,
+    restore: () => {
+      restorePickerInPlace(picker);
+    },
+  });
+  if (handle === null) return;
+  handle.host.dataset['movarKind'] = PICKER_BADGE_KIND;
+  controlBadgeMarks.set(picker.container, { handle, key });
 }
 
 /**
@@ -469,8 +823,8 @@ function detachSurvivorTooltip(link: ClassifiedLink): void {
  * container — without touching curtains or other pickers).
  *
  * Idempotent across MutationObserver re-fires: each anchor's previous
- * tooltip handle is tracked in `anchorTooltips` and always detached first
- * (via {@link detachSurvivorTooltip}), so the body stays in sync if the
+ * tooltip mark is tracked in `survivorTooltips` and always detached first
+ * (via {@link detachMark}), so the body stays in sync if the
  * hidden-language list changed since the last call. That detach runs even
  * for links this pass then skips — now HIDDEN_ATTR, or no visible
  * presenter — so a link that stops being a tooltip candidate never leaves
@@ -481,12 +835,20 @@ function annotateSurvivingLinks(
   hiddenLanguages: LanguageCode[],
   presenter: ContentPresenter | undefined,
 ): void {
-  if (hiddenLanguages.length === 0) return;
-
+  const key = surfaceKey(hiddenLanguages, presenter);
+  // Nothing hidden means nothing to explain — and any tooltip still up is now
+  // stale, so this is a detach, never a bare return.
+  const visible = hiddenLanguages.length > 0 && presenter?.hasVisiblePresentation === true;
   for (const link of picker.links) {
-    detachSurvivorTooltip(link);
-    if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
-    if (presenter?.hasVisiblePresentation !== true) continue;
+    // Eligibility first, skip second — see markHiddenEntries. Running the skip
+    // first also re-opened movar#303: an anchor that stops being a candidate
+    // without changing the key kept its stale tooltip.
+    if (link.el.hasAttribute(HIDDEN_ATTR) || !visible) {
+      detachMark(survivorTooltips, link.el);
+      continue;
+    }
+    if (markIsCurrent(survivorTooltips, link.el, key)) continue;
+    detachMark(survivorTooltips, link.el);
     const handle = presenter.attachPickerSurvivorTooltip({
       anchor: link.el,
       hiddenLanguages,
@@ -494,7 +856,8 @@ function annotateSurvivingLinks(
         restorePickerInPlace(picker);
       },
     });
-    if (handle !== null) anchorTooltips.set(link.el, handle);
+    if (handle === null) continue;
+    survivorTooltips.set(link.el, { handle, key });
   }
 }
 
@@ -596,6 +959,30 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
 }
 
 /**
+ * Drop any surface belonging to a layout this picker no longer has.
+ *
+ * `pickerLayout` is re-derived from live ARIA roles on every pass, so the
+ * verdict can change mid-life — a react-aria picker that stamps `role="listbox"`
+ * on after hydration is read as `inline` on the pass before and `list` on the
+ * pass after. Each mark path only ever detached its OWN kind, so the earlier
+ * verdict's surfaces stayed attached: on exactly the shape this work targets,
+ * the chip went up while the inline-era survivor tooltips remained as hover
+ * traps over the listbox rows — the defect being fixed, re-created by the fix.
+ *
+ * Every call is a no-op when there is nothing of that kind to drop, so this
+ * costs nothing in the steady state.
+ */
+function detachForeignSurfaces(picker: Picker): void {
+  const dropTooltips = picker.layout !== 'inline';
+  const dropChips = picker.layout !== 'list';
+  for (const link of picker.links) {
+    if (dropTooltips) detachMark(survivorTooltips, link.el);
+    if (dropChips) detachMark(entryChips, link.el);
+  }
+  if (picker.layout !== 'native') detachMark(controlBadgeMarks, picker.container);
+}
+
+/**
  * In-container cleanup for a picker that stays visible after some links were
  * hidden: drop stranded `|` divider siblings, zero separator borders left
  * facing the gap, trim bare-text orphan separators (inside surviving leaves
@@ -611,12 +998,26 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
  * Only called when the container stays visible. When the chip is about to hide
  * the whole container, this cleanup would be invisible AND would leak past the
  * chip's "click-to-restore = exact picker state" contract.
+ *
+ * The four passes run for every layout — a list picker simply has no separators
+ * for them to find. What the layout picks is the SURFACE that explains the gap:
+ * an in-row chip for a list, the survivor tooltip for an inline strip (see
+ * {@link markHiddenEntries} for why a list must not get the tooltip).
  */
 function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter | undefined): void {
   hideUselessDividers(picker);
   hideOrphanEdgeBorders(picker);
   trimOrphanSeparators(picker);
   trimContainerTextSeparators(picker);
+  detachForeignSurfaces(picker);
+  if (picker.layout === 'list') {
+    markHiddenEntries(picker, presenter);
+    return;
+  }
+  if (picker.layout === 'native') {
+    markNativeControl(picker, collectHiddenLanguages(picker), presenter);
+    return;
+  }
   annotateSurvivingLinks(picker, collectHiddenLanguages(picker), presenter);
 }
 

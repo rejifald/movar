@@ -21,6 +21,20 @@ describe('adaptContentStrings', () => {
     );
   });
 
+  it('keeps the in-row chip label free of any language name', () => {
+    // It stands in a list OF language names; naming one there reads as an
+    // option rather than as Movar's mark.
+    expect(en.pickerEntry.label).toBe('Movar: hidden');
+  });
+
+  it('names the HIDDEN language in the in-row entry description', () => {
+    // Opposite sense to pickerHidden's label, which names what SURVIVED — this
+    // chip stands in the row the language used to occupy.
+    expect(en.pickerEntry.chipLabel('Russian')).toBe(
+      'Movar hid the Russian option — click to show',
+    );
+  });
+
   it('joins the hidden endonyms into the survivor body', () => {
     expect(en.pickerSurvivor.body(['Russian', 'Belarusian'])).toBe(
       'Movar hid: Russian, Belarusian.',
@@ -46,6 +60,10 @@ describe('adaptContentStrings', () => {
     const uk = adaptContentStrings(contentStringsUk);
     expect(uk.pickerHidden.chipLabel('українська')).toBe(
       'Мовар — українська. Натисніть, щоб показати перемикач мов.',
+    );
+    expect(uk.pickerEntry.label).toBe('Мовар: приховано');
+    expect(uk.pickerEntry.chipLabel('русский')).toBe(
+      'Мовар приховав варіант русский — натисніть, щоб показати',
     );
     expect(uk.pickerSurvivor.body(['російська'])).toBe('Мовар приховав: російська.');
     expect(uk.contentHidden.descriptionForLanguage('ru')).toBe('Російською мовою');

@@ -13,6 +13,24 @@
  *   replace — curtain inserted as a sibling BEFORE `target`, occupying its
  *             flow slot at the curtain's natural size. `target` itself is
  *             hidden via display:none.
+ *   badge   — a mark placed BESIDE `target`, which is not touched at all. For
+ *             a control Movar cannot reach inside: a native <select> draws its
+ *             popup outside the document, so the mark has to sit next to the
+ *             control rather than in it.
+ *
+ *             The badge must never get in the visitor's way, so it is built to
+ *             be incapable of it. The host is appended to `document.body` and
+ *             positioned from the target's rect, so the site's own DOM gains no
+ *             sibling (`select + button` rules, `:last-child`, `nth-child` and
+ *             flex gap counts all keep working) and its layout does not shift.
+ *             `pointer-events: none` means it cannot swallow a click even where
+ *             it visually overlaps — which is also why tracking it by position
+ *             is safe: drift can be cosmetic, never functional. It is
+ *             `aria-hidden` and takes no focus, so it adds no tab stop and no
+ *             second announcement; the caller anchors the real explanation on
+ *             the control itself, which already takes hover AND focus.
+ *             `data-expanded` (set by the caller while the control is hovered
+ *             or focused) grows it from the bare mark to its label.
  *
  * Two visual skins, picked via `skin`:
  *
@@ -81,7 +99,7 @@ const FILTER_VAR = '--movar-curtain-filter';
 const DEFAULT_CHILD_FILTER = 'blur(16px) saturate(0.6)';
 const DEFAULT_PEEK_FILTER = 'blur(4px) saturate(0.85)';
 
-export type CurtainMode = 'cover' | 'replace';
+export type CurtainMode = 'cover' | 'replace' | 'badge';
 export type CurtainSkin = 'pill' | 'chip';
 
 export interface ActionContext {
@@ -102,6 +120,42 @@ export interface CurtainOptions {
    *  click target and drops `description` from the rendered DOM (it goes
    *  to aria-label + host `title` instead). */
   skin?: CurtainSkin;
+  /**
+   * Replace mode only: take the FULL WIDTH of the slot the curtain is standing
+   * in, as a tinted band, instead of sizing to the mark's own content.
+   *
+   * For a row of a dropdown — where the thing replaced owned a full-width line
+   * among other full-width lines — a content-sized mark reads as a small note
+   * dropped into the list, and leaves the rest of the row looking like dead
+   * space. Filling the slot makes the row read as curtained, and gives the
+   * restore click the whole row as its target rather than a few characters.
+   *
+   * Wrong for a header strip, where the slot is one item in a line of items and
+   * a full-width band would blow the strip apart — hence opt-in, not default.
+   */
+  block?: boolean;
+  /**
+   * Block replace only: floor the curtain's height, in px, at the box the slot
+   * used to occupy.
+   *
+   * Needed because replace mode hides the target, which takes its box with it —
+   * so the curtain falls back to its own content height and the row it stands
+   * in collapses to roughly half the ones around it, breaking the list's
+   * rhythm. The caller measures (a still-visible sibling row, since the target
+   * is already hidden by the time the curtain mounts) and passes the result;
+   * the curtain has no way to recover the number on its own.
+   */
+  minHeight?: number;
+  /**
+   * Extra teardown to run from {@link CurtainHandle.detach}.
+   *
+   * `detachAllCurtains` resolves the handle off the host, so ONLY this handle's
+   * detach ever runs in a page-wide sweep. A caller that pairs a curtain with
+   * something else — a tooltip, listeners on the site's own control — has to
+   * hang that teardown here, or the sweep silently removes the host and leaks
+   * the rest. Runs once; `detach` is idempotent.
+   */
+  onDetach?: () => void;
   /** Leading mark. String is rendered as text (emoji); Node is appended verbatim. */
   icon?: string | Node;
   title: string;
@@ -208,6 +262,77 @@ const DARK_TOKENS = `
   --movar-action-primary-hover: rgba(255, 255, 255, 0.10);
 `;
 
+/**
+ * STYLES notes — the long-form "why" for four rules below.
+ *
+ * They live here rather than beside their rules because STYLES is a template
+ * literal injected VERBATIM into every shadow root: a comment inside it is
+ * shipped payload on every page that mounts a curtain, not documentation. These
+ * four were 4 KB of it. A comment out here is stripped by the build instead, so
+ * the rules keep a one-line marker and the reasoning keeps its full length.
+ *
+ * (1) Responsive collapse
+ *     Responsive collapse (cover mode only — keyed on the movar-cover size
+ *     container above). The vertical card is sized for a roomy content card; on a
+ *     target too short to seat it, it would overflow and — since short/inline
+ *     targets don't clip an overlay reliably — pile up on its neighbours. So fold
+ *     the pill into a single horizontal bar and drop the description; then shed
+ *     the secondary action, and finally the title, as the target also narrows. The
+ *     headline + primary Show survive to the smallest sizes. Motivating cases:
+ *     Google People-also-ask rows and small inline targets. And finally, when even
+ *     the icon plus one action will not fit, down to just the slashed-eye mark (a
+ *     single eye symbol). Thresholds are containerBand rungs (see that token's doc
+ *     for why the ladder doubles); moving one may only ever collapse EARLIER,
+ *     since collapsing later re-opens the overflow this block exists to prevent.
+ *     Note a size container is queried on its CONTENT box: each rung fires at rung
+ *     + .curtain's 20px padding + the target's border, so the lg fold lands on a
+ *     ~278px-tall target. The fixture header for curtain-tiers-ru records the
+ *     measured boundaries. Why the fold is lg (256) and not something snug like
+ *     the card's own height: the vertical card is NOT a fixed size — the
+ *     description wraps at narrow widths, so it stands 87px tall at card widths,
+ *     113px once the description takes two lines, 129px once the actions wrap as
+ *     well. A max-height rung cannot express a fit constraint that depends on
+ *     width. Folding at 256 puts the vertical card's floor an order above its own
+ *     tallest form, so no target that reaches the card tier can be too short to
+ *     seat it, whatever its width. Measured on real pages, not assumed: YouTube's
+ *     card heights run a continuum from ~93 (watch-page rail) through ~217
+ *     (results) to ~235 (home grid) as the window resizes, with no gap to hide a
+ *     boundary in — and the rail's own cards vary ~7px between siblings, so a rung
+ *     anywhere inside that range splits visually identical cards across tiers. 256
+ *     clears the whole distribution.
+ *
+ * (2) Centering the pill
+ *     Center the pill in the target, both axes. Tall blocks are the exception and
+ *     re-anchor to the top via the @container rule just below: sites collapse tall
+ *     blocks to a short preview — Google's AI Overview shows ~1 screenful with a
+ *     "show more" while the concealed element stays 700–1300px tall in the DOM —
+ *     so a centered pill would land in the collapsed-away region and be clipped
+ *     out of view, leaving blur with no reachable reveal control at any scroll
+ *     position. That override has to ride align-self on the .pill child, not
+ *     align-items here, because .curtain is its own size container and an element
+ *     can't respond to its own container query. (The short-target collapse the
+ *     other @container rules handle folds the pill into a bar; there center and
+ *     flex-start coincide.)
+ *
+ * (3) Tall-block exception
+ *     Tall-block exception to the centered .curtain above. Re-anchor the pill to
+ *     the top so a viewport-collapsed block (AI Overview: ~1 screenful shown, the
+ *     rest 700–1300px tall in the DOM) still surfaces the reveal control instead
+ *     of burying it in the clipped-away middle. Keyed to min-height so only
+ *     genuinely tall targets top-anchor — normal content cards stay centered.
+ *     align-self on the item, since .curtain can't query its own size (it IS the
+ *     movar-cover container). On the containerBand ladder (see the collapse block
+ *     below) this is the xl rung — the same ladder every other movar-cover
+ *     threshold snaps to.
+ *
+ * (4) Size query container
+ *     Size query container for the pill. .curtain fills the target via inset:0, so
+ *     its box IS the target's box — making it the reference the pill's @container
+ *     rules (below) respond to, so the pill collapses to fit short or small
+ *     targets instead of overflowing them. The name scopes those rules to cover
+ *     curtains: the replace/chip skin establishes no such container, so a stray
+ *     page container can't drive them either.
+ */
 const STYLES = `
 :host {
   /* Neutral palette — the curtain should sit on the page like a quiet note,
@@ -262,16 +387,7 @@ const STYLES = `
   position: absolute;
   inset: 0;
   display: flex;
-  /* Center the pill in the target, both axes. Tall blocks are the exception and
-     re-anchor to the top via the @container rule just below: sites collapse tall
-     blocks to a short preview — Google's AI Overview shows ~1 screenful with a
-     "show more" while the concealed element stays 700–1300px tall in the DOM — so
-     a centered pill would land in the collapsed-away region and be clipped out of
-     view, leaving blur with no reachable reveal control at any scroll position.
-     That override has to ride align-self on the .pill child, not align-items
-     here, because .curtain is its own size container and an element can't respond
-     to its own container query. (The short-target collapse the other @container
-     rules handle folds the pill into a bar; there center and flex-start coincide.) */
+  /* Centered in the target; tall blocks top-anchor below. Notes (2). */
   align-items: center;
   justify-content: center;
   padding: 10px;
@@ -285,26 +401,14 @@ const STYLES = `
   background: var(--movar-backdrop);
   border-radius: inherit;
   transition: background ${duration.slow} ${easing.standard};
-  /* Size query container for the pill. .curtain fills the target via inset:0,
-     so its box IS the target's box — making it the reference the pill's
-     @container rules (below) respond to, so the pill collapses to fit short or
-     small targets instead of overflowing them. The name scopes those rules to
-     cover curtains: the replace/chip skin establishes no such container, so a
-     stray page container can't drive them either. */
+  /* Size query container for the pill. Notes (4). */
   container: movar-cover / size;
 }
 :host([data-mode="cover"][data-peek="true"]) .curtain:hover,
 :host([data-mode="cover"][data-peek="true"]) .curtain:focus-within {
   background: transparent;
 }
-/* Tall-block exception to the centered .curtain above. Re-anchor the pill to the
-   top so a viewport-collapsed block (AI Overview: ~1 screenful shown, the rest
-   700–1300px tall in the DOM) still surfaces the reveal control instead of
-   burying it in the clipped-away middle. Keyed to min-height so only genuinely
-   tall targets top-anchor — normal content cards stay centered. align-self on the
-   item, since .curtain can't query its own size (it IS the movar-cover container).
-   On the containerBand ladder (see the collapse block below) this is the xl
-   rung — the same ladder every other movar-cover threshold snaps to. */
+/* Tall-block exception to the centered .curtain above. Notes (3). */
 @container movar-cover (min-height: ${containerBand.xl}px) {
   .pill {
     align-self: flex-start;
@@ -315,8 +419,53 @@ const STYLES = `
   display: inline-flex;
   vertical-align: middle;
 }
+/* Badge — inert floating mark; grows to its label while data-expanded. */
+:host([data-mode="badge"]) {
+  position: fixed;
+  display: inline-flex;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2147483645;
+}
+:host([data-mode="badge"]) .chip__label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    max-width ${duration.slow} ${easing.standard},
+    opacity ${duration.fast} ${easing.standard};
+}
+:host([data-mode="badge"][data-expanded]) .chip__label {
+  max-width: 16ch;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  :host([data-mode="badge"]) .chip__label {
+    transition: none;
+  }
+}
 :host([data-mode="replace"]) .curtain {
   display: contents;
+}
+/* Block replace — the curtain stands in a full-width slot (a dropdown row) and
+   takes all of it. The tint is the same neutral the chip already uses for its
+   own hover, so a curtained row reads as a quiet band in the list rather than a
+   second colour, and the hover step lifts it further -- keeping the
+   "this is the button" affordance the plain chip gets from appearing at all. */
+:host([data-mode="replace"][data-block="true"]) {
+  display: flex;
+  width: 100%;
+}
+:host([data-mode="replace"][data-block="true"]) .chip {
+  flex: 1;
+  justify-content: flex-start;
+  background: var(--movar-action-primary-bg);
+  /* Full size, not the strip chip's 0.8em shrink — it owns a whole row. */
+  font-size: inherit;
+}
+:host([data-mode="replace"][data-block="true"]) .chip:hover {
+  background: var(--movar-action-primary-hover);
 }
 
 .pill {
@@ -420,36 +569,7 @@ const STYLES = `
   outline-offset: 1px;
 }
 
-/* Responsive collapse (cover mode only — keyed on the movar-cover size
-   container above). The vertical card is sized for a roomy content card; on a
-   target too short to seat it, it would overflow and — since short/inline
-   targets don't clip an overlay reliably — pile up on its neighbours. So fold
-   the pill into a single horizontal bar and drop the description; then shed the
-   secondary action, and finally the title, as the target also narrows. The
-   headline + primary Show survive to the smallest sizes. Motivating cases:
-   Google People-also-ask rows and small inline targets. And finally, when even
-   the icon plus one action will not fit, down to just the slashed-eye mark (a
-   single eye symbol).
-
-   Thresholds are containerBand rungs (see that token's doc for why the ladder
-   doubles); moving one may only ever collapse EARLIER, since collapsing later
-   re-opens the overflow this block exists to prevent. Note a size container is
-   queried on its CONTENT box: each rung fires at rung + .curtain's 20px padding
-   + the target's border, so the lg fold lands on a ~278px-tall target. The
-   fixture header for curtain-tiers-ru records the measured boundaries.
-
-   Why the fold is lg (256) and not something snug like the card's own height:
-   the vertical card is NOT a fixed size — the description wraps at narrow
-   widths, so it stands 87px tall at card widths, 113px once the description
-   takes two lines, 129px once the actions wrap as well. A max-height rung
-   cannot express a fit constraint that depends on width. Folding at 256 puts
-   the vertical card's floor an order above its own tallest form, so no target
-   that reaches the card tier can be too short to seat it, whatever its width.
-   Measured on real pages, not assumed: YouTube's card heights run a continuum
-   from ~93 (watch-page rail) through ~217 (results) to ~235 (home grid) as the
-   window resizes, with no gap to hide a boundary in — and the rail's own cards
-   vary ~7px between siblings, so a rung anywhere inside that range splits
-   visually identical cards across tiers. 256 clears the whole distribution. */
+/* Responsive collapse (cover mode only). See STYLES notes (1). */
 @container movar-cover (max-height: ${containerBand.lg}px) {
   .pill {
     flex-direction: row;
@@ -944,6 +1064,252 @@ function revertReplaceSideEffects(target: HTMLElement, restore: ReplaceRestore):
   }
 }
 
+/** Gap between the control's edge and the badge, in px — on whichever side of
+ *  the control the badge ends up. */
+const BADGE_GAP_PX = 6;
+/** Keep the badge this far inside the viewport edge, both as the margin the
+ *  room-for-a-side arithmetic leaves free and as the offset of the last-resort
+ *  hug. A right-aligned language control is the usual placement, so the edge is
+ *  the normal case here rather than the exotic one. */
+const BADGE_EDGE_MARGIN_PX = 4;
+/** How much room a side needs before the badge is placed there: the badge's
+ *  EXPANDED width, not the resting mark's.
+ *
+ *  Measured in Chromium on the picker-badge-edge-ru fixture: the mark is 24px
+ *  at rest and 98px once the control is hovered and `.chip__label` animates out
+ *  of `max-width: 0`. The label's `max-width: 16ch` caps how far that can go for
+ *  a longer translation or a wider system font — near 115px at the chip's 11px
+ *  floor — so 120 covers the whole range with a little to spare.
+ *
+ *  Erring high is the cheap direction: it flips the badge to the control's
+ *  leading side earlier than strictly needed, which still reads as "beside the
+ *  control". Erring low is the defect this constant exists for — the label
+ *  hanging off the edge of the viewport. */
+const BADGE_RESERVE_PX = 120;
+
+/** Every mounted badge, so one shared pair of page listeners can keep them all
+ *  pinned instead of each attaching its own.
+ *
+ *  A strong Map, unlike the WeakMaps in picker-filter, because the values are
+ *  what we iterate — so {@link repositionAllBadges} is also what evicts: any
+ *  entry whose host or target has left the document is dropped (and its orphan
+ *  host removed) on the next pass, which is the only thing standing between an
+ *  SPA that re-renders its control and an unbounded leak of pinned subtrees. */
+const badgeAnchors = new Map<HTMLElement, HTMLElement>();
+let badgeListenersInstalled = false;
+let badgeFrame = 0;
+/** Watches each badge's control for a box that appears, changes or goes away —
+ *  and the document element for one that changes size, which is how a badge
+ *  hears that its control has merely MOVED.
+ *
+ *  Scroll and resize miss the first three: a control inside a collapsed
+ *  hamburger or an inactive tab panel has NO box when the filter runs, so its
+ *  badge mounts hidden — and the menu opening later is a layout change that
+ *  fires neither event, leaving the filtered picker permanently unmarked.
+ *
+ *  They miss a pure translation too, and so does observing the control, since a
+ *  move is none of the three: a banner slot filling in above the control pushed
+ *  it 120px down with its box unchanged, and the badge sat where it was — a
+ *  -120px offset that only healed on the visitor's next scroll. What almost
+ *  always accompanies such a shift is the page getting taller, so the document
+ *  element's own box is the cheap proxy for it: ONE extra observation for the
+ *  whole page, feeding the reposition that was already rAF-coalesced. A proxy
+ *  and not a guarantee — a shift inside a fixed-height scroller leaves `<html>`
+ *  the same size and still waits for the scroll — but the badge is
+ *  `pointer-events: none`, so residual drift is cosmetic, and cosmetic is not
+ *  worth a frame loop that runs on every page Movar touches. */
+let badgeResizeObserver: ResizeObserver | null = null;
+
+function badgeObserver(): ResizeObserver | null {
+  if (typeof ResizeObserver === 'undefined') return null;
+  badgeResizeObserver ??= new ResizeObserver(scheduleBadgeReposition);
+  return badgeResizeObserver;
+}
+
+/** Write one horizontal anchor and clear the other. Both `left` and `right` set
+ *  on a fixed, auto-width host resolves the width from the pair — the badge
+ *  would be stretched to the gap between them instead of shrink-wrapping its
+ *  label — so the side we are not anchoring from has to be removed, not left
+ *  over from the pass that chose the other side. */
+function anchorBadge(host: HTMLElement, side: 'left' | 'right', px: number): void {
+  host.style.setProperty(side, `${String(px)}px`);
+  host.style.removeProperty(side === 'left' ? 'right' : 'left');
+}
+
+/**
+ * Pin `host` beside `target`, vertically centred, in VIEWPORT coordinates — the
+ * host is `position: fixed`, matching tooltip.ts.
+ *
+ * Page coordinates on a `position: absolute` host were wrong: an absolutely
+ * positioned element resolves against its nearest POSITIONED ancestor, so the
+ * ubiquitous `body { position: relative; max-width: …; margin: 0 auto }` shell
+ * made the offsets resolve against body's padding box. Measured in Chromium,
+ * the badge landed 386px from its control. `fixed` also keeps an off-edge badge
+ * from extending the document's scrollable overflow and giving the site a
+ * horizontal scrollbar.
+ *
+ * Which side, and why no anchor here is ever computed FROM the badge's width:
+ * the badge is two sizes. It rests as a 24px mark and grows to ~98px while the
+ * control is hovered, over a transition that nothing repositions at either end.
+ * So each branch anchors the edge the box grows AWAY from — `left` when the
+ * badge sits after the control, `right` when it sits before it — and the same
+ * numbers hold for both sizes. Deriving a left edge from the measured width
+ * instead is what left a collapsed 24px badge at left=498, over a control
+ * spanning 503-592, after one reposition happened to land while it was hovered.
+ *
+ * Clamping into the viewport is the last resort here, not the first step. As
+ * the first step (`min(right + gap, innerWidth - width - margin)`) it put the
+ * resting mark at left=572 on a control ending 8px from the viewport edge —
+ * covering the control's last 20px, its dropdown arrow — and then let the
+ * hovered form run 70px off-screen, rendering "Movar: hidden" as "M". So: after
+ * the control if the expanded badge fits there, before it if it fits there, and
+ * only for a control with less than {@link BADGE_RESERVE_PX} free on EITHER
+ * side — one nearly as wide as the viewport — hug the roomier viewport edge,
+ * which at least keeps the whole label on screen.
+ *
+ * A target with no box — a control inside a collapsed menu, or one not laid out
+ * yet — hides the badge rather than parking it at 0,0.
+ */
+function positionBadge(host: HTMLElement, target: HTMLElement): void {
+  const rect = target.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) {
+    host.style.visibility = 'hidden';
+    return;
+  }
+  host.style.visibility = '';
+  // Read before the writes below, and only for the HEIGHT: the label grows
+  // sideways on one line, so the height is the one dimension of our own box
+  // that does not depend on whether the control is being hovered right now.
+  const own = host.getBoundingClientRect();
+  const viewport = globalThis.innerWidth;
+  const roomAfter = viewport - rect.right - BADGE_GAP_PX - BADGE_EDGE_MARGIN_PX;
+  const roomBefore = rect.left - BADGE_GAP_PX - BADGE_EDGE_MARGIN_PX;
+  if (roomAfter >= BADGE_RESERVE_PX) {
+    anchorBadge(host, 'left', rect.right + BADGE_GAP_PX);
+  } else if (roomBefore >= BADGE_RESERVE_PX) {
+    anchorBadge(host, 'right', viewport - rect.left + BADGE_GAP_PX);
+  } else {
+    anchorBadge(host, roomAfter >= roomBefore ? 'right' : 'left', BADGE_EDGE_MARGIN_PX);
+  }
+  host.style.top = `${String(rect.top + (rect.height - own.height) / 2)}px`;
+}
+
+/**
+ * Drop a badge whose host or control has left the document — through the
+ * curtain's OWN detach, resolved off the host the way the page-wide sweeps do.
+ *
+ * `unmountBadge(host)` + `host.remove()` reads as the same thing and is not: it
+ * skips `opts.onDetach`, and for a badge that hook is the whole other half of
+ * the surface. attachPickerControlBadge pairs the badge with a tooltip anchored
+ * on the control, a SECOND host on document.body that only onDetach releases.
+ * Evicting by hand tore down the half the eviction could see: measured across
+ * five re-renders of the control, badge hosts stayed at 1 while
+ * `[data-movar-tooltip]` hosts went 1 → 6. An SPA re-rendering its picker is
+ * precisely the case this eviction exists for, so it leaked one per render.
+ */
+function evictBadge(host: HTMLElement): void {
+  const handle = (host as HostWithHandle)[HANDLE_KEY];
+  if (handle) {
+    handle.detach();
+    return;
+  }
+  // Unreachable for anything attachCurtain built — it assigns the handle before
+  // it mounts. Kept so a host that somehow arrives without one still leaves the
+  // Map rather than pinning a dead node and its control for the page's life.
+  unmountBadge(host);
+  host.remove();
+}
+
+/** Reposition every live badge and evict every dead one. Also the teardown
+ *  trigger: once nothing is left to track, the page listeners come off. */
+function repositionAllBadges(): void {
+  for (const [host, target] of badgeAnchors) {
+    if (!host.isConnected || !target.isConnected) {
+      evictBadge(host);
+      continue;
+    }
+    positionBadge(host, target);
+  }
+  if (badgeAnchors.size === 0) teardownBadgeListeners();
+}
+
+/** Coalesce to one reposition per frame. The scroll listener is capture-phase,
+ *  so it fires for every scroller on the page at native scroll rate; without
+ *  this each event would force a synchronous layout per badge, mid-scroll and
+ *  outside the frame's own layout pass. */
+function scheduleBadgeReposition(): void {
+  if (badgeFrame !== 0) return;
+  badgeFrame = globalThis.requestAnimationFrame(() => {
+    badgeFrame = 0;
+    repositionAllBadges();
+  });
+}
+
+function installBadgeListeners(): void {
+  if (badgeListenersInstalled) return;
+  badgeListenersInstalled = true;
+  globalThis.addEventListener('scroll', scheduleBadgeReposition, {
+    capture: true,
+    passive: true,
+  });
+  globalThis.addEventListener('resize', scheduleBadgeReposition);
+}
+
+/** The half tooltip.ts has and the first cut of this did not: with no badges
+ *  left, nothing should still be listening. "Turn Movar off" has to be able to
+ *  remove every global the module installed. */
+function teardownBadgeListeners(): void {
+  if (!badgeListenersInstalled) return;
+  badgeListenersInstalled = false;
+  globalThis.removeEventListener('scroll', scheduleBadgeReposition, { capture: true });
+  globalThis.removeEventListener('resize', scheduleBadgeReposition);
+  badgeResizeObserver?.disconnect();
+  badgeResizeObserver = null;
+  if (badgeFrame !== 0) {
+    globalThis.cancelAnimationFrame(badgeFrame);
+    badgeFrame = 0;
+  }
+}
+
+/** Append the badge to `document.body` — never into the site's own tree, so no
+ *  sibling selector, child index or flex gap count changes — and pin it. */
+function mountBadge(host: HTMLElement, target: HTMLElement): void {
+  host.setAttribute(ARIA_HIDDEN_ATTR, 'true');
+  document.body.append(host);
+  badgeAnchors.set(host, target);
+  installBadgeListeners();
+  const observer = badgeObserver();
+  // The document element for a control that only MOVES, the control itself for
+  // one whose box appears, changes or goes away. Re-observing the page per
+  // badge rather than once alongside the listeners is deliberate: an observer
+  // keeps one observation per target, so the repeat is free, and it keeps both
+  // halves of "what repins a badge" in the one place that mounts one.
+  observer?.observe(document.documentElement);
+  observer?.observe(target);
+  positionBadge(host, target);
+}
+
+/** Drop `host` from tracking, and stop listening once the last badge is gone. */
+function unmountBadge(host: HTMLElement): void {
+  const target = badgeAnchors.get(host);
+  if (target === undefined) return;
+  badgeAnchors.delete(host);
+  badgeObserver()?.unobserve(target);
+  if (badgeAnchors.size === 0) teardownBadgeListeners();
+}
+
+/** Mark a block replace-mode host and floor it at the slot it stands in. The
+ *  min-height is inline rather than a CSS rule because the value is measured per
+ *  slot; the host is ours, so it leaves with the curtain on detach. No-op for
+ *  every other mode. */
+function applyBlockSizing(host: HTMLElement, opts: CurtainOptions): void {
+  if (opts.mode !== 'replace' || opts.block !== true) return;
+  host.dataset['block'] = 'true';
+  if (opts.minHeight !== undefined && opts.minHeight > 0) {
+    host.style.minHeight = `${String(opts.minHeight)}px`;
+  }
+}
+
 /** Build the curtain's shadow host element (no side effects on the target).
  *  Sets the data-attributes the STYLES key off, threads the explicit color
  *  scheme, and — for the chip skin — mirrors the description into the native
@@ -956,6 +1322,7 @@ function buildCurtainHost(opts: CurtainOptions, skin: CurtainSkin): HostWithHand
   host.setAttribute(HOST_ATTR, '');
   host.dataset['mode'] = opts.mode;
   host.dataset['skin'] = skin;
+  applyBlockSizing(host, opts);
   if (opts.mode === 'cover') {
     host.dataset['peek'] = String(opts.peek ?? true);
   }
@@ -1037,7 +1404,9 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
     detached = true;
     if (coverRestore) revertCoverSideEffects(target, coverRestore);
     if (replaceRestore) revertReplaceSideEffects(target, replaceRestore);
+    unmountBadge(host);
     host.remove();
+    opts.onDetach?.();
   }
 
   const handle: CurtainHandle = { detach, host };
@@ -1055,6 +1424,10 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
 
   if (opts.mode === 'cover') {
     coverRestore = mountCoverCurtain(host, target, opts);
+  } else if (opts.mode === 'badge') {
+    // No side effects on the target at all, and nothing added to the site's
+    // tree — so detach() only has to drop the host and its tracking entry.
+    mountBadge(host, target);
   } else {
     replaceRestore = applyReplaceSideEffects(target);
     const parent = target.parentNode;

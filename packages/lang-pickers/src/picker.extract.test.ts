@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from './extract';
-import { setBody, setupDeeplyNestedPicker } from './picker.test-utils';
+import { setBody, setupDeeplyNestedPicker, setupListboxPicker } from './picker.test-utils';
 
 describe('findLanguagePickers — real-world DOM shapes', () => {
   it('pierces an open shadow root to find a picker (component-library switchers)', () => {
@@ -109,5 +109,158 @@ describe('findLanguagePickers — real-world DOM shapes', () => {
     const pickers = findLanguagePickers(parsed);
     expect(pickers).toHaveLength(1);
     expect(pickers[0]!.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+  });
+});
+
+describe('findLanguagePickers — layout', () => {
+  it('reads an explicit ARIA listbox of options as a list (bigfive-test.com)', () => {
+    setupListboxPicker();
+    const pickers = findLanguagePickers();
+    expect(pickers).toHaveLength(1);
+    expect(pickers[0]!.layout).toBe('list');
+  });
+
+  it('reads a role="menu" of menuitems as a list', () => {
+    setBody(`
+      <div id="picker" role="menu">
+        <a role="menuitem" href="/ua/x">UA</a>
+        <a role="menuitem" href="/ru/x">RU</a>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('reads per-row option roles as a list even when the container carries none', () => {
+    // react-aria renders the rows' roles reliably; the wrapper that ends up as
+    // the picker container is not always the element holding role="listbox".
+    setBody(`
+      <div id="picker">
+        <div role="option" value="uk">Українська</div>
+        <div role="option" value="ru">Русский</div>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('reads a <ul> header strip as inline — the tag says nothing about the shape', () => {
+    // The picker-survivor-uk e2e fixture is exactly this: a <ul> laid out with
+    // display:flex, i.e. a one-line strip. Keying off the tag would misread it.
+    setBody(`
+      <nav>
+        <ul id="picker" class="lang-switcher">
+          <li><a hreflang="ru" href="/ru/">Русский</a></li>
+          <li><a hreflang="uk" href="/">Українська</a></li>
+          <li><a hreflang="en" href="/en/">English</a></li>
+        </ul>
+      </nav>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
+  });
+
+  it('reads a native <select> as native even when it claims role="listbox"', () => {
+    // The browser draws a <select>'s popup outside the document, so neither a
+    // marker inserted among its <option>s nor one anchored to them is reachable.
+    setBody(`
+      <select id="picker" role="listbox">
+        <option value="uk">Українська</option>
+        <option value="ru">Русский</option>
+      </select>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('native');
+  });
+
+  it('reads a plain bare-anchor strip as inline', () => {
+    setBody('<div id="picker"><a href="/ua/x">UA</a><a href="/ru/x">RU</a></div>');
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
+  });
+});
+
+describe('findLanguagePickers — layout, the shapes the first cut misread', () => {
+  it('reads a wrapped option row as a list (the common dropdown markup)', () => {
+    // classifyContainerChildren prefers the innermost classified descendant, so
+    // the ClassifiedLink here is the <a>, which carries no role at all. Reading
+    // the classified element with `matches` sent every Bootstrap/HeadlessUI
+    // dropdown to 'inline' — i.e. back to the tooltip fan-out.
+    setBody(`
+      <ul id="picker" class="dropdown-menu">
+        <li role="option"><a href="/uk/">Українська</a></li>
+        <li role="option"><a href="/ru/">Русский</a></li>
+        <li role="option"><a href="/en/">English</a></li>
+      </ul>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('reads a grouped <select> as native — its container is the <optgroup>', () => {
+    // findPickerContainer stops at the first ancestor holding two languages,
+    // which never reaches the <select>, so a tag test on the container missed it
+    // and anchored tooltips on 0x0 <option>s.
+    setBody(`
+      <select id="picker">
+        <optgroup label="Languages">
+          <option value="uk">Українська</option>
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+        </optgroup>
+      </select>
+    `);
+    const picker = findLanguagePickers()[0]!;
+    expect(picker.container.tagName).toBe('OPTGROUP');
+    expect(picker.layout).toBe('native');
+  });
+
+  it('reads a role="menubar" strip as inline, not as a stacked list', () => {
+    // menubar is the one menu role that means a ROW; its children legitimately
+    // carry role="menuitem", which would otherwise earn them a full-width band.
+    setBody(`
+      <ul id="picker" role="menubar">
+        <li role="menuitem"><a href="/uk/">UA</a></li>
+        <li role="menuitem"><a href="/ru/">RU</a></li>
+      </ul>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
+  });
+
+  it('reads role="menuitemcheckbox" rows as a list', () => {
+    setBody(`
+      <div id="picker" class="menu">
+        <div role="menuitemcheckbox" value="uk">Українська</div>
+        <div role="menuitemcheckbox" value="ru">Русский</div>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('list');
+  });
+
+  it('does not read a row role from outside the picker container', () => {
+    // closest() walks up without bound; the row it finds must be inside the
+    // container or an unrelated menu ancestor would flip the verdict.
+    setBody(`
+      <div role="option">
+        <div id="picker" class="lang">
+          <a href="/uk/">UA</a>
+          <a href="/ru/">RU</a>
+        </div>
+      </div>
+    `);
+    expect(findLanguagePickers()[0]!.layout).toBe('inline');
+  });
+});
+
+describe("classifyContainerChildren — Movar's own markers stay out of the model", () => {
+  it('never classifies a text-divider wrapper as a language entry', () => {
+    // The wrapper trimContainerTextSeparators leaves around a separator text
+    // node is structural. Classified, it would enter picker.links as a fake
+    // entry and be subjected to hide/restore logic meant for real switchers.
+    setBody(`
+      <div id="picker">
+        <a href="/ua/x">UA</a>
+        <span data-movar-kind="text-divider"> | </span>
+        <a href="/ru/x">RU</a>
+      </div>
+    `);
+    const picker = findLanguagePickers()[0]!;
+
+    expect(picker.links.map((l) => l.language).toSorted()).toEqual(['ru', 'uk']);
+    expect(picker.links.some((l) => l.el.dataset['movarKind'] === 'text-divider')).toBe(false);
   });
 });

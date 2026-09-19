@@ -117,7 +117,12 @@ Picker surfaces (`pickers/`):
 {
   "surface": "picker",
   "shape": { "selectors": { "#form-language": 1 }, "minSelectors": { "a[href*='/ru']": 7 } },
-  "picker": { "containerId": "form-language", "links": 2, "languages": ["ru", "uk"] },
+  "picker": {
+    "containerId": "form-language",
+    "links": 2,
+    "languages": ["ru", "uk"],
+    "layout": "inline", // optional — "list" | "inline" | "native"; see below
+  },
   "page": {
     // REQUIRED — the page-level scenario. See below.
     "url": "https://bosch-centre.com.ua/ru", // drives host/path tiers + self-link checks
@@ -139,6 +144,15 @@ links; yato.com.ua did the same and replaced live search results with the
 homepage. So a picker fixture must also pin the three verdicts _downstream_ of
 classification — which entry is active, what the page resolves to, and whether
 the switch ladder navigates.
+
+**`picker.layout` — optional, and worth pinning when the shape is the point.**
+`"list"` (an ARIA listbox/menu of `role="option"` rows — a dropdown the visitor
+scans), `"inline"` (a header strip), or `"native"` (a real `<select>`). It
+decides which surface explains a hidden entry: a chip in the row for a list,
+the survivor tooltip on a surviving entry for a strip, and — since a `<select>`'s
+options can carry nothing at all — that same tooltip on the CONTROL for
+`native`. `bigfive-listbox` pins `list` and `select-cs-cart` pins `native`; the
+strip fixtures that predate the field leave it out.
 
 `expectNavigation: false` is the **do-no-harm invariant**: a fixture already
 serving the target language must produce ZERO navigations, no matter how the

@@ -98,7 +98,7 @@ function anchor(href: string): HTMLAnchorElement {
   return a;
 }
 function picker(el: HTMLElement, language: LanguageCode): Picker {
-  return { container: document.createElement('div'), links: [{ el, language }] };
+  return { container: document.createElement('div'), links: [{ el, language }], layout: 'inline' };
 }
 
 describe('tryStrategySwitch', () => {

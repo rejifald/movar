@@ -1,0 +1,81 @@
+<!doctype html>
+<!--
+  Badge-geometry fixture — a `<select>` picker pinned to the RIGHT EDGE of the
+  viewport, which is where a language control usually lives.
+
+  picker-select-ru is the badge's happy path: a centred 600px column, so the
+  control sits mid-viewport with ~800px of free space after it and any placement
+  rule looks correct. Every badge placement defect hides in the case that
+  fixture cannot express — a control with nothing to its right. Measured in
+  Chromium at 600x400 against this document: the control spans x=503-592, so
+  "just past the trailing edge" wants x=598 and the viewport ends at 600.
+
+  Three things the fixture has to provide, and why:
+
+  - `header { justify-content: flex-end }` plus a full-bleed body (no centred
+    max-width column): the control ends 8px from the viewport edge, so the
+    badge's resting mark (24px) and its hovered form (~98px once `.chip__label`
+    animates out) BOTH have to go somewhere other than "after the control".
+  - `#promo`, a zero-height slot the spec grows to 120px AFTER load. That is a
+    pure translation of the control: no scroll, no resize, and no size change on
+    the control itself, so it is the one page event the badge's own listeners
+    are all blind to. A style write rather than an inserted node keeps it off
+    the picker filter's childList path, so what the spec measures is the badge's
+    tracking and not a re-filter accidentally remounting it.
+  - `#filler`, 1200px of page below the fold. Scroll tracking is existing,
+    working behaviour that the placement rewrite must not regress, and a
+    document shorter than the viewport cannot be scrolled to check. It also
+    keeps `<html>`'s height content-driven, which is what makes the control's
+    downward shift observable as a resize of the document element.
+
+  Russian body copy, `<html lang="ru">`, and no `<link rel="alternate">`, for
+  the same reasons as the sibling picker fixtures: enough Cyrillic for
+  detectPageLanguage to classify the page RU so the filter path runs, and no
+  hreflang strategy firing a navigation before the surface mounts.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Каталог — выбор языка</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 8px;
+        font-family: system-ui, sans-serif;
+      }
+      header {
+        display: flex;
+        justify-content: flex-end;
+      }
+      #promo {
+        height: 0;
+        overflow: hidden;
+        background: #f5f5f4;
+      }
+      #filler {
+        height: 1200px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="promo">Реклама</div>
+    <header>
+      <select id="lang-select">
+        <option hreflang="ru" value="/ru/">Русский</option>
+        <option hreflang="uk" value="/uk/">Українська</option>
+        <option hreflang="en" value="/en/">English</option>
+      </select>
+    </header>
+    <main>
+      <h1>Каталог товаров</h1>
+      <p>
+        Добро пожаловать в наш интернет-магазин. У нас вы найдёте качественные товары по доступным
+        ценам.
+      </p>
+      <p>Доставка по всей стране в течение нескольких рабочих дней.</p>
+      <p>Большой выбор электроники, бытовой техники и аксессуаров для дома.</p>
+      <p>Гарантия на все товары двенадцать месяцев. Оплата картой или наличными при получении.</p>
+      <div id="filler"></div>
+    </main>
+  </body>
+</html>

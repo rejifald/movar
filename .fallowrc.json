@@ -44,7 +44,13 @@
     // unused despite being required to resolve the token stylesheets.
     "@fontsource/manrope",
     "@fontsource/ibm-plex-mono",
-    "@movar/theme"
+    "@movar/theme",
+    // Build tooling whose only import lives in `scripts/**` (subset-fixel.mts),
+    // which is in ignorePatterns above — so that import isn't counted as a
+    // reference and the dep reads as unused on every run. Recorded here rather
+    // than adding a `scripts/` entry point, which would un-ignore the whole
+    // directory to settle one dependency.
+    "subset-font"
   ],
   // Inline `// fallow-ignore-*` comments are further governed by
   // scripts/check-suppressions.mts (run from `pnpm validate` + lefthook):

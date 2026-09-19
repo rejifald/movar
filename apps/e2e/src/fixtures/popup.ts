@@ -108,15 +108,21 @@ export async function openPopup(
       : { reducedMotion: 'reduce' },
   );
   // Clock setup must precede `goto` — Playwright only intercepts time
-  // functions for code loaded after install. `pauseAt` installs the
-  // controllable clock AND freezes it at the given epoch (vs plain
-  // `install({ time })`, which sets the start time but lets the clock
-  // tick on — `Date.now()` then drifts ~10-200ms between install and
-  // the popup actually calling it, defeating exact-equality assertions
-  // on `pauseFor('1h')`'s persisted `until` value). The popup never
-  // needs time to advance during these tests, so a frozen clock is
-  // strictly safer.
+  // functions for code loaded after install.
+  //
+  // `install({ time })` alone is NOT enough: it sets the start time but
+  // lets the clock tick on, so `Date.now()` drifts ~10-200ms before the
+  // popup reads it, defeating exact-equality assertions on
+  // `pauseFor('1h')`'s persisted `until` value. `pauseAt` is what freezes
+  // it, and the popup never needs time to advance in these tests.
+  //
+  // Both calls, in this order: `pauseAt` on its own leaves the clock's
+  // installation implicit, which is how it can raise an internal
+  // `Cannot read properties of undefined (reading 'controller')` instead
+  // of an assertion failure (#585). Installing first makes the ordering
+  // explicit; the `pauseAt` that follows still does the freezing.
   if (options.clockTime !== undefined) {
+    await page.clock.install({ time: options.clockTime });
     await page.clock.pauseAt(options.clockTime);
   }
   await page.goto(`chrome-extension://${extensionId}/popup.html${options.search ?? ''}`);

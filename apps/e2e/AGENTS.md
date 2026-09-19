@@ -65,13 +65,21 @@ apps/e2e/
                                 #   openHostApp() (mock webkit bridge, show(), tab, width, colorScheme)
       diagnostics.ts            # diagnostics-harness fixture: diagnosticsContext (plain Chromium,
                                 #   file://), openDiagnostics(), diagnosticsFab()/diagnosticsPanel()
-      html/                     # 7 static HTML fixtures for offline specs
+      html/                     # static HTML fixtures for offline specs
         clean-uk.html           # Ukrainian-only page (negative case)
         cs-cart-ru.html         # CS-Cart shop with Russian picker anchor
+        curtain-tiers-ru.html   # YouTube cards at each responsive curtain tier (visual)
+        google-serp-declared-mix.html  # hl=uk SERP, "Перекласти цю сторінку" declared-lang links
+        picker-badge-edge-ru.html   # <select> pinned to the right viewport edge (badge geometry)
         picker-bare-text.html   # bare-text picker with hreflang annotation
         picker-bare-text-trim.html  # bare-text picker without hreflang (trimOrphanSeparators)
         picker-button-ru.html   # button-style language picker
+        picker-listbox-ru.html  # ARIA listbox of role="option" rows, rendered OPEN (react-aria)
+        picker-listbox-dropdown-uk.html  # same, in a dropdown CLOSED at first filter pass
+        picker-listbox-grouped-uk.html   # same, whose first child row is a group header
         picker-select-ru.html   # <select>-style language picker
+        picker-survivor-uk.html # survivor-tooltip visual baseline (light + dark)
+        picker-value-attr-uk.html   # attribute-driven picker on a page already serving uk
         youtube-cards-ru.html   # YouTube search results with Russian video cards
     offline/                    # CI-gated deterministic specs + Linux PNG baselines
                                 #   (popup/options/onboarding/curtain/popup-crash/
@@ -128,7 +136,7 @@ pnpm --filter @movar/e2e test:compare:headed
 
 **How the extension is loaded:** `src/fixtures/extension.ts` calls `chromium.launchPersistentContext('', { args: ['--load-extension=<path>', '--disable-extensions-except=<path>'] })`. The path resolves to `apps/extension/.output/chrome-mv3` relative to the fixture file.
 
-**Fixtures/saved pages:** 7 static HTML files under `src/fixtures/html/`. No saved SERPs — live tests navigate real URLs. Visual baselines (PNG) live alongside each `*.visual.spec.ts` under `src/offline/*-snapshots/` as a single Linux set (`*-linux.png`, light + dark), generated in the pinned Playwright container via `pnpm e2e:baselines`.
+**Fixtures/saved pages:** static HTML files under `src/fixtures/html/` (enumerated in the tree above). No saved SERPs — live tests navigate real URLs. Visual baselines (PNG) live alongside each `*.visual.spec.ts` under `src/offline/*-snapshots/` as a single Linux set (`*-linux.png`, light + dark), generated in the pinned Playwright container via `pnpm e2e:baselines`.
 
 ## Gotchas
 

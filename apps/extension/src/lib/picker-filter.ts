@@ -571,13 +571,27 @@ function slotHeightFor(entry: HTMLElement): number {
   const peers: number[] = [];
   const rest: number[] = [];
   for (const sibling of parent.children) {
-    if (sibling === entry || !(sibling instanceof HTMLElement)) continue;
-    if (sibling.hasAttribute(HIDDEN_ATTR)) continue;
-    if (sibling.hasAttribute(CURTAIN_HOST_ATTR)) continue;
-    if (sibling.offsetHeight <= 0) continue;
+    if (!standsInForTheRow(sibling, entry)) continue;
     (sibling.getAttribute('role') === role ? peers : rest).push(sibling.offsetHeight);
   }
   return commonestHeight(peers.length > 0 ? peers : rest);
+}
+
+/** Whether `sibling`'s box can stand in for the hidden `entry`'s: a laid-out
+ *  element that is neither the entry itself, nor something already hidden, nor
+ *  one of Movar's own hosts — so a second chip in the same container is never
+ *  what the first one measures.
+ *
+ *  Split out of {@link slotHeightFor} to keep it under the complexity gate;
+ *  the five clauses are one question, and reading them as one is the point. */
+function standsInForTheRow(sibling: Element, entry: HTMLElement): sibling is HTMLElement {
+  return (
+    sibling !== entry &&
+    sibling instanceof HTMLElement &&
+    !sibling.hasAttribute(HIDDEN_ATTR) &&
+    !sibling.hasAttribute(CURTAIN_HOST_ATTR) &&
+    sibling.offsetHeight > 0
+  );
 }
 
 /**

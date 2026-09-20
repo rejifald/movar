@@ -21,9 +21,6 @@ export interface MovarDomState {
    *  Counted apart from `contentBlurCount`, which would otherwise absorb them
    *  — it is the "everything that isn't a picker chip" bucket. */
   pickerEntryCurtainCount: number;
-  /** Badges standing beside a control Movar cannot mark inside (`picker-badge`).
-   *  Counted apart from `contentBlurCount` for the same reason as the chips. */
-  pickerBadgeCount: number;
   contentBlurCount: number;
   trimmedTextCount: number;
 }
@@ -45,7 +42,6 @@ export async function readMovarDomState(page: Page): Promise<MovarDomState> {
       curtainCount: curtainHosts.length,
       pickerContainerCurtainCount: byKind['picker-container'] ?? 0,
       pickerEntryCurtainCount: byKind['picker-entry'] ?? 0,
-      pickerBadgeCount: byKind['picker-badge'] ?? 0,
       contentBlurCount: byKind['content-blur'] ?? 0,
       trimmedTextCount: trimmed,
     };

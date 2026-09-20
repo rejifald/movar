@@ -4,7 +4,6 @@ import type {
   ContentCurtainRequest,
   ContentPresenter,
   PickerContainerCurtainRequest,
-  PickerControlBadgeRequest,
   PickerEntryCurtainRequest,
   PickerSurvivorTooltipRequest,
   PresenterHandle,
@@ -15,11 +14,6 @@ import { attachTooltip, detachAllTooltips } from './tooltip';
 
 export interface ContentPresenterAdapterOptions {
   getColorScheme: () => PageMode;
-}
-
-/** Placeholder until the real teardown is built, below. */
-function noop(): void {
-  // nothing to release yet
 }
 
 function endonym(code: LanguageCode): string {
@@ -137,74 +131,11 @@ export function createContentPresenterAdapter({
         ],
       });
     },
-    attachPickerControlBadge(request: PickerControlBadgeRequest): PresenterHandle {
-      const content = getContentMessages();
-      const endonyms = request.hiddenLanguages.map((code) => endonym(code));
-      const body = content.pickerSurvivor.body(endonyms);
-      // Two surfaces, one interaction. The badge is the always-visible sign
-      // that Movar acted — a native <select> otherwise shows nothing until
-      // someone happens to hover it — but it is deliberately inert: floating,
-      // pointer-events:none, aria-hidden, no tab stop, so it can neither take a
-      // click nor add a stop to the page's keyboard order.
-      // Declared before the curtain so `onDetach` can close over them: the
-      // page-wide sweep resolves the handle off the host and runs ONLY the
-      // curtain's detach, so anything else this surface owns has to be torn
-      // down from there or it survives every teardown.
-      let releaseControl: () => void = noop;
-      const badge = attachCurtain(request.control, {
-        mode: 'badge',
-        skin: 'chip',
-        icon: defaultHiddenIcon(),
-        title: content.pickerEntry.label,
-        description: body,
-        ariaLabel: body,
-        colorScheme: getColorScheme(),
-        actions: [],
-        onDetach: () => {
-          releaseControl();
-        },
-      });
-      // Everything interactive hangs off the CONTROL, which the visitor is
-      // already aiming at and which is already in the tab order — so the
-      // explanation and the way back are reachable by keyboard without Movar
-      // adding anything to it.
-      const tip = attachTooltip(request.control, {
-        title: content.pickerSurvivor.title,
-        body,
-        colorScheme: getColorScheme(),
-        action: {
-          label: content.pickerSurvivor.show,
-          onClick: () => {
-            request.restore();
-          },
-        },
-      });
-      // The badge cannot feel its own hover (pointer-events: none), and CSS
-      // cannot reach it from the control (different tree), so the control's own
-      // hover/focus drives the expansion.
-      const expand = (): void => {
-        badge.host.dataset['expanded'] = 'true';
-      };
-      const collapse = (): void => {
-        delete badge.host.dataset['expanded'];
-      };
-      const EXPAND_EVENTS = ['mouseenter', 'focus'] as const;
-      const COLLAPSE_EVENTS = ['mouseleave', 'blur'] as const;
-      for (const type of EXPAND_EVENTS) request.control.addEventListener(type, expand);
-      for (const type of COLLAPSE_EVENTS) request.control.addEventListener(type, collapse);
-      releaseControl = (): void => {
-        for (const type of EXPAND_EVENTS) request.control.removeEventListener(type, expand);
-        for (const type of COLLAPSE_EVENTS) request.control.removeEventListener(type, collapse);
-        tip.detach();
-      };
-      return {
-        host: badge.host,
-        detach(): void {
-          // Delegates to the curtain, whose onDetach runs releaseControl — so
-          // this path and the page-wide sweep tear down exactly the same set.
-          badge.detach();
-        },
-      };
+    pickerHiddenOptionLabel(): string {
+      // The same words the in-row chip shows, because it is the same statement
+      // — "Movar took an option out of here" — in the one layout that has to
+      // say it inside the control rather than beside it.
+      return getContentMessages().pickerEntry.label;
     },
     attachPickerSurvivorTooltip(request: PickerSurvivorTooltipRequest): PresenterHandle {
       const content = getContentMessages();

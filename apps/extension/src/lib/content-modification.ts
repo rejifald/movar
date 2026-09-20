@@ -250,7 +250,15 @@ export function teardownContentModification(presenter?: ContentPresenter): void 
     if (el instanceof HTMLElement) {
       restoreOriginalDisplay(el);
     }
-    if (el instanceof HTMLOptionElement) el.hidden = false;
+    // `hidden` for an option concealed in hide mode; `disabled` for one a
+    // native `<select>` picker marked in place (concealOption). Both are
+    // cleared unconditionally — neither is a state Movar leaves set on an
+    // entry it is no longer hiding, and the text swap that goes with the
+    // second is undone by the ORIGINAL_TEXT_ATTR sweep below.
+    if (el instanceof HTMLOptionElement) {
+      el.hidden = false;
+      el.disabled = false;
+    }
   });
   // Sweep hideOrphanEdgeBorders. Unlike the hides above, these live on
   // SURVIVING entries — a separator border zeroed because the neighbour it

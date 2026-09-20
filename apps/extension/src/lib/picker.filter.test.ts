@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers as filterPickersWithPresenter } from './picker-filter';
 import { testContentPresenter } from './dom-test-helpers';
+import { teardownContentModification } from './content-modification';
 import { detachAllCurtains } from './curtain';
 import { detachAllTooltips } from './tooltip';
 import {
@@ -12,7 +13,7 @@ import {
   setupStlsStorePicker,
   expectContainerCurtained,
   expectEntryCurtained,
-  getControlBadges,
+  getMarkedOptions,
   getEntryCurtainHosts,
   getTooltipHosts,
   setupListboxPicker,
@@ -954,27 +955,48 @@ describe('filterPickers — container curtain uses chip skin', () => {
   });
 });
 
-describe('filterPickers — native <select> explains on the control', () => {
+describe('filterPickers — native <select> marks the option in place', () => {
   // An <option> can carry neither a chip (it may not contain an element) nor a
-  // hover (every <option> reports a 0x0 box even with the control on screen),
-  // so the inline path's one-tooltip-per-survivor left explanations that could
-  // never be opened. The <select> itself is an ordinary box that takes hover
-  // AND focus, so the explanation goes there instead.
+  // hover (every <option> reports a 0x0 box even with the control on screen).
+  // It CAN carry text, which is the whole mark: the blocked option is disabled
+  // and relabelled where it stands, so nothing is drawn on the page and the
+  // evidence appears only when the visitor opens the control. See
+  // concealOption for the full argument, including why this replaced a badge
+  // floating beside the control.
 
-  it('still hides the blocked option', () => {
+  const NEUTRAL_LABEL = 'Movar: hidden';
+
+  it('disables the blocked option and leaves it in the list', () => {
     setupSelectPicker(); // uk / ru / en
     const result = filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
 
     const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
-    expect(ru.hidden).toBe(true);
-    expect(ru.hasAttribute('data-movar-hidden')).toBe(true);
+    // `disabled`, not `hidden`: the option stays in the list so every
+    // `options[i]` index and `selectedIndex` a site computes is untouched, and
+    // it is unreachable by pointer, keyboard and type-ahead all the same.
+    expect(ru.disabled).toBe(true);
+    expect(ru.hidden).toBe(false);
+    expect(ru.style.getPropertyValue('display')).toBe('');
     expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
   });
 
-  it('adds nothing to the site tree and nothing to the tab order', () => {
-    // A wrapper, not the bare fixture: with the <select> as a direct child of
-    // <body> the badge would look like its sibling purely because body is where
-    // floating hosts live, and the assertion would pass for the wrong reason.
+  it('keeps the hidden marker the popup summary counts', () => {
+    // buildHiddenSummary re-reads every `[data-movar-hidden]` element off the
+    // DOM — that is the ONLY channel the popup's hidden panel has, and the one
+    // this surface now leans on entirely for the way back. Changing HOW an
+    // entry goes out of reach must never change whether Movar recorded it.
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.getAttribute('data-movar-hidden')).toBe('not-in-priority');
+  });
+
+  it('adds nothing to the page at all', () => {
+    // The badge this replaced was a real element on document.body, tracked
+    // against the control by hand. The point of the change is that there is now
+    // nothing to track, so the assertion is a count of everything Movar could
+    // have added.
     setBody(`
       <header id="bar">
         <select id="lang-select">
@@ -986,151 +1008,88 @@ describe('filterPickers — native <select> explains on the control', () => {
       </header>
     `);
     const bar = document.querySelector<HTMLElement>('#bar')!;
-    const before = bar.children.length;
+    const select = document.querySelector<HTMLSelectElement>('#lang-select')!;
+    const before = { bars: bar.children.length, options: select.options.length };
+
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
 
-    const badges = getControlBadges();
-    expect(badges).toHaveLength(1);
-    const select = document.querySelector<HTMLElement>('#lang-select')!;
-    // The site's own tree is untouched, so `select + button` rules, :last-child,
-    // nth-child and flex gap counts all keep working.
-    expect(select.nextElementSibling).toBe(document.querySelector('#after'));
-    expect(bar.children.length).toBe(before);
-    expect(badges[0]!.parentElement).toBe(document.body);
-    // And no side effects on the control itself.
-    expect(select.style.getPropertyValue('display')).toBe('');
-    // Inert: not announced a second time (the tooltip on the control carries
-    // the message) and never a tab stop. `pointer-events: none` lives in the
-    // shadow root's :host rule, which jsdom does not apply to the host — the
-    // e2e spec asserts the computed value in a real browser instead.
-    expect(badges[0]!.getAttribute('aria-hidden')).toBe('true');
-    expect(badges[0]!.hasAttribute('tabindex')).toBe(false);
-    expect(badges[0]!.dataset['mode']).toBe('badge');
-  });
-
-  it('rests as the bare mark and carries its label for hover/screen readers', () => {
-    setupSelectPicker();
-    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-
-    const shadow = getControlBadges()[0]!.shadowRoot!;
-    // The label is clipped by CSS on hover-out, not removed — so it stays in
-    // the accessible name at every width.
-    expect(shadow.querySelector('.chip__label')?.textContent).toBe('Movar: hidden');
-    expect(shadow.querySelector('.chip__icon')).not.toBeNull();
-    // A bare mark, not a button: restoring is a real change, and a target this
-    // small beside a control the visitor is aiming at would fire by accident.
-    expect(shadow.querySelector('button.chip')).toBeNull();
-  });
-
-  it('opens its tooltip from the CONTROL, which is already in the tab order', () => {
-    // Anchoring on the badge looked fine in a unit test and was unreachable in
-    // a real browser: a <div> host takes no focus, so tabbing never opened it.
-    setupSelectPicker();
-    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-
-    const hosts = getTooltipHosts();
-    expect(hosts).toHaveLength(1);
-    const select = document.querySelector<HTMLElement>('#lang-select')!;
-    select.dispatchEvent(new Event('focus'));
-    expect(hosts[0]!.getAttribute('data-state')).toBe('open');
-  });
-
-  it('expands the badge while the control is hovered or focused', () => {
-    setupSelectPicker();
-    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-    const badge = getControlBadges()[0]!;
-    const select = document.querySelector<HTMLElement>('#lang-select')!;
-    expect(badge.dataset['expanded']).toBeUndefined();
-
-    select.dispatchEvent(new Event('focus'));
-    expect(badge.dataset['expanded']).toBe('true');
-
-    select.dispatchEvent(new Event('blur'));
-    expect(badge.dataset['expanded']).toBeUndefined();
-  });
-
-  it('names the hidden language in the control tooltip', () => {
-    setupSelectPicker();
-    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-
-    const body = getTooltipHosts()[0]!.shadowRoot!.querySelector('.body')?.textContent ?? '';
-    expect(body.toLowerCase()).toContain('русск');
-  });
-
-  it("restores in place from the control tooltip, clearing each option's `hidden` flag", () => {
-    // The <option>-hide path (HTMLOptionElement.hidden = true) and its inverse
-    // in restorePickerInPlace are the only place the option branch fires.
-    setupSelectPicker();
-    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
-
-    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
-
-    expect(ru.hidden).toBe(false);
-    expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
-    expect(ru.style.getPropertyValue('display')).toBe('');
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(0);
     expect(getTooltipHosts()).toHaveLength(0);
-    expect(getControlBadges()).toHaveLength(0);
+    // The site's own tree is untouched, so `select + button` rules,
+    // :last-child, nth-child and flex gap counts all keep working — and so does
+    // any index arithmetic over the control's own options.
+    expect(select.nextElementSibling).toBe(document.querySelector('#after'));
+    expect(bar.children.length).toBe(before.bars);
+    expect(select.options.length).toBe(before.options);
+    expect(select.style.getPropertyValue('display')).toBe('');
   });
 
-  it('adds no surface at all in hide mode', () => {
+  it('relabels neutrally, without naming the language it took away', () => {
+    // Same reasoning as the in-row chip: this label sits in a list OF language
+    // names, so an endonym here reads as one more language to pick.
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.textContent).toBe(NEUTRAL_LABEL);
+    expect(ru.textContent.toLowerCase()).not.toContain('русск');
+    // The original is snapshotted verbatim so the restore is exact.
+    expect(ru.getAttribute('data-movar-original-text')).toBe('Русский');
+  });
+
+  it('leaves the surviving options untouched', () => {
+    setupSelectPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    for (const value of ['uk', 'en']) {
+      const option = document.querySelector<HTMLOptionElement>(`option[value="${value}"]`)!;
+      expect(option.disabled).toBe(false);
+      expect(option.hasAttribute('data-movar-original-text')).toBe(false);
+    }
+  });
+
+  it('hides the option outright in hide mode, with no mark', () => {
     // No presenter IS hide mode: applyContentModification passes one only when
-    // concealMode is 'curtain'. The option still goes; nothing explains it.
+    // concealMode is 'curtain'. Nothing is owed an explanation, so the option
+    // just goes — the same thing a list row does.
     setupSelectPicker();
     filterPickersWithPresenter(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
 
-    expect(document.querySelector<HTMLOptionElement>('option[value="ru"]')!.hidden).toBe(true);
-    expect(getTooltipHosts()).toHaveLength(0);
-    expect(getControlBadges()).toHaveLength(0);
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.hidden).toBe(true);
+    expect(ru.disabled).toBe(false);
+    expect(ru.textContent).toBe('Русский');
+    expect(getMarkedOptions()).toHaveLength(0);
   });
 
-  it('keeps the SAME badge and tooltip across MutationObserver re-fires', () => {
-    // Not just "one tooltip": the same host. A rebuild starts closed, and the
-    // pointer is already inside the anchor, so no fresh mouseenter fires and an
-    // open explanation just disappears — measured at ~600ms into a motionless
-    // hover before re-annotation became a no-op.
+  it('never re-snapshots its own label across MutationObserver re-fires', () => {
+    // The failure this guards is silent and permanent: a re-fire that read the
+    // current text back would store "Movar: hidden" AS the original, and the
+    // restore would then put the mark back instead of the language.
     setupSelectPicker();
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-    const first = getTooltipHosts()[0]!;
-    const firstBadge = getControlBadges()[0]!;
-    first.dataset['probe'] = 'original';
-
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
 
-    const hosts = getTooltipHosts();
-    expect(hosts).toHaveLength(1);
-    expect(hosts[0]).toBe(first);
-    expect(hosts[0]!.dataset['probe']).toBe('original');
-    expect(getControlBadges()).toEqual([firstBadge]);
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.getAttribute('data-movar-original-text')).toBe('Русский');
+    expect(ru.textContent).toBe(NEUTRAL_LABEL);
   });
 
-  it('stays open across a re-fire while the pointer never moved', () => {
+  it('restores the option verbatim — text, enabled state and marker', () => {
     setupSelectPicker();
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-    document.querySelector<HTMLElement>('#lang-select')!.dispatchEvent(new Event('focus'));
-    expect(getTooltipHosts()[0]!.getAttribute('data-state')).toBe('open');
 
-    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    // The way back for this surface is the page-wide sweep, which is what the
+    // popup's "Show everything" drives — there is no on-page control to click.
+    teardownContentModification(testContentPresenter);
 
-    expect(getTooltipHosts()[0]!.getAttribute('data-state')).toBe('open');
-  });
-
-  it('rebuilds when the hidden-language list actually changes', () => {
-    // Idempotence must not become staleness: a second blocked language means
-    // different copy, so the tooltip has to be replaced.
-    setupSelectPicker();
-    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
-    const first = getTooltipHosts()[0]!;
-
-    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru', 'en'] });
-
-    const hosts = getTooltipHosts();
-    expect(hosts).toHaveLength(1);
-    expect(hosts[0]).not.toBe(first);
-    const body = hosts[0]!.shadowRoot!.querySelector('.body')?.textContent ?? '';
-    expect(body.toLowerCase()).toContain('русск');
-    expect(body.toLowerCase()).toContain('english');
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.textContent).toBe('Русский');
+    expect(ru.disabled).toBe(false);
+    expect(ru.hidden).toBe(false);
+    expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
+    expect(ru.hasAttribute('data-movar-original-text')).toBe(false);
   });
 });
 
@@ -1666,15 +1625,23 @@ describe('filterPickers — surfaces survive the sweeps that do not know about t
     expect(getEntryCurtainHosts()).toHaveLength(1);
   });
 
-  it('re-marks a native <select> after a sweep', () => {
+  it('survives a sweep on a native <select>, having no host to sweep', () => {
+    // The sibling cases re-mark because the sweep resolves injected hosts off
+    // the DOM and takes theirs down. This layout has no host at all — the mark
+    // is the option's own label — so the sweep cannot reach it, and the
+    // re-filter must not double-apply or re-snapshot.
     setupSelectPicker();
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-    expect(getControlBadges()).toHaveLength(1);
+    expect(getMarkedOptions()).toHaveLength(1);
 
     sweepInjectedHosts();
+    expect(getMarkedOptions()).toHaveLength(1);
+
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
 
-    expect(getControlBadges()).toHaveLength(1);
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(getMarkedOptions()).toHaveLength(1);
+    expect(ru.getAttribute('data-movar-original-text')).toBe('Русский');
   });
 
   it('re-marks an inline strip after a sweep', () => {
@@ -1714,15 +1681,22 @@ describe('filterPickers — a conceal-mode flip takes every surface with it', ()
     expect(getEntryCurtainHosts()).toHaveLength(0);
   });
 
-  it('drops the control badge when the presenter goes away', () => {
+  it('drops the in-place option mark when the presenter goes away', () => {
+    // Same contract as the in-row chip above: no visible presentation means no
+    // explanation is owed, so the mark comes off and the option hides outright.
     setupSelectPicker();
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
-    expect(getControlBadges()).toHaveLength(1);
+    expect(getMarkedOptions()).toHaveLength(1);
 
     filterPickersWithPresenter(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
 
-    expect(getControlBadges()).toHaveLength(0);
-    expect(getTooltipHosts()).toHaveLength(0);
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(getMarkedOptions()).toHaveLength(0);
+    expect(ru.textContent).toBe('Русский');
+    expect(ru.disabled).toBe(false);
+    expect(ru.hidden).toBe(true);
+    // Still concealed, and still counted by the popup — only differently.
+    expect(ru.getAttribute('data-movar-hidden')).toBe('not-in-priority');
   });
 });
 
@@ -2069,7 +2043,7 @@ describe('filterPickers — a presenter that declines to mount', () => {
   const decliningPresenter = {
     ...testContentPresenter,
     attachPickerEntryCurtain: () => null,
-    attachPickerControlBadge: () => null,
+    pickerHiddenOptionLabel: () => 'Movar: hidden',
     attachPickerSurvivorTooltip: () => null,
   };
 
@@ -2086,7 +2060,11 @@ describe('filterPickers — a presenter that declines to mount', () => {
     expect(getEntryCurtainHosts()).toHaveLength(0);
   });
 
-  it('still hides, and registers nothing, on a native <select>', () => {
+  it('still marks a native <select>, which needs nothing mounted', () => {
+    // The sibling layouts degrade here: a presenter that declines to mount
+    // leaves them hiding the entry with nothing to explain it. This one does
+    // not depend on the curtain-UI chunk at all — its mark is a string of copy
+    // and two DOM properties — so a declining presenter costs it nothing.
     setupSelectPicker();
     filterPickersWithPresenter(
       findLanguagePickers(),
@@ -2095,8 +2073,10 @@ describe('filterPickers — a presenter that declines to mount', () => {
       decliningPresenter,
     );
 
-    expect(document.querySelector<HTMLOptionElement>('option[value="ru"]')!.hidden).toBe(true);
-    expect(getControlBadges()).toHaveLength(0);
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.disabled).toBe(true);
+    expect(ru.textContent).toBe('Movar: hidden');
+    expect(document.querySelectorAll('[data-movar-curtain]')).toHaveLength(0);
   });
 
   it('still hides, and registers nothing, on an inline strip', () => {

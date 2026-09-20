@@ -1,43 +1,33 @@
 <!doctype html>
 <!--
-  Control-BADGE visual fixture for the offline visual-regression suite.
+  Native `<select>` picker fixture — a Ukrainian page whose Russian option
+  Movar marks in place.
 
-  The badge (LAYOUT_SURFACES.native in apps/extension/src/lib/picker-filter.ts)
-  is the third picker surface and the last one without a committed pixel
-  baseline. An `<option>` can hold no element and measures 0x0 even with its
-  control on screen, so a `<select>` picker cannot take an in-row chip or a
-  hover tooltip — Movar floats its own element beside the control instead.
-  Nothing pinned that element's SKIN: the geometry spec
-  (picker-badge.behavior.spec.ts) measures where it lands, the structural spec
-  (content-script.spec.ts) asserts that it exists, and neither can see a colour,
-  a radius, or a dark-mode regression like the one tooltip.ts shipped.
+  Drives LAYOUT_SURFACES.native (apps/extension/src/lib/picker-filter.ts): the
+  blocked `<option>` stays in the list, gets `disabled`, and its label becomes
+  the neutral mark. Nothing is drawn on the page, so there is nothing to
+  photograph — a `<select>`'s popup is rendered by the OS, not the page
+  compositor — and the companion spec is picker-native.behavior.spec.ts rather
+  than a visual one.
 
-  Why a new fixture rather than reusing picker-select-ru: that one is the
-  geometry happy path — no `prefers-color-scheme` block at all, so it paints the
-  same page in both schemes and a dark baseline taken on it would pin the dark
-  badge over a white page, which is not a rendering any visitor gets. Its
-  sibling picker-badge-edge-ru carries 1200px of filler and a control flush
-  against the viewport edge, shaped for measuring the clamp, not for looking at.
-
-  Shape: a UKRAINIAN shop page with a `<select>` offering ru / uk / en. Under
-  `defaultSettings` (blocked: ['ru']) the filter hides the ru `<option>` and
-  stands one badge beside the control. Ukrainian rather than Russian for the
-  reason picker-survivor-uk gives: the filter keys off `settings.blocked`, not
-  the page's own language, so a Ukrainian page whose Russian option is hidden is
-  the true product story — a wholly-Russian page makes Movar look idle.
+  Why a fixture of its own rather than reusing picker-select-ru: that one is a
+  Russian page, and the filter keys off `settings.blocked` rather than the
+  page's own language, so a Ukrainian page whose Russian option is hidden is
+  the true product story — the same argument picker-survivor-uk makes. It also
+  lets the assertions read against known Ukrainian labels.
 
   `<option selected hreflang="uk">` is what keeps the page still: `selected` is
-  the canonical active-entry marker for a `<select>` (see isActiveBySelectedOption
-  in packages/lang-pickers/src/active.ts), so the model resolves the active
-  language to uk, which is not blocked, and no switch ladder fires before the
-  badge mounts. No `<link rel="alternate" hreflang>` in head, for the same
-  reason as every sibling picker fixture — it would fire the hreflang strategy
-  and navigate away first.
+  the canonical active-entry marker for a `<select>` (see
+  isActiveBySelectedOption in packages/lang-pickers/src/active.ts), so the model
+  resolves the active language to uk, which is not blocked, and no switch ladder
+  fires before the filter settles. No `<link rel="alternate" hreflang>` in head,
+  for the same reason as every sibling picker fixture — it would fire the
+  hreflang strategy and navigate away first.
 
-  The control sits at the LEFT of its header row, so the badge renders in its
-  default trailing placement with room to expand. The flush-right case, where
-  the hovered badge has to flip to the leading side, is a measurement rather
-  than a skin and stays guarded by picker-badge.behavior.spec.ts.
+  The `hreflang` attributes matter beyond classification: the popup's hidden
+  summary re-classifies each `[data-movar-hidden]` element off the live DOM, so
+  an attribute-driven option keeps naming its language even after Movar has
+  swapped the visible label.
 -->
 <html lang="uk">
   <head>

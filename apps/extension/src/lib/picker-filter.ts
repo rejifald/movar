@@ -29,16 +29,16 @@ const DIVIDER_CLASS_PATTERN = /(^|[-_\s])(divider|separator|sep|bullet|pipe)([-_
 
 const PICKER_CURTAIN_KIND = 'picker-container';
 const PICKER_ENTRY_CURTAIN_KIND = 'picker-entry';
-const PICKER_BADGE_KIND = 'picker-badge';
 
 /**
  * One mark Movar has put on the page, and what it currently says.
  *
- * Three registries share this shape — survivor tooltips (keyed by the anchor),
- * in-row chips (by the hidden entry) and control badges (by the control) — so
- * one detach and one currency check serve all of them. They were five maps and
- * three near-identical helpers, whose paired key/handle writes could drift and
- * leave a permanently-stale guard.
+ * Two registries share this shape — survivor tooltips (keyed by the anchor)
+ * and in-row chips (by the hidden entry) — so one detach and one currency
+ * check serve both. They were five maps and three near-identical helpers,
+ * whose paired key/handle writes could drift and leave a permanently-stale
+ * guard. The third was the control badge; a native `<select>` now carries its
+ * mark on the option itself (concealOption), so it has no host to track.
  *
  * WeakMap throughout: an anchor the site re-renders away takes its mark with it.
  */
@@ -51,7 +51,6 @@ type MarkRegistry = WeakMap<HTMLElement, Mark>;
 
 const survivorTooltips: MarkRegistry = new WeakMap();
 const entryChips: MarkRegistry = new WeakMap();
-const controlBadgeMarks: MarkRegistry = new WeakMap();
 
 /** Detach `el`'s mark from `registry`, if any — removing its host and its entry
  *  in the overlay's own registry. Idempotent. */
@@ -464,6 +463,11 @@ function restorePickerInPlace(picker: Picker): void {
     link.el.removeAttribute(HIDDEN_ATTR);
     restoreOriginalDisplay(link.el);
     if (link.el instanceof HTMLOptionElement) link.el.hidden = false;
+    // A native `<select>`'s blocked option was never display-hidden — it was
+    // disabled and relabelled in place (concealOption), so putting it back is
+    // its own undo. No-op for every other layout and for an option concealed
+    // in `hide` mode, neither of which carries the text snapshot.
+    unmarkOption(link.el);
   }
   // Un-hide divider siblings hidden as a consequence — and any entry this
   // picker object does not know about. `picker.links` is a snapshot; a row the
@@ -484,7 +488,9 @@ function restorePickerInPlace(picker: Picker): void {
   for (const link of picker.links) {
     restoreOriginalBorders(link.el);
   }
-  // Restore trimmed textContent on leaf links.
+  // Restore trimmed textContent on leaf links (the separator trims on
+  // SURVIVORS — the hidden entries' own snapshots were consumed by
+  // unmarkOption above).
   for (const link of picker.links) {
     const original = link.el.getAttribute(ORIGINAL_TEXT_ATTR);
     if (original === null) continue;
@@ -506,13 +512,12 @@ function restorePickerInPlace(picker: Picker): void {
     }
     span.replaceWith(picker.container.ownerDocument.createTextNode(original));
   }
-  // Detach the tooltips Movar attached to surviving links, and the badge a
-  // native <select> carries beside its control — the badge owns the tooltip
-  // anchored on it, so detaching the badge takes both.
+  // Detach the tooltips Movar attached to surviving links. A native <select>
+  // has nothing to detach — its mark was the option's own label, already put
+  // back by unmarkOption above.
   for (const link of picker.links) {
     detachMark(survivorTooltips, link.el);
   }
-  detachMark(controlBadgeMarks, picker.container);
   // Mark the container so filterPickers' next pass leaves it alone.
   picker.container.setAttribute(RESTORED_ATTR, '');
 }
@@ -784,48 +789,136 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
 }
 
 /**
- * Mark a native `<select>` with a badge beside the control.
+ * Conceal a blocked `<option>` by DISABLING it in place, not by removing it.
  *
- * Its `<option>`s can carry nothing: an `<option>` may not contain an element,
- * and — measured in Chromium on the `picker-select-ru` fixture — every
- * `<option>` reports a 0x0 box even with the control on screen, so it can take
- * neither a chip nor a hover. Anchoring the survivor tooltip to each surviving
- * option, which is what the inline path does, produced explanation surfaces that
- * could never be opened.
+ * Every other layout hides the entry and puts the explanation somewhere the
+ * layout can hold it — a chip in the row, a tooltip on a survivor. A `<select>`
+ * can hold neither: an `<option>` may not contain an element, and (measured in
+ * Chromium on the `picker-select-ru` fixture) reports a 0x0 box even with the
+ * control on screen, so it can take no chip and feel no hover.
  *
- * Anchoring on the `<select>` itself works, but says nothing until someone
- * happens to hover it — and on a control the visitor is aiming at anyway, that
- * is a coin flip. The badge is the fix: an always-visible mark floating beside
- * the control, resting as the bare sigil and expanding to its label while the
- * control is hovered or focused, with the detail and the restore action in a
- * tooltip anchored on the control. It is appended to `document.body` rather
- * than the site's tree — so no sibling selector, child index or flex gap count
- * changes and nothing shifts — and is `pointer-events: none`, `aria-hidden` and
- * untabbable, so it cannot take a click, a focus or a screen-reader stop.
+ * This used to be answered with a badge floating beside the control, appended
+ * to `document.body` and kept in place by hand — a capture-phase scroll
+ * listener, a rAF coalescer, a ResizeObserver on the control AND the document
+ * element, viewport clamping, and a flip to the control's leading side when the
+ * expanded form would not fit. All of that existed only because the mark was
+ * not in the control, and it put a permanent Movar-owned element on a page the
+ * visitor never asked to have marked.
  *
- * Idempotent across MutationObserver re-fires the same way the tooltip paths
- * are, and for a sharper reason: a rebuilt badge would restart its fade and drop
- * an open tooltip mid-read.
+ * An `<option>` cannot hold an element, but it holds TEXT, and that is enough:
+ *
+ *   - `disabled` is what actually takes the language out of reach. It cannot be
+ *     selected by pointer or keyboard and is skipped by type-ahead, which is
+ *     the whole job the `hidden` attribute was doing.
+ *   - the label becomes the mark. Nothing is drawn on the page at all — the
+ *     evidence appears only when the visitor opens the control, which is
+ *     exactly when they would wonder where the language went.
+ *   - the option stays in the list, so `select.options.length`, every
+ *     `options[i]` index and `selectedIndex` are untouched. Inserting a
+ *     placeholder instead would have shifted all three under any site that
+ *     indexes its own control.
+ *
+ * The label is deliberately neutral (`pickerHiddenOptionLabel`) rather than the
+ * endonym, for the reason the in-row chip gives: inside a list OF language
+ * names, naming the one that was taken away reads as one more to pick.
+ *
+ * `HIDDEN_ATTR` is still set, because that is the channel the popup's hidden
+ * summary counts (`buildHiddenSummary` re-classifies every `[data-movar-hidden]`
+ * element) and the channel `teardownContentModification` sweeps. What changes
+ * is only how the entry is taken out of reach, never whether Movar recorded it.
+ *
+ * Accessibility improves rather than degrades: the badge was mounted
+ * `aria-hidden`, so it said nothing to a screen reader. A disabled option with
+ * this text is announced when the visitor arrows through the control.
  */
-function markNativeControl(picker: Picker, presenter: ContentPresenter | undefined): void {
-  const hiddenLanguages = collectHiddenLanguages(picker);
-  const key = surfaceKey(hiddenLanguages, presenter);
-  if (hiddenLanguages.length === 0 || presenter?.hasVisiblePresentation !== true) {
-    detachMark(controlBadgeMarks, picker.container);
+function concealOption(el: HTMLElement, reason: string, label: string | null): void {
+  if (el.hasAttribute(HIDDEN_ATTR)) return;
+  // No visible presentation (conceal mode `hide`) means no explanation is owed
+  // anywhere — the option just goes, exactly as a list row does.
+  if (label === null || !(el instanceof HTMLOptionElement)) {
+    hideElement(el, reason);
     return;
   }
-  if (markIsCurrent(controlBadgeMarks, picker.container, key)) return;
-  detachMark(controlBadgeMarks, picker.container);
-  const handle = presenter.attachPickerControlBadge({
-    control: picker.container,
-    hiddenLanguages,
-    restore: () => {
-      restorePickerInPlace(picker);
-    },
-  });
-  if (handle === null) return;
-  handle.host.dataset['movarKind'] = PICKER_BADGE_KIND;
-  controlBadgeMarks.set(picker.container, { handle, key });
+  el.setAttribute(HIDDEN_ATTR, reason);
+  // Snapshot BEFORE the swap, and never re-snapshot: a MutationObserver re-fire
+  // that read the current text back would store our own label as the original
+  // and make the restore a no-op. The `hasAttribute(HIDDEN_ATTR)` guard above is
+  // what makes that safe — a site re-render that drops the attribute along with
+  // our text is a genuinely fresh entry and gets a fresh snapshot.
+  el.setAttribute(ORIGINAL_TEXT_ATTR, el.textContent);
+  el.textContent = label;
+  el.disabled = true;
+}
+
+/** Put one `concealOption`-marked `<option>` back: its text, its enabled state
+ *  and its hidden marker. Used both when a picker stops being `native` and by
+ *  the picker-level restore. */
+function unmarkOption(el: HTMLElement): void {
+  if (!(el instanceof HTMLOptionElement)) return;
+  const original = el.getAttribute(ORIGINAL_TEXT_ATTR);
+  if (original !== null) {
+    el.removeAttribute(ORIGINAL_TEXT_ATTR);
+    el.textContent = original;
+  }
+  el.disabled = false;
+}
+
+/** Undo the in-place option marks across a picker whose layout is no longer
+ *  `native`. The host-based layouts fall out of their registry; this one lives
+ *  on the entries themselves, so it needs its own sweep. */
+function unmarkNativeOptions(picker: Picker): void {
+  for (const link of picker.allLinks ?? picker.links) unmarkOption(link.el);
+}
+
+/** The blocked `<option>`s of this picker that currently carry an in-place
+ *  mark. The snapshot attribute is the discriminator: an option concealed the
+ *  plain way (hide mode, or a layout that only later read as native) carries
+ *  `HIDDEN_ATTR` too, but no snapshot, and has nothing to refresh. */
+function markedOptions(picker: Picker): HTMLOptionElement[] {
+  const marked: HTMLOptionElement[] = [];
+  for (const link of picker.allLinks ?? picker.links) {
+    const el = link.el;
+    if (!(el instanceof HTMLOptionElement)) continue;
+    if (!el.hasAttribute(HIDDEN_ATTR)) continue;
+    if (!el.hasAttribute(ORIGINAL_TEXT_ATTR)) continue;
+    marked.push(el);
+  }
+  return marked;
+}
+
+/** Take the in-place mark off an option and hide it outright instead — what
+ *  `hide` mode means. `HIDDEN_ATTR` stays set throughout: the entry is still
+ *  concealed, only differently, and the popup still counts it. */
+function demoteOptionToPlainHide(el: HTMLOptionElement): void {
+  unmarkOption(el);
+  overrideInlineProperty(el, 'display', DISPLAY_ATTRS, { value: 'none', priority: 'important' });
+  el.hidden = true;
+}
+
+/**
+ * Keep a native `<select>`'s in-place marks current.
+ *
+ * The concealment itself happens in {@link concealOption}, at hide time. This
+ * pass exists for the two things that outlive it, both of which re-run the
+ * filter over entries that already carry `HIDDEN_ATTR` and are therefore
+ * skipped by the conceal guard:
+ *
+ *   - the UI locale changing without a teardown. Without a re-label the page
+ *     would keep the previous language's mark for its lifetime — the same
+ *     staleness `copyRevision` exists to catch for the shadow-DOM surfaces.
+ *   - the presenter going away (conceal mode flipped to `hide`). The in-row
+ *     chip comes down in that case, so the option's mark has to as well.
+ */
+function refreshHiddenOptions(picker: Picker, presenter: ContentPresenter | undefined): void {
+  const label =
+    presenter?.hasVisiblePresentation === true ? presenter.pickerHiddenOptionLabel() : null;
+  for (const el of markedOptions(picker)) {
+    if (label === null) {
+      demoteOptionToPlainHide(el);
+    } else if (el.textContent !== label) {
+      el.textContent = label;
+    }
+  }
 }
 
 /**
@@ -943,11 +1036,18 @@ function filterPickerLinks(
   picker: Picker,
   shouldHide: (lang: LanguageCode) => boolean,
   hiddenLinks: ClassifiedLink[],
+  presenter: ContentPresenter | undefined,
 ): ClassifiedLink[] {
+  // The layout decides HOW an entry goes out of reach, not just what explains
+  // it afterwards — a native `<select>` disables its option in place where the
+  // others hide theirs. See LayoutSurface.conceal.
+  const { conceal } = LAYOUT_SURFACES[picker.layout];
+  const label =
+    presenter?.hasVisiblePresentation === true ? presenter.pickerHiddenOptionLabel() : null;
   for (const link of picker.allLinks ?? picker.links) {
     if (!shouldHide(link.language)) continue;
     if (link.el.hasAttribute(HIDDEN_ATTR)) continue;
-    hideElement(link.el, 'not-in-priority');
+    conceal(link.el, 'not-in-priority', label);
     hiddenLinks.push(link);
   }
   return picker.links.filter((link) => !shouldHide(link.language));
@@ -970,28 +1070,57 @@ function filterPickerLinks(
  * short version is that the surface has to go somewhere the layout can hold it.
  */
 interface LayoutSurface {
-  /** Where this layout's marks are tracked. */
-  registry: MarkRegistry;
-  /** What `registry` is keyed BY — the one thing the two uses disagree on, and
-   *  so the one thing the table has to carry: per-entry surfaces are keyed by
-   *  each classified link, the badge by the container it floats beside.
-   *  {@link detachForeignSurfaces} needs it to know what to hand
-   *  {@link detachMark}. */
-  scope: 'entry' | 'container';
+  /** How a blocked entry is taken OUT OF REACH in this layout.
+   *
+   *  Two layouts hide the entry outright and explain the gap with a separate
+   *  element. `native` cannot — an `<option>` has nowhere to put one — so it
+   *  disables the option and makes its label the mark instead. That is a
+   *  difference in the hide itself, not just in what explains it, which is why
+   *  it belongs in this table rather than in a branch inside
+   *  {@link filterPickerLinks}.
+   *
+   *  `label` is the neutral mark text when the conceal mode has a visible
+   *  presentation, and `null` when it does not ("hide" mode owes no
+   *  explanation anywhere). */
+  conceal: (el: HTMLElement, reason: string, label: string | null) => void;
   /** Attach or refresh this layout's surface across one picker. Every arm is
    *  idempotent across MutationObserver re-fires and detaches what it skips. */
   attach: (picker: Picker, presenter: ContentPresenter | undefined) => void;
+  /** Drop this layout's marks from a picker that no longer HAS this layout.
+   *  The host-based layouts resolve theirs out of a registry; `native`'s live
+   *  on the entries themselves, so each arm names its own undo. */
+  detachForeign: (picker: Picker) => void;
+}
+
+/** `detachForeign` for a layout whose marks are hosts tracked per entry. */
+function detachEntryMarks(registry: MarkRegistry): (picker: Picker) => void {
+  return (picker) => {
+    for (const link of picker.links) detachMark(registry, link.el);
+  };
 }
 
 const LAYOUT_SURFACES: Record<PickerLayout, LayoutSurface> = {
   // Each row owns a full-width slot, so the gap is markable where the entry was.
-  list: { registry: entryChips, scope: 'entry', attach: markHiddenEntries },
-  // An `<option>` can hold nothing and measures 0x0 — the mark goes beside the
-  // control, and is the one surface keyed by the container rather than a link.
-  native: { registry: controlBadgeMarks, scope: 'container', attach: markNativeControl },
+  list: {
+    conceal: hideElement,
+    attach: markHiddenEntries,
+    detachForeign: detachEntryMarks(entryChips),
+  },
+  // An `<option>` can hold no element, so it is marked by being disabled and
+  // relabelled in place — see concealOption. Nothing is drawn on the page, and
+  // `attach` only has to keep that label current across a locale change.
+  native: {
+    conceal: concealOption,
+    attach: refreshHiddenOptions,
+    detachForeign: unmarkNativeOptions,
+  },
   // The separator passes close the gap completely, so the only anchor left on an
   // inline strip is something that survived.
-  inline: { registry: survivorTooltips, scope: 'entry', attach: annotateSurvivingLinks },
+  inline: {
+    conceal: hideElement,
+    attach: annotateSurvivingLinks,
+    detachForeign: detachEntryMarks(survivorTooltips),
+  },
 };
 
 /**
@@ -1015,11 +1144,7 @@ const LAYOUT_SURFACES: Record<PickerLayout, LayoutSurface> = {
 function detachForeignSurfaces(picker: Picker): void {
   for (const [layout, surface] of Object.entries(LAYOUT_SURFACES)) {
     if (layout === picker.layout) continue;
-    if (surface.scope === 'container') {
-      detachMark(surface.registry, picker.container);
-      continue;
-    }
-    for (const link of picker.links) detachMark(surface.registry, link.el);
+    surface.detachForeign(picker);
   }
 }
 
@@ -1096,7 +1221,7 @@ export function filterPickers(
     // SPA pages — without this skip, every re-render would re-hide the
     // picker the user just chose to see.
     if (picker.container.hasAttribute(RESTORED_ATTR)) continue;
-    const survivors = filterPickerLinks(picker, shouldHide, hiddenLinks);
+    const survivors = filterPickerLinks(picker, shouldHide, hiddenLinks, presenter);
     const willCurtain =
       shouldCurtainContainer && survivors.length <= 1 && !isContainerCurtained(picker.container);
     // In-container cleanup only fires when the container stays visible (see

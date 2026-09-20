@@ -1,5 +1,12 @@
 # @movar/marketing
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [2b5e99c]
+  - @movar/brand@0.0.2
+
 ## 0.0.3
 
 ### Patch Changes

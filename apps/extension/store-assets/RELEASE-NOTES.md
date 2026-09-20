@@ -75,6 +75,46 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.9.0
+
+Two changes a user meets and one they only meet on the way out. The lead is the
+drop-down fix: a language switcher built as a listbox — HeroUI, Bootstrap,
+HeadlessUI, anything with option rows — got one Movar label per recognised
+language, and each opened on hover over the rows above it, so the options you
+reached for were the ones covered. That is the report that started it, and it is
+the item that matters to someone still running Movar. The exit page leads the
+"new" half and not the note: a page you see only after removing Movar is worth
+nothing to a reader who has not, and putting it first would be a store note
+written for the vendor. Both bullets under Виправлено name what the switcher did
+rather than the layout rule behind it. The Safari host app is unchanged here, so
+there is no Apple-only line this time.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.9.0
+
+Виправлено
+• У випадних списках мов Мовар підписував кожну впізнану мову, і ці підписи спливали поверх сусідніх рядків — дочитати список до кінця не вдавалося. Тепер їх там немає: у рядку, де стояла прихована мова, лишається позначка «Мовар: приховано», а натиснувши її, ви повертаєте мову на місце.
+• У списках, які малює сам браузер, прихована мова зникала без сліду. Тепер поруч із перемикачем стоїть позначка, а наведення на перемикач показує, що саме Мовар прибрав.
+
+Нове
+• Коли Мовар видаляють, відкривається сторінка з питанням, що не спрацювало. Ні форми, ні аналітики: рядок, який ви оберете, відкриває ваш поштовий застосунок із готовою темою, а лист піде лише тоді, коли ви його надішлете.
+```
+
+### English (en)
+
+```
+What's new in 1.9.0
+
+Fixed
+• In drop-down language lists, Movar labelled every language it recognised, and those labels opened over the rows next to them — the options you were reaching for were the ones covered. They are gone now: the row the hidden language sat in carries a "Movar: hidden" mark instead, and clicking it puts the language back.
+• In the lists a browser draws itself, a hidden language vanished with no trace. A mark now sits beside the switcher, and hovering the switcher shows what Movar took out.
+
+New
+• Removing Movar now opens a page asking what did not work. No form and no analytics: the line you pick opens your mail app with the subject ready, and the message goes only when you send it.
+```
+
 ## 1.8.1
 
 A one-fix release, and the fix is the whole note. Since 1.7.0, Movar had been

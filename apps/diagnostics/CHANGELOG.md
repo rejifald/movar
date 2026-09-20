@@ -1,5 +1,13 @@
 # @movar/diagnostics
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [74c3c8b]
+  - @movar/lang-pickers@0.0.4
+  - @movar/page-language@0.0.4
+
 ## 0.0.5
 
 ### Patch Changes

@@ -110,7 +110,7 @@ length-and-register caps.
 
 - **Code health** `78 (B)` — fallow maintainability score, 0-100 with an A-F grade, over complexity, duplication, dead code, and churn; refreshed by `pnpm metrics`.
 - **Coverage** `97% lines · 91% branches` — Vitest (v8) line and branch coverage, aggregated across the test-bearing workspace projects weighted by size; snapshotted by `pnpm metrics`.
-- **Content.js** `45 KB (source graph)` — source-graph size of the always-on content script (the esbuild import graph of content.ts, measured by `check:content-bundle`; the real emitted artifact is ~40 KB, gated at 48 KB by wxt.config.ts) — franc and the language profiles live in the background worker, not here; snapshotted by `pnpm metrics`.
+- **Content.js** `45 KB (source graph)` — source-graph size of the always-on content script (the esbuild import graph of content.ts, measured by `check:content-bundle`; the real emitted artifact is ~48 KB, gated at 56 KB by wxt.config.ts) — franc and the language profiles live in the background worker, not here; snapshotted by `pnpm metrics`.
 - **License** `MIT` — SPDX identifier read from the root `LICENSE` file.
 - **Promises** `4/4 kept` — public claims from movar.fyi (apps/marketing) verified against the code each build — `pnpm check:readme` fails if any breaks:
   - ✓ **Open source** — root LICENSE is MIT, an OSI-approved open-source license _(marketing: hero badge + footer)_

@@ -35,12 +35,17 @@ name: Release
 # click on every real release — that pause is the point. One-time setup
 # (create the Environment, add reviewers): docs/release-credentials.md.
 #
-# Safari ships through the `release-safari` job on a macOS runner: it
+# Safari ships in TWO jobs, both automatic. `release-safari` (macOS runner)
 # archives the Xcode wrapper, uploads the iOS + macOS builds to App Store
-# Connect, and notarizes a Developer ID .dmg for direct download. Like the
-# other store jobs it skips (with a warning) when its Apple secrets are
-# absent, so it stays dormant until the Apple Developer account is enrolled
-# and the secrets are set. Setup + secrets: docs/safari-deploy.md.
+# Connect, and notarizes a Developer ID .dmg for direct download.
+# `submit-safari` (Linux) then waits for Apple to finish processing that exact
+# build and submits it for review. Uploading is NOT shipping: `altool
+# --upload-app` only delivers a binary, and while submission was a separate
+# manual dispatch, v1.7.0 and v1.9.0 each sat uploaded-but-unsubmitted after a
+# fully green release. Like the other store jobs, Safari skips (with a
+# warning) when its Apple secrets are absent, so it stays dormant until the
+# Apple Developer account is enrolled and the secrets are set. Setup +
+# secrets: docs/safari-deploy.md.
 #
 # Reviewers at every store are still humans — this workflow only delivers
 # the artifact to each store's review queue.
@@ -105,6 +110,18 @@ jobs:
               exit 1
             fi
           fi
+
+      # RELEASE-NOTES.md is load-bearing for the release to COMPLETE, not just
+      # for the Release body: `submit-safari` cannot fill App Store Connect's
+      # per-localization "What's New" without a uk + en block for this version,
+      # and it discovers that only after the build is already at Apple. Check it
+      # here — before anything is built, on every trigger — so a `release/**`
+      # push catches a missing block while fixing it is still free. The renderer
+      # exits non-zero on both a missing version and a half-localized one.
+      - name: Verify RELEASE-NOTES.md covers this version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/render-release-notes.mjs --format=github > /dev/null
 
       # Full pre-submission suite: typecheck + lint + test + publint, then
       # build chrome + firefox zips and audit their contents. Identical to
@@ -496,6 +513,15 @@ jobs:
     if: >-
       github.event_name == 'release' ||
       (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
+    # What this job actually delivered, for `submit-safari` to act on. Written
+    # only after every `altool --upload-app` has succeeded, so an empty
+    # `uploaded` — missing secrets, a build failure, a rejected package — leaves
+    # the submission job unarmed rather than submitting something that is not
+    # there.
+    outputs:
+      uploaded: ${{ steps.upload.outputs.uploaded }}
+      build_number: ${{ steps.upload.outputs.build_number }}
+      platforms: ${{ steps.upload.outputs.platforms }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
@@ -594,6 +620,7 @@ jobs:
       # staple the Developer ID build and package the .dmg. Kept in a single
       # shell so the generated keychain password and temp paths stay in scope.
       - if: steps.check.outputs.skip != 'true'
+        id: upload
         name: Archive, sign, notarize, and submit
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -820,4 +847,107 @@ jobs:
           if [ "$IS_RELEASE" = "true" ]; then
             gh release upload "$RELEASE_TAG" "$DMG" --clobber
           fi
-          echo "Safari: uploaded iOS + macOS to App Store Connect; notarized+stapled $DMG."
+
+          # Hand the EXACT build just delivered to `submit-safari`. Naming the
+          # build number is what keeps submission from guessing: without it the
+          # submit step attaches "the newest processed build for this version",
+          # which is the wrong one the moment a release is re-run or an older
+          # upload is still processing. Written here, after the last upload, so
+          # the flag means "there is something at Apple to submit".
+          UPLOADED_PLATFORMS="IOS"
+          if [ "$HAVE_INSTALLER" = 1 ]; then UPLOADED_PLATFORMS="IOS,MAC_OS"; fi
+          {
+            echo "uploaded=true"
+            echo "build_number=$BUILD_NUMBER"
+            echo "platforms=$UPLOADED_PLATFORMS"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Safari: uploaded build $BUILD_NUMBER ($UPLOADED_PLATFORMS) to App Store Connect; notarized+stapled $DMG."
+
+  # Uploading is not shipping. `altool --upload-app` above only DELIVERS a
+  # binary to App Store Connect; creating the App Store version, attaching the
+  # build, filling in "What's New" for every localization, answering export
+  # compliance and actually submitting are separate API calls. They used to be
+  # a separate manual `workflow_dispatch` on safari-submit.yml that a human had
+  # to remember, and twice nobody did: v1.7.0 (uploaded 2026-08-22) and v1.9.0
+  # (uploaded 2026-09-20) both ended as a fully green release, a build sitting
+  # unsubmitted at Apple, and users left on the previous version while every
+  # other store moved on. This job closes that gap — a published Release now
+  # carries Safari into the review queue like every other store job.
+  #
+  # WHY IT IS A SEPARATE JOB, ON LINUX
+  #
+  # Apple's build processing takes minutes to tens of minutes. Waiting for it
+  # on `release-safari`'s macOS runner would burn 10x-priced minutes doing
+  # nothing, and this half is pure HTTP against the App Store Connect API, so
+  # it runs on ubuntu-latest. It is also independently re-runnable: if
+  # processing outlasts the wait, re-run this job — the upload is already done.
+  #
+  # WHY IT CARRIES NO `environment: production`
+  #
+  # The approval that released `release-safari` IS the decision to ship Safari.
+  # By the time this job runs, the build is already at Apple — uploaded under
+  # that approval — and the only question left is whether anyone tells Apple to
+  # look at it. Re-gating the completion of an already-approved action is not
+  # extra safety; it is precisely the shape of the bug that stranded v1.7.0 and
+  # v1.9.0, where a human approved the ship and the build still never shipped.
+  #
+  # A second gate also risks parking the run outright: a job that reaches an
+  # environment gate after an earlier approval may have review requested again,
+  # rather than inheriting it. Leaving the gate off is correct either way —
+  # if the approval would have carried over, omitting it changes nothing, and
+  # if it would not, omitting it is the only thing that keeps the release
+  # unattended.
+  #
+  # The ASC secrets are repo-level, not environment-scoped (safari-submit.yml's
+  # ungated `plan` job reads the same three), so dropping the environment costs
+  # no access. `pnpm check:release-governance` enforces that this stays the one
+  # declared exception and that it stays chained to the approved upload.
+  #
+  # To prepare a version WITHOUT submitting it — or to rescue a submission that
+  # failed half way — safari-submit.yml is still there, with its `plan`,
+  # `prepare`, `submit` and `resume` modes.
+  submit-safari:
+    # `prepare` for the version string; `release-safari` for the build it just
+    # put at Apple.
+    needs: [prepare, release-safari]
+    # `uploaded` is written only after the last successful upload, which covers
+    # every way `release-safari` can finish with nothing to submit: absent
+    # Apple secrets (it skips with a warning and still reports success), a
+    # build or notarization failure, or a package altool rejected.
+    if: needs.release-safari.outputs.uploaded == 'true'
+    runs-on: ubuntu-latest
+    # Never race safari-submit.yml. Two submissions against one app version is
+    # how a version ends up half-staged in READY_FOR_REVIEW, which no mode but
+    # `resume` can get out of (scripts/lib/review-resume.mjs). Same group name
+    # as that workflow, so the two queue behind each other instead.
+    concurrency:
+      group: safari-submit
+      cancel-in-progress: false
+    # Two platforms, each waiting up to BUILD_TIMEOUT_MIN (45 min default) for
+    # Apple to finish processing, plus slack. Far below GitHub's 6h default, so
+    # a wedged run fails visibly instead of idling for a quarter of a day.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Submit for review
+        env:
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          APPLE_ASC_API_KEY_P8: ${{ secrets.APPLE_ASC_API_KEY_P8 }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          # Both pinned to what this run actually uploaded — never "whatever is
+          # newest at Apple", which on a re-run is a different build.
+          BUILD_NUMBER: ${{ needs.release-safari.outputs.build_number }}
+          PLATFORMS: ${{ needs.release-safari.outputs.platforms }}
+          SUBMIT: '1'
+        # `shell: bash` is NOT cosmetic: the default shell is `bash -e` with
+        # NO pipefail, so `node … | tee` reports tee's exit status and a
+        # crashed script reads as a green run. Naming the shell gets
+        # `-eo pipefail`.
+        shell: bash
+        run: node scripts/apple-submit.mjs | tee -a "$GITHUB_STEP_SUMMARY"

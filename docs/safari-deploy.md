@@ -179,31 +179,67 @@ a correctly signed `.ipa` with `SDK version issue … must be built with the iOS
 pin silently goes stale and fails at the last step of a release. Raise
 `MIN_XCODE_MAJOR` in all three files together when Apple raises the minimum.
 
-## Submitting for review — `safari-submit.yml`
+## Submitting for review
 
 `altool --upload-app` only _delivers a build_. Creating the version, attaching
 the build, writing "What's New" per localization, answering export compliance
-and submitting used to be hand-work in the App Store Connect UI. The
+and submitting are separate API calls. The
 [Review Submissions API](https://developer.apple.com/documentation/appstoreconnectapi)
-covers all of it, so
-[safari-submit.yml](../.github/workflows/safari-submit.yml) +
-[apple-submit.mjs](../scripts/apple-submit.mjs) finish the job — for a build
-uploaded by CI _or_ by Organizer.
+covers all of it, and [apple-submit.mjs](../scripts/apple-submit.mjs) drives
+it — for a build uploaded by CI _or_ by Organizer.
 
-It is a separate workflow from `release-safari` on purpose: Apple's build
-processing takes minutes to tens of minutes, and waiting for that on the macOS
-runner would burn 10x-priced minutes doing nothing. This is pure HTTP, so it
-runs on Linux, and it is re-runnable without rebuilding or re-uploading.
+### Automatically, on a published Release — `submit-safari`
 
-Three modes, mirroring the release job's "reversible first, irreversible last"
+**Publishing the GitHub Release submits Safari. No second step.** Once
+`release-safari` has uploaded, release.yml's `submit-safari` job waits for
+Apple to finish processing **that exact build number** and submits it for
+review, on both platforms. It runs on Linux — Apple's processing takes minutes
+to tens of minutes, and waiting for that on the macOS runner would burn
+10x-priced minutes doing nothing.
+
+It carries no `environment:` of its own, deliberately. The approval that
+released `release-safari` is the decision to ship Safari; by the time
+`submit-safari` runs, the build is already at Apple under that approval, and
+re-gating it is how v1.7.0 and v1.9.0 ended up uploaded-but-never-submitted
+after a fully green release. `pnpm check:release-governance` enforces that this
+stays the one declared exception, and that the job stays chained to the
+approved upload (`needs: release-safari` + `uploaded == 'true'`) — so it can
+never submit on its own or when the upload was skipped.
+
+Because submission is now part of the release, **RELEASE-NOTES.md is load-bearing
+for the release to finish**. The `prepare` job verifies that this version has a
+uk _and_ an en block before anything is built, on every trigger — so a
+`release/**` push catches a missing note while fixing it is still free, rather
+than the release dying after the build is already at Apple.
+
+### By hand — `safari-submit.yml`
+
+[safari-submit.yml](../.github/workflows/safari-submit.yml) runs the same
+script manually. It is no longer the normal path; it is the rescue, re-run and
+inspection path:
+
+- **`resume`** — finish a submission left staged in `READY_FOR_REVIEW`. No
+  other mode can advance that state, and this is the only way out of it.
+- **re-run `submit`** — if Apple's processing outlasted the automatic job's
+  wait, or a locale's note was wrong. Nothing is rebuilt or re-uploaded.
+- **`plan`** — read-only; the way to check a version's real state at Apple.
+- **`prepare`** — stage a version without submitting, to hold or hand-edit it.
+- **backfill** — submit a version whose release predates the automatic job.
+
+It shares the `safari-submit` concurrency group with `submit-safari`, so a
+manual run and an automatic one queue rather than race for the same version.
+
+Four modes, mirroring the release job's "reversible first, irreversible last"
 rule. Every run prints a read-only **plan** first, needing no approval; any
-write is behind the same `production` gate as the store jobs.
+write is behind the same `production` gate as the store jobs — this workflow
+keeps that gate because, unlike `submit-safari`, nothing upstream approved it.
 
 | `mode`    | Does                                                                     | Reversible                          |
 | --------- | ------------------------------------------------------------------------ | ----------------------------------- |
 | `plan`    | reads only — resolves app, build, version, localizations, submissions    | n/a                                 |
 | `prepare` | create/reuse the version, attach the build, set notes, export compliance | yes — editable, no reviewer sees it |
 | `submit`  | also submits for review                                                  | **no**                              |
+| `resume`  | finishes a staged submission — one PATCH, prepares nothing               | **no**                              |
 
 ```sh
 # See what would happen — safe, no approval needed.
@@ -368,9 +404,10 @@ succeeds locally.
    `Повний журнал змін: https://movar.fyi/uk/changelog` for uk,
    `Full changelog: https://movar.fyi/changelog` for en.
 
-8. **Submit for review.** Prefer the automated path — see
-   [Submitting for review](#submitting-for-review-safari-submityml) below; it
-   works whether the build was uploaded by CI or by Organizer. By hand instead:
+8. **Submit for review.** A CI release submits itself — see
+   [Submitting for review](#submitting-for-review) below. For an Organizer
+   upload, dispatch `safari-submit.yml` (`plan` → `submit`) against it. By hand
+   instead:
    for the new version on **each** platform, attach the just-uploaded build (it
    appears after processing), paste the **What's New** notes from step 7 into
    each localization, answer export-compliance, and **Submit for Review**.

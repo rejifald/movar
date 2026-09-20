@@ -1076,6 +1076,40 @@ describe('filterPickers — native <select> marks the option in place', () => {
     expect(ru.textContent).toBe(NEUTRAL_LABEL);
   });
 
+  it('re-labels when the UI locale changes under a live page', () => {
+    // The reason this layout has an `attach` arm at all. A locale change
+    // re-runs the filter WITHOUT a teardown, over an option that already
+    // carries HIDDEN_ATTR and so is skipped by the conceal guard — the same
+    // staleness `copyRevision` exists to catch for the shadow-DOM surfaces.
+    // Without the refresh pass the page keeps the previous language's mark for
+    // its lifetime.
+    setupSelectPicker();
+    let label = 'Movar: hidden';
+    const relabelling = { ...testContentPresenter, pickerHiddenOptionLabel: () => label };
+
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      relabelling,
+    );
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.textContent).toBe('Movar: hidden');
+
+    label = 'Movar: приховано';
+    filterPickersWithPresenter(
+      findLanguagePickers(),
+      ['uk', 'en'],
+      { blocked: ['ru'] },
+      relabelling,
+    );
+
+    expect(ru.textContent).toBe('Movar: приховано');
+    // The snapshot is still the site's own text, not either mark — a re-label
+    // must never be mistaken for a fresh conceal.
+    expect(ru.getAttribute('data-movar-original-text')).toBe('Русский');
+  });
+
   it('restores the option verbatim — text, enabled state and marker', () => {
     setupSelectPicker();
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });

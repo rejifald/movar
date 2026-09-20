@@ -1,0 +1,142 @@
+<!doctype html>
+<!--
+  Control-BADGE visual fixture for the offline visual-regression suite.
+
+  The badge (LAYOUT_SURFACES.native in apps/extension/src/lib/picker-filter.ts)
+  is the third picker surface and the last one without a committed pixel
+  baseline. An `<option>` can hold no element and measures 0x0 even with its
+  control on screen, so a `<select>` picker cannot take an in-row chip or a
+  hover tooltip — Movar floats its own element beside the control instead.
+  Nothing pinned that element's SKIN: the geometry spec
+  (picker-badge.behavior.spec.ts) measures where it lands, the structural spec
+  (content-script.spec.ts) asserts that it exists, and neither can see a colour,
+  a radius, or a dark-mode regression like the one tooltip.ts shipped.
+
+  Why a new fixture rather than reusing picker-select-ru: that one is the
+  geometry happy path — no `prefers-color-scheme` block at all, so it paints the
+  same page in both schemes and a dark baseline taken on it would pin the dark
+  badge over a white page, which is not a rendering any visitor gets. Its
+  sibling picker-badge-edge-ru carries 1200px of filler and a control flush
+  against the viewport edge, shaped for measuring the clamp, not for looking at.
+
+  Shape: a UKRAINIAN shop page with a `<select>` offering ru / uk / en. Under
+  `defaultSettings` (blocked: ['ru']) the filter hides the ru `<option>` and
+  stands one badge beside the control. Ukrainian rather than Russian for the
+  reason picker-survivor-uk gives: the filter keys off `settings.blocked`, not
+  the page's own language, so a Ukrainian page whose Russian option is hidden is
+  the true product story — a wholly-Russian page makes Movar look idle.
+
+  `<option selected hreflang="uk">` is what keeps the page still: `selected` is
+  the canonical active-entry marker for a `<select>` (see isActiveBySelectedOption
+  in packages/lang-pickers/src/active.ts), so the model resolves the active
+  language to uk, which is not blocked, and no switch ladder fires before the
+  badge mounts. No `<link rel="alternate" hreflang>` in head, for the same
+  reason as every sibling picker fixture — it would fire the hreflang strategy
+  and navigate away first.
+
+  The control sits at the LEFT of its header row, so the badge renders in its
+  default trailing placement with room to expand. The flush-right case, where
+  the hovered badge has to flip to the leading side, is a measurement rather
+  than a skin and stays guarded by picker-badge.behavior.spec.ts.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Інтернет-магазин — вибір мови</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      /* NOT decoration: `position: relative` makes body a containing block, so
+         an absolutely-positioned host appended to it resolves against body's
+         padding box rather than the viewport. The badge was once mounted with
+         page coordinates and landed 386px from its control on exactly this
+         shape — keeping it here means the baseline sees the real placement
+         path, not an easier one. */
+      body {
+        position: relative;
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
+        background: #fafaf9;
+        color: #1c1917;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .bar label {
+        font-size: 13px;
+        color: #57534e;
+      }
+      select {
+        font: inherit;
+        font-size: 13px;
+        padding: 5px 8px;
+        border: 1px solid #d6d3d1;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #1c1917;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 8px;
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #57534e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+          color: #fafaf9;
+        }
+        .bar label,
+        p {
+          color: #a8a29e;
+        }
+        select {
+          border-color: #44403c;
+          background: #1c1917;
+          color: #fafaf9;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <label for="lang-select">Мова</label>
+      <select id="lang-select">
+        <option hreflang="ru" value="/ru/">Русский</option>
+        <option hreflang="uk" value="/" selected>Українська</option>
+        <option hreflang="en" value="/en/">English</option>
+      </select>
+    </header>
+    <main>
+      <h1>Каталог товарів</h1>
+      <p>
+        Ласкаво просимо до нашого інтернет-магазину. У нас ви знайдете якісні товари за доступними
+        цінами з доставкою по всій країні.
+      </p>
+      <p>
+        Великий вибір електроніки, побутової техніки та аксесуарів для дому. Гарантія на всі товари
+        дванадцять місяців.
+      </p>
+    </main>
+  </body>
+</html>

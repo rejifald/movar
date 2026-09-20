@@ -30,6 +30,14 @@ so this is not a step you can forget, only one you can leave undone.
 Only the **fenced block** under each locale heading ships. Prose between the
 headings is editorial context for whoever writes the next one.
 
+**One block per version — don't fold an older release into a newer one.** The
+App Store is the one surface that shows a single version's note and can
+therefore miss a release entirely (v1.7.0 and v1.9.0 both did). That is handled
+at the boundary: [`scripts/lib/release-span.mjs`](../../../scripts/lib/release-span.mjs)
+asks Apple what it actually has and stacks the notes it never received. Folding
+them together here instead would publish the same bullets twice on
+movar.fyi/changelog, which renders every version in full.
+
 **Don't write the changelog link into a block.** A store listing shows one
 version's note and nothing else, so `withChangelogLink` in
 [`scripts/lib/release-notes.mjs`](../../../scripts/lib/release-notes.mjs)

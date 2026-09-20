@@ -20,6 +20,20 @@
  *      manual approval before any store sees the upload. The `prepare` job must
  *      NOT be gated (it has to run unattended for dry-runs).
  *
+ *   3. EVERY JOB IS CLASSIFIED, AND THE ONE EXCEPTION STAYS NARROW. The list in
+ *      (2) was hardcoded, so a newly added job that reaches a store simply was
+ *      not looked at — the guard went blind exactly when it mattered. Now every
+ *      job in release.yml must be classified here, and an unknown one fails.
+ *
+ *      `submit-safari` is the single deliberate exception: it submits the Safari
+ *      build for review and carries NO environment, because re-gating it would
+ *      let an approved release stall before finishing (the failure that stranded
+ *      v1.7.0 and v1.9.0 at Apple). That is only safe because the job cannot run
+ *      on its own — it is downstream of the approved `release-safari` upload and
+ *      gated on that upload having happened. So the exception is checked, not
+ *      merely allowed: lose the `needs:` or the `uploaded` condition and this
+ *      fails.
+ *
  * String/JSON-based on purpose: the repo has no YAML parser dependency, and the
  * existing repo guards (check-readme-parity, check-suppressions) are the same
  * shape — read the file, scan it, fail with a clear message.
@@ -38,6 +52,19 @@ const releaseWorkflowPath = nodePath.resolve(repoRoot, '.github/workflows/releas
 const STORE_JOBS = ['release-firefox', 'release-chrome', 'release-edge', 'release-safari'] as const;
 /** The build/validate job that must stay OUTSIDE the environment so dry-runs run unattended. */
 const UNGATED_JOB = 'prepare';
+/** Build/validate jobs that legitimately carry no environment — neither reaches a store. */
+const BUILD_JOBS = [UNGATED_JOB, 'e2e'] as const;
+/**
+ * The one job that reaches a store WITHOUT its own approval gate, and what has
+ * to stay true for that to be safe. See invariant 3 in the header.
+ */
+const DOWNSTREAM_JOB = {
+  name: 'submit-safari',
+  /** The approved job whose output it must be chained to. */
+  needs: 'release-safari',
+  /** The condition proving that approved job actually uploaded something. */
+  guard: "needs.release-safari.outputs.uploaded == 'true'",
+} as const;
 
 const failures: string[] = [];
 
@@ -114,6 +141,66 @@ for (const job of STORE_JOBS) {
   }
 }
 
+// --- 3. every job classified; the ungated store job stays chained -----------
+/** Every job name in release.yml, in file order. `jobs:` is the last top-level
+ *  key, so two-space-indented keys after it are job headers. */
+function jobNames(source: string): string[] {
+  const lines = source.split('\n');
+  const start = lines.indexOf('jobs:');
+  if (start === -1) return [];
+  const names: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const name = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(line)?.[1];
+    if (name) names.push(name);
+  }
+  return names;
+}
+
+const classified = new Set<string>([...STORE_JOBS, ...BUILD_JOBS, DOWNSTREAM_JOB.name]);
+for (const job of jobNames(workflow)) {
+  if (classified.has(job)) continue;
+  failures.push(
+    `release.yml: job "${job}" is not classified in check-release-governance.mts. Add it to ` +
+      `STORE_JOBS if it submits to a store (it then needs \`environment: production\`), or to ` +
+      `BUILD_JOBS if it only builds/validates. An unclassified job is one this guard cannot ` +
+      `see, which is how an ungated upload would ship.`,
+  );
+}
+
+const downstreamBody = jobBody(workflow, DOWNSTREAM_JOB.name);
+if (downstreamBody === null) {
+  failures.push(
+    `release.yml: "${DOWNSTREAM_JOB.name}" not found — if Safari submission moved or was renamed, ` +
+      `update DOWNSTREAM_JOB here so its exception keeps being checked.`,
+  );
+} else {
+  // It must NOT be gated: a second approval is what would leave an approved
+  // release uploaded-but-unsubmitted, which is the whole reason this job exists.
+  if (declaresEnvironment(downstreamBody)) {
+    failures.push(
+      `release.yml: "${DOWNSTREAM_JOB.name}" declares an \`environment:\`. It must not — the ` +
+        `approval on "${DOWNSTREAM_JOB.needs}" already authorised shipping Safari, and a second ` +
+        `gate here would park an unattended release after the build is already at Apple. That is ` +
+        `precisely how v1.7.0 and v1.9.0 were stranded.`,
+    );
+  }
+  // …and it must stay chained to the approved upload, which is what makes the
+  // missing gate safe.
+  if (!downstreamBody.includes(DOWNSTREAM_JOB.needs)) {
+    failures.push(
+      `release.yml: "${DOWNSTREAM_JOB.name}" no longer declares \`needs: ${DOWNSTREAM_JOB.needs}\`. ` +
+        `Without it the job is an ungated store submission that can run on its own.`,
+    );
+  }
+  if (!downstreamBody.includes(DOWNSTREAM_JOB.guard)) {
+    failures.push(
+      `release.yml: "${DOWNSTREAM_JOB.name}" no longer gates on ` +
+        `\`${DOWNSTREAM_JOB.guard}\` — it could then submit when the approved upload was skipped ` +
+        `(absent Apple secrets) or failed.`,
+    );
+  }
+}
+
 const prepareBody = jobBody(workflow, UNGATED_JOB);
 if (prepareBody !== null && declaresEnvironment(prepareBody)) {
   failures.push(
@@ -128,5 +215,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log(
-  '✓ release governance: metrics-gate bypass is empty (JSON + doc agree); all store jobs gate on an environment.',
+  '✓ release governance: metrics-gate bypass is empty (JSON + doc agree); all store jobs gate on ' +
+    `an environment; every release.yml job is classified; "${DOWNSTREAM_JOB.name}" stays chained ` +
+    `to the approved "${DOWNSTREAM_JOB.needs}" upload.`,
 );

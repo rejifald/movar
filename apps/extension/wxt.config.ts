@@ -175,15 +175,32 @@ function assertBackgroundModuleType(outDir: string): void {
  * counterpart in apps/extension/scripts/check-content-bundle.mts measures the
  * esbuild-metafile import graph (80 KB budget) and prints the per-package
  * contributor breakdown + does the precise franc-in-graph check; this guard runs
- * on every `wxt build` and is the one that gates CI. The 48 KB artifact budget
- * sits ~8 KB over the real ~40 KB content.js — enough headroom for normal growth,
- * tight enough that a moderately heavy dep (let alone franc) trips it. Bump it
- * deliberately if the always-on path legitimately grows; the previous 40 KB
- * value was set over a ~31 KB artifact, which then grew to 26 bytes below the
- * ceiling through deliberate feature work (the language-switch ladder, session
- * picker choice, empty-SERP retry, live region, content i18n), turning the
- * tripwire into per-PR friction — a 2026-07 per-file audit of the bundle found
- * no dead weight to cut instead.
+ * on every `wxt build` and is the one that gates CI. The 56 KB artifact budget
+ * sits ~8 KB over the real ~48.5 KB content.js — enough headroom for normal
+ * growth, tight enough that a moderately heavy dep (let alone franc) trips it.
+ *
+ * This budget is a tripwire for an accidental heavy dep, NOT a device-derived
+ * performance limit — hence the franc-shaped error message below. Bump it
+ * deliberately when the always-on path legitimately grows, and only after a
+ * per-file audit says the growth is real. Twice now it has been:
+ *
+ *   40 KB, set over a ~31 KB artifact, grew to 26 bytes below the ceiling
+ *     through deliberate feature work (the language-switch ladder, session
+ *     picker choice, empty-SERP retry, live region, content i18n). A 2026-07
+ *     per-file audit found no dead weight to cut instead → raised to 48 KB.
+ *   48 KB, set over that ~40 KB artifact, grew to 27 bytes below the ceiling
+ *     (#588, after #584). A 2026-09 per-file audit reproduced the 2026-07
+ *     verdict: the three suspicious entries are all deliberate —
+ *     `settings/migrate.ts` because `storage.sync` roams across builds so every
+ *     read normalizes, `content-strings-en.ts` because it is the fallback shown
+ *     when the worker cannot be reached, and the rest is detection and picker
+ *     extraction that runs every tick → raised to 56 KB.
+ *
+ * The one candidate the 2026-09 audit did find is `strategy.ts` +
+ * `language-switch.ts` (~6.5 KB), which a page already in an acceptable
+ * language never reaches. Moving it behind a capability chunk is tracked in
+ * #593 — it trades an async hop on the redirect path, so it wants its own
+ * decision rather than being done under budget pressure.
  */
 function assertContentBundleSlim(outDir: string): void {
   const contentPath = path.join(outDir, 'content-scripts', 'content.js');
@@ -194,7 +211,7 @@ function assertContentBundleSlim(outDir: string): void {
     return; // this target emitted no content script — nothing to measure
   }
   const kb = Math.round(bytes / 1024);
-  const BUDGET_KB = 48;
+  const BUDGET_KB = 56;
   // Bytes + exact headroom, not just rounded KB: when this guard eventually
   // trips, the first question is "by how much" — a 30-byte overshoot and a
   // franc-sized one need opposite responses.

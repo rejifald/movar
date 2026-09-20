@@ -13,25 +13,6 @@
  *   replace — curtain inserted as a sibling BEFORE `target`, occupying its
  *             flow slot at the curtain's natural size. `target` itself is
  *             hidden via display:none.
- *   badge   — a mark placed BESIDE `target`, which is not touched at all. For
- *             a control Movar cannot reach inside: a native <select> draws its
- *             popup outside the document, so the mark has to sit next to the
- *             control rather than in it.
- *
- *             The badge must never get in the visitor's way, so it is built to
- *             be incapable of it. The host is appended to `document.body` and
- *             positioned from the target's rect, so the site's own DOM gains no
- *             sibling (`select + button` rules, `:last-child`, `nth-child` and
- *             flex gap counts all keep working) and its layout does not shift.
- *             `pointer-events: none` means it cannot swallow a click even where
- *             it visually overlaps — which is also why tracking it by position
- *             is safe: drift can be cosmetic, never functional. It is
- *             `aria-hidden` and takes no focus, so it adds no tab stop and no
- *             second announcement; the caller anchors the real explanation on
- *             the control itself, which already takes hover AND focus.
- *             `data-expanded` (set by the caller while the control is hovered
- *             or focused) grows it from the bare mark to its label.
- *
  * Two visual skins, picked via `skin`:
  *
  *   pill — the card-shaped default. Icon + title + description + actions
@@ -99,7 +80,7 @@ const FILTER_VAR = '--movar-curtain-filter';
 const DEFAULT_CHILD_FILTER = 'blur(16px) saturate(0.6)';
 const DEFAULT_PEEK_FILTER = 'blur(4px) saturate(0.85)';
 
-export type CurtainMode = 'cover' | 'replace' | 'badge';
+export type CurtainMode = 'cover' | 'replace';
 export type CurtainSkin = 'pill' | 'chip';
 
 export interface ActionContext {
@@ -418,32 +399,6 @@ const STYLES = `
 :host([data-mode="replace"]) {
   display: inline-flex;
   vertical-align: middle;
-}
-/* Badge — inert floating mark; grows to its label while data-expanded. */
-:host([data-mode="badge"]) {
-  position: fixed;
-  display: inline-flex;
-  pointer-events: none;
-  user-select: none;
-  z-index: 2147483645;
-}
-:host([data-mode="badge"]) .chip__label {
-  max-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  opacity: 0;
-  transition:
-    max-width ${duration.slow} ${easing.standard},
-    opacity ${duration.fast} ${easing.standard};
-}
-:host([data-mode="badge"][data-expanded]) .chip__label {
-  max-width: 16ch;
-  opacity: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  :host([data-mode="badge"]) .chip__label {
-    transition: none;
-  }
 }
 :host([data-mode="replace"]) .curtain {
   display: contents;
@@ -1064,240 +1019,6 @@ function revertReplaceSideEffects(target: HTMLElement, restore: ReplaceRestore):
   }
 }
 
-/** Gap between the control's edge and the badge, in px — on whichever side of
- *  the control the badge ends up. */
-const BADGE_GAP_PX = 6;
-/** Keep the badge this far inside the viewport edge, both as the margin the
- *  room-for-a-side arithmetic leaves free and as the offset of the last-resort
- *  hug. A right-aligned language control is the usual placement, so the edge is
- *  the normal case here rather than the exotic one. */
-const BADGE_EDGE_MARGIN_PX = 4;
-/** How much room a side needs before the badge is placed there: the badge's
- *  EXPANDED width, not the resting mark's.
- *
- *  Measured in Chromium on the picker-badge-edge-ru fixture: the mark is 24px
- *  at rest and 98px once the control is hovered and `.chip__label` animates out
- *  of `max-width: 0`. The label's `max-width: 16ch` caps how far that can go for
- *  a longer translation or a wider system font — near 115px at the chip's 11px
- *  floor — so 120 covers the whole range with a little to spare.
- *
- *  Erring high is the cheap direction: it flips the badge to the control's
- *  leading side earlier than strictly needed, which still reads as "beside the
- *  control". Erring low is the defect this constant exists for — the label
- *  hanging off the edge of the viewport. */
-const BADGE_RESERVE_PX = 120;
-
-/** Every mounted badge, so one shared pair of page listeners can keep them all
- *  pinned instead of each attaching its own.
- *
- *  A strong Map, unlike the WeakMaps in picker-filter, because the values are
- *  what we iterate — so {@link repositionAllBadges} is also what evicts: any
- *  entry whose host or target has left the document is dropped (and its orphan
- *  host removed) on the next pass, which is the only thing standing between an
- *  SPA that re-renders its control and an unbounded leak of pinned subtrees. */
-const badgeAnchors = new Map<HTMLElement, HTMLElement>();
-let badgeListenersInstalled = false;
-let badgeFrame = 0;
-/** Watches each badge's control for a box that appears, changes or goes away —
- *  and the document element for one that changes size, which is how a badge
- *  hears that its control has merely MOVED.
- *
- *  Scroll and resize miss the first three: a control inside a collapsed
- *  hamburger or an inactive tab panel has NO box when the filter runs, so its
- *  badge mounts hidden — and the menu opening later is a layout change that
- *  fires neither event, leaving the filtered picker permanently unmarked.
- *
- *  They miss a pure translation too, and so does observing the control, since a
- *  move is none of the three: a banner slot filling in above the control pushed
- *  it 120px down with its box unchanged, and the badge sat where it was — a
- *  -120px offset that only healed on the visitor's next scroll. What almost
- *  always accompanies such a shift is the page getting taller, so the document
- *  element's own box is the cheap proxy for it: ONE extra observation for the
- *  whole page, feeding the reposition that was already rAF-coalesced. A proxy
- *  and not a guarantee — a shift inside a fixed-height scroller leaves `<html>`
- *  the same size and still waits for the scroll — but the badge is
- *  `pointer-events: none`, so residual drift is cosmetic, and cosmetic is not
- *  worth a frame loop that runs on every page Movar touches. */
-let badgeResizeObserver: ResizeObserver | null = null;
-
-function badgeObserver(): ResizeObserver | null {
-  if (typeof ResizeObserver === 'undefined') return null;
-  badgeResizeObserver ??= new ResizeObserver(scheduleBadgeReposition);
-  return badgeResizeObserver;
-}
-
-/** Write one horizontal anchor and clear the other. Both `left` and `right` set
- *  on a fixed, auto-width host resolves the width from the pair — the badge
- *  would be stretched to the gap between them instead of shrink-wrapping its
- *  label — so the side we are not anchoring from has to be removed, not left
- *  over from the pass that chose the other side. */
-function anchorBadge(host: HTMLElement, side: 'left' | 'right', px: number): void {
-  host.style.setProperty(side, `${String(px)}px`);
-  host.style.removeProperty(side === 'left' ? 'right' : 'left');
-}
-
-/**
- * Pin `host` beside `target`, vertically centred, in VIEWPORT coordinates — the
- * host is `position: fixed`, matching tooltip.ts.
- *
- * Page coordinates on a `position: absolute` host were wrong: an absolutely
- * positioned element resolves against its nearest POSITIONED ancestor, so the
- * ubiquitous `body { position: relative; max-width: …; margin: 0 auto }` shell
- * made the offsets resolve against body's padding box. Measured in Chromium,
- * the badge landed 386px from its control. `fixed` also keeps an off-edge badge
- * from extending the document's scrollable overflow and giving the site a
- * horizontal scrollbar.
- *
- * Which side, and why no anchor here is ever computed FROM the badge's width:
- * the badge is two sizes. It rests as a 24px mark and grows to ~98px while the
- * control is hovered, over a transition that nothing repositions at either end.
- * So each branch anchors the edge the box grows AWAY from — `left` when the
- * badge sits after the control, `right` when it sits before it — and the same
- * numbers hold for both sizes. Deriving a left edge from the measured width
- * instead is what left a collapsed 24px badge at left=498, over a control
- * spanning 503-592, after one reposition happened to land while it was hovered.
- *
- * Clamping into the viewport is the last resort here, not the first step. As
- * the first step (`min(right + gap, innerWidth - width - margin)`) it put the
- * resting mark at left=572 on a control ending 8px from the viewport edge —
- * covering the control's last 20px, its dropdown arrow — and then let the
- * hovered form run 70px off-screen, rendering "Movar: hidden" as "M". So: after
- * the control if the expanded badge fits there, before it if it fits there, and
- * only for a control with less than {@link BADGE_RESERVE_PX} free on EITHER
- * side — one nearly as wide as the viewport — hug the roomier viewport edge,
- * which at least keeps the whole label on screen.
- *
- * A target with no box — a control inside a collapsed menu, or one not laid out
- * yet — hides the badge rather than parking it at 0,0.
- */
-function positionBadge(host: HTMLElement, target: HTMLElement): void {
-  const rect = target.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) {
-    host.style.visibility = 'hidden';
-    return;
-  }
-  host.style.visibility = '';
-  // Read before the writes below, and only for the HEIGHT: the label grows
-  // sideways on one line, so the height is the one dimension of our own box
-  // that does not depend on whether the control is being hovered right now.
-  const own = host.getBoundingClientRect();
-  const viewport = globalThis.innerWidth;
-  const roomAfter = viewport - rect.right - BADGE_GAP_PX - BADGE_EDGE_MARGIN_PX;
-  const roomBefore = rect.left - BADGE_GAP_PX - BADGE_EDGE_MARGIN_PX;
-  if (roomAfter >= BADGE_RESERVE_PX) {
-    anchorBadge(host, 'left', rect.right + BADGE_GAP_PX);
-  } else if (roomBefore >= BADGE_RESERVE_PX) {
-    anchorBadge(host, 'right', viewport - rect.left + BADGE_GAP_PX);
-  } else {
-    anchorBadge(host, roomAfter >= roomBefore ? 'right' : 'left', BADGE_EDGE_MARGIN_PX);
-  }
-  host.style.top = `${String(rect.top + (rect.height - own.height) / 2)}px`;
-}
-
-/**
- * Drop a badge whose host or control has left the document — through the
- * curtain's OWN detach, resolved off the host the way the page-wide sweeps do.
- *
- * `unmountBadge(host)` + `host.remove()` reads as the same thing and is not: it
- * skips `opts.onDetach`, and for a badge that hook is the whole other half of
- * the surface. attachPickerControlBadge pairs the badge with a tooltip anchored
- * on the control, a SECOND host on document.body that only onDetach releases.
- * Evicting by hand tore down the half the eviction could see: measured across
- * five re-renders of the control, badge hosts stayed at 1 while
- * `[data-movar-tooltip]` hosts went 1 → 6. An SPA re-rendering its picker is
- * precisely the case this eviction exists for, so it leaked one per render.
- */
-function evictBadge(host: HTMLElement): void {
-  const handle = (host as HostWithHandle)[HANDLE_KEY];
-  if (handle) {
-    handle.detach();
-    return;
-  }
-  // Unreachable for anything attachCurtain built — it assigns the handle before
-  // it mounts. Kept so a host that somehow arrives without one still leaves the
-  // Map rather than pinning a dead node and its control for the page's life.
-  unmountBadge(host);
-  host.remove();
-}
-
-/** Reposition every live badge and evict every dead one. Also the teardown
- *  trigger: once nothing is left to track, the page listeners come off. */
-function repositionAllBadges(): void {
-  for (const [host, target] of badgeAnchors) {
-    if (!host.isConnected || !target.isConnected) {
-      evictBadge(host);
-      continue;
-    }
-    positionBadge(host, target);
-  }
-  if (badgeAnchors.size === 0) teardownBadgeListeners();
-}
-
-/** Coalesce to one reposition per frame. The scroll listener is capture-phase,
- *  so it fires for every scroller on the page at native scroll rate; without
- *  this each event would force a synchronous layout per badge, mid-scroll and
- *  outside the frame's own layout pass. */
-function scheduleBadgeReposition(): void {
-  if (badgeFrame !== 0) return;
-  badgeFrame = globalThis.requestAnimationFrame(() => {
-    badgeFrame = 0;
-    repositionAllBadges();
-  });
-}
-
-function installBadgeListeners(): void {
-  if (badgeListenersInstalled) return;
-  badgeListenersInstalled = true;
-  globalThis.addEventListener('scroll', scheduleBadgeReposition, {
-    capture: true,
-    passive: true,
-  });
-  globalThis.addEventListener('resize', scheduleBadgeReposition);
-}
-
-/** The half tooltip.ts has and the first cut of this did not: with no badges
- *  left, nothing should still be listening. "Turn Movar off" has to be able to
- *  remove every global the module installed. */
-function teardownBadgeListeners(): void {
-  if (!badgeListenersInstalled) return;
-  badgeListenersInstalled = false;
-  globalThis.removeEventListener('scroll', scheduleBadgeReposition, { capture: true });
-  globalThis.removeEventListener('resize', scheduleBadgeReposition);
-  badgeResizeObserver?.disconnect();
-  badgeResizeObserver = null;
-  if (badgeFrame !== 0) {
-    globalThis.cancelAnimationFrame(badgeFrame);
-    badgeFrame = 0;
-  }
-}
-
-/** Append the badge to `document.body` — never into the site's own tree, so no
- *  sibling selector, child index or flex gap count changes — and pin it. */
-function mountBadge(host: HTMLElement, target: HTMLElement): void {
-  host.setAttribute(ARIA_HIDDEN_ATTR, 'true');
-  document.body.append(host);
-  badgeAnchors.set(host, target);
-  installBadgeListeners();
-  const observer = badgeObserver();
-  // The document element for a control that only MOVES, the control itself for
-  // one whose box appears, changes or goes away. Re-observing the page per
-  // badge rather than once alongside the listeners is deliberate: an observer
-  // keeps one observation per target, so the repeat is free, and it keeps both
-  // halves of "what repins a badge" in the one place that mounts one.
-  observer?.observe(document.documentElement);
-  observer?.observe(target);
-  positionBadge(host, target);
-}
-
-/** Drop `host` from tracking, and stop listening once the last badge is gone. */
-function unmountBadge(host: HTMLElement): void {
-  const target = badgeAnchors.get(host);
-  if (target === undefined) return;
-  badgeAnchors.delete(host);
-  badgeObserver()?.unobserve(target);
-  if (badgeAnchors.size === 0) teardownBadgeListeners();
-}
-
 /** Mark a block replace-mode host and floor it at the slot it stands in. The
  *  min-height is inline rather than a CSS rule because the value is measured per
  *  slot; the host is ours, so it leaves with the curtain on detach. No-op for
@@ -1404,7 +1125,6 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
     detached = true;
     if (coverRestore) revertCoverSideEffects(target, coverRestore);
     if (replaceRestore) revertReplaceSideEffects(target, replaceRestore);
-    unmountBadge(host);
     host.remove();
     opts.onDetach?.();
   }
@@ -1424,10 +1144,6 @@ export function attachCurtain(target: HTMLElement, opts: CurtainOptions): Curtai
 
   if (opts.mode === 'cover') {
     coverRestore = mountCoverCurtain(host, target, opts);
-  } else if (opts.mode === 'badge') {
-    // No side effects on the target at all, and nothing added to the site's
-    // tree — so detach() only has to drop the host and its tracking entry.
-    mountBadge(host, target);
   } else {
     replaceRestore = applyReplaceSideEffects(target);
     const parent = target.parentNode;

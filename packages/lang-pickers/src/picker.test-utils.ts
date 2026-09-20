@@ -196,9 +196,13 @@ export function expectEntryCurtained(entrySelector: string): HTMLElement {
   return host!;
 }
 
-/** Collect every control-badge host currently standing beside a native control. */
-export function getControlBadges(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>('[data-movar-kind="picker-badge"]')];
+/** Every blocked `<option>` a native `<select>` picker has marked IN PLACE —
+ *  disabled and relabelled, with its original text snapshotted so the restore
+ *  can put it back. Keyed on the snapshot attribute because that is what only
+ *  the marked path sets: an option concealed in `hide` mode carries the hidden
+ *  marker too, but no snapshot. */
+export function getMarkedOptions(): HTMLOptionElement[] {
+  return [...document.querySelectorAll<HTMLOptionElement>('option[data-movar-original-text]')];
 }
 
 /** Collect every picker-entry chip host currently standing in a hidden row. */

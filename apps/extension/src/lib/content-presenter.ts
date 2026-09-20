@@ -54,14 +54,6 @@ export interface PickerEntryCurtainRequest {
   onDetach: () => void;
 }
 
-/** The control of a picker whose entries Movar cannot mark — a native
- *  `<select>`. The badge sits beside it as the visible sign that Movar acted. */
-export interface PickerControlBadgeRequest {
-  control: HTMLElement;
-  hiddenLanguages: readonly LanguageCode[];
-  restore(): void;
-}
-
 export interface ContentPresenter {
   readonly hasVisiblePresentation: boolean;
   /** Token that changes whenever an already-mounted surface would now render
@@ -74,7 +66,21 @@ export interface ContentPresenter {
   detachCurtains(root?: ParentNode): void;
   attachPickerContainerCurtain(request: PickerContainerCurtainRequest): PresenterHandle | null;
   attachPickerEntryCurtain(request: PickerEntryCurtainRequest): PresenterHandle | null;
-  attachPickerControlBadge(request: PickerControlBadgeRequest): PresenterHandle | null;
+  /**
+   * The neutral label a native `<select>`'s blocked `<option>` is relabelled
+   * to, in the active content locale.
+   *
+   * A string rather than an attach* method because this is the one surface
+   * with no host to mount: an `<option>` cannot contain an element, so the mark
+   * IS the option's own text. Everything the other surfaces put in a shadow
+   * root — icon, description, a restore action — has nowhere to go here, and
+   * the way back is the popup's "Show everything" instead.
+   *
+   * Neutral on purpose, and for the same reason the in-row chip's visible text
+   * is: this label sits in a list OF language names, so naming the language
+   * Movar took away reads as one more language to pick.
+   */
+  pickerHiddenOptionLabel(): string;
   attachPickerSurvivorTooltip(request: PickerSurvivorTooltipRequest): PresenterHandle | null;
   detachAllTooltips(root?: ParentNode): void;
 }

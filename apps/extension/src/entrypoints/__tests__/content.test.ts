@@ -99,7 +99,7 @@ function fakePresenter() {
     detachCurtains: vi.fn(),
     attachPickerContainerCurtain: vi.fn(() => null),
     attachPickerEntryCurtain: vi.fn(() => null),
-    attachPickerControlBadge: vi.fn(() => null),
+    pickerHiddenOptionLabel: vi.fn(() => 'Movar: hidden'),
     copyRevision: vi.fn(() => 'en'),
     attachPickerSurvivorTooltip: vi.fn(() => null),
     detachAllTooltips: vi.fn(),

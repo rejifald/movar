@@ -1,0 +1,132 @@
+<!doctype html>
+<!--
+  Native `<select>` picker fixture — a Ukrainian page whose Russian option
+  Movar marks in place.
+
+  Drives LAYOUT_SURFACES.native (apps/extension/src/lib/picker-filter.ts): the
+  blocked `<option>` stays in the list, gets `disabled`, and its label becomes
+  the neutral mark. Nothing is drawn on the page, so there is nothing to
+  photograph — a `<select>`'s popup is rendered by the OS, not the page
+  compositor — and the companion spec is picker-native.behavior.spec.ts rather
+  than a visual one.
+
+  Why a fixture of its own rather than reusing picker-select-ru: that one is a
+  Russian page, and the filter keys off `settings.blocked` rather than the
+  page's own language, so a Ukrainian page whose Russian option is hidden is
+  the true product story — the same argument picker-survivor-uk makes. It also
+  lets the assertions read against known Ukrainian labels.
+
+  `<option selected hreflang="uk">` is what keeps the page still: `selected` is
+  the canonical active-entry marker for a `<select>` (see
+  isActiveBySelectedOption in packages/lang-pickers/src/active.ts), so the model
+  resolves the active language to uk, which is not blocked, and no switch ladder
+  fires before the filter settles. No `<link rel="alternate" hreflang>` in head,
+  for the same reason as every sibling picker fixture — it would fire the
+  hreflang strategy and navigate away first.
+
+  The `hreflang` attributes matter beyond classification: the popup's hidden
+  summary re-classifies each `[data-movar-hidden]` element off the live DOM, so
+  an attribute-driven option keeps naming its language even after Movar has
+  swapped the visible label.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Інтернет-магазин — вибір мови</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      /* NOT decoration: `position: relative` makes body a containing block, so
+         an absolutely-positioned host appended to it resolves against body's
+         padding box rather than the viewport. The badge was once mounted with
+         page coordinates and landed 386px from its control on exactly this
+         shape — keeping it here means the baseline sees the real placement
+         path, not an easier one. */
+      body {
+        position: relative;
+        margin: 0;
+        min-height: 100vh;
+        padding: 24px;
+        box-sizing: border-box;
+        background: #fafaf9;
+        color: #1c1917;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .bar label {
+        font-size: 13px;
+        color: #57534e;
+      }
+      select {
+        font: inherit;
+        font-size: 13px;
+        padding: 5px 8px;
+        border: 1px solid #d6d3d1;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #1c1917;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 8px;
+        max-width: 34rem;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #57534e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+        }
+        body {
+          background: #0f0f0f;
+          color: #fafaf9;
+        }
+        .bar label,
+        p {
+          color: #a8a29e;
+        }
+        select {
+          border-color: #44403c;
+          background: #1c1917;
+          color: #fafaf9;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <label for="lang-select">Мова</label>
+      <select id="lang-select">
+        <option hreflang="ru" value="/ru/">Русский</option>
+        <option hreflang="uk" value="/" selected>Українська</option>
+        <option hreflang="en" value="/en/">English</option>
+      </select>
+    </header>
+    <main>
+      <h1>Каталог товарів</h1>
+      <p>
+        Ласкаво просимо до нашого інтернет-магазину. У нас ви знайдете якісні товари за доступними
+        цінами з доставкою по всій країні.
+      </p>
+      <p>
+        Великий вибір електроніки, побутової техніки та аксесуарів для дому. Гарантія на всі товари
+        дванадцять місяців.
+      </p>
+    </main>
+  </body>
+</html>

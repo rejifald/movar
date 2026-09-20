@@ -10,16 +10,27 @@
  * v4), so a token regression on any surface lands here as a diff.
  *
  * ─────────────────────────────────────────────────────────────────────
- * Matrix — 8 pages × {en, uk} × {light, dark} = 32 baselines
+ * Matrix — 48 page baselines + 10 dedicated captures = 58
  * ─────────────────────────────────────────────────────────────────────
  *
- *   pages:   home · install · why-this-happens · how-movar-works ·
- *            why-not-ai · transparency · privacy · 404
+ *   pages:   whatever `./pages` lists, deliberately NOT restated here. That
+ *            module is the shared page matrix (this suite and the contrast
+ *            suite both read it) and its own header explains why a second
+ *            hand-maintained copy is the drift this repo keeps getting bitten
+ *            by — a copy in THIS docblock is a third, and it had already gone
+ *            stale by six pages before anyone noticed. Today it holds 14: ten
+ *            bilingual and four Ukrainian-only (blog, blog-post, guide,
+ *            guide-page), which is 10×2×2 + 4×1×2 = 48.
  *   locale:  en (root) · uk (/uk/…)   — pinned via `navigator.language` so
  *            `BaseLayout`'s inline redirect (/ ↔ /uk/) never fires, AND to
- *            exercise Cyrillic glyph rendering + text wrapping;
+ *            exercise Cyrillic glyph rendering + text wrapping. The uk-only
+ *            rows carry no `en` URL to shoot, so the matrix skips them there;
  *   scheme:  light · dark             — the `prefers-color-scheme` token flip,
  *            so a dark-only regression can't hide behind a passing light cell.
+ *
+ *   The other 10 sit OUTSIDE that matrix, each for a reason argued below:
+ *   header (4) and footer (4) because they render on every page, and the
+ *   post's closing CTA (2, uk-only) because it rendered in none.
  *
  * Determinism: `animations: 'disabled'` (config) cancels the infinite hero-aurora
  * keyframes to their initial frame; `reducedMotion: 'reduce'` trips the site's
@@ -30,9 +41,9 @@
  *
  * Footer: `Footer.astro` renders on every page above, so a plain full-page shot
  * makes one footer-only change (say, a one-line copy edit that shifts its
- * height) invalidate all 42 of the 44 committed baselines — every page here
- * except the two `blog-post` rows, which `CLIP_HEIGHT_PX` already bounds above
- * the footer — for pixels that didn't move on any of those pages. A Playwright
+ * height) invalidate 46 of the 48 page baselines — every page here except the
+ * two `blog-post` rows, which `CLIP_HEIGHT_PX` already bounds above the footer
+ * — for pixels that didn't move on any of those pages. A Playwright
  * `mask` does not fix this: a masked region still occupies pixels, so a taller
  * footer still grows the full-page image and still invalidates the baseline
  * underneath the mask. `settleAndShoot` instead measures the footer's top edge
@@ -42,7 +53,7 @@
  * matrix above — so a real footer regression still has coverage.
  *
  * Header: the same argument, and the same treatment. `Header.astro` renders on
- * every page too, so its band sat in all 44 page baselines and one nav-copy edit
+ * every page too, so its band sat in all 48 page baselines and one nav-copy edit
  * invalidated every one of them. `settleAndShoot` now starts each clip at the
  * header's bottom edge (`measureHeaderBottom`), and the header gets its own
  * dedicated capture — 4 more baselines (`marketing-header-<locale>[-dark].png`).
@@ -148,8 +159,9 @@ const IMAGE_SETTLE_MS = 10_000;
  * The hero drum's 8 lazy screenshots (`ExampleDrum.astro`, in `<picture>`
  * elements with `prefers-color-scheme` dark variants) therefore stayed unloaded
  * and collapsed to zero height — and *which* page happened to win the race
- * varied per run: one regeneration of the 24 baselines produced 23 pages without
- * the screenshots and exactly one with them, ~1800px taller than its siblings.
+ * varied per run: one regeneration of the 24 baselines the suite held at the
+ * time produced 23 pages without the screenshots and exactly one with them,
+ * ~1800px taller than its siblings.
  * Every historically committed baseline lost that race, so the suite never
  * actually covered the drum imagery.
  *
@@ -275,7 +287,7 @@ async function measureFooterTop(page: Page): Promise<number | undefined> {
  * Measure the header's bottom edge in full-page document coordinates, so a
  * capture can start below it — the mirror of {@link measureFooterTop}, for the
  * same reason. `Header.astro` renders on every page here, so its band sat in
- * all 44 committed baselines: one nav-copy edit invalidated every one of them
+ * all 48 page baselines: one nav-copy edit invalidated every one of them
  * for pixels that moved on none of those pages. The header gets its own
  * dedicated capture below instead.
  *

@@ -6,7 +6,7 @@
  * against a committed baseline.
  *
  * This is the appearance-parity coverage for the host app the Safari wrapper's
- * WKWebView renders (Detector / Settings / About tabs) — the React
+ * WKWebView renders (Detector / Audit / Settings / About tabs) — the React
  * re-platforming of the frozen magical-snyder `Main.html` screen. The matrix
  * pins every tab on BOTH platforms — iOS (390px, the phone-class window) and
  * macOS (480px, the native window's `contentRect` width) — across both shipped
@@ -14,8 +14,12 @@
  * behind a passing neighbour.
  *
  * ─────────────────────────────────────────────────────────────────────
- * State matrix — 7 states × {en, uk} × {light, dark} = 28 baselines
+ * State matrix — 9 states × {en, uk} × {light, dark} = 36 baselines
  * ─────────────────────────────────────────────────────────────────────
+ *
+ * `STATES` below is the executable copy of this table; keep the two in step
+ * (this header claimed 7 states and 28 baselines for as long as the Audit tab
+ * had been shipping, which is exactly how long nothing noticed).
  *
  *   ┌───────────────────┬───────┬─────────────────────────────────────┐
  *   │ State             │ Width │ What it pins                        │
@@ -24,6 +28,11 @@
  *   │ detector-macOS    │ 480   │ (idle, empty input → no verdict     │
  *   │                   │       │ box) — iOS phone width vs the wider │
  *   │                   │       │ macOS window reflow                 │
+ *   │ audit-ios         │ 390   │ the audit tab at rest: the composer │
+ *   │ audit-macOS       │ 480   │ with its default target + the       │
+ *   │                   │       │ network-posture list. The report    │
+ *   │                   │       │ needs a probe bridge no browser has,│
+ *   │                   │       │ so the landing surface is the pin   │
  *   │ settings-ios      │ 390   │ the full options surface: master    │
  *   │ settings-macOS    │ 480   │ switch, 3-language priority (head/  │
  *   │                   │       │ mid/tail reorder states), Conceal-  │

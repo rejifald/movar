@@ -1170,13 +1170,119 @@ function detachForeignSurfaces(picker: Picker): void {
  * and {@link LAYOUT_SURFACES} is where that choice is made; naming the arms
  * here too would be the same mapping written a third time.
  */
+/**
+ * The signature each container was last cleaned at — see
+ * {@link separatorInputSignature}. WeakMap like the mark registries: a
+ * container the site re-renders away takes its entry with it.
+ */
+const separatorState = new WeakMap<HTMLElement, string>();
+
+/**
+ * Everything the four separator passes read, as one string.
+ *
+ * Their inputs are narrower than they look, and that is what makes a guard
+ * possible: `hideUselessDividers` and `trimContainerTextSeparators` walk the
+ * container's DIRECT children only (going deeper would classify a `/` inside a
+ * button label as a divider), and `trimOrphanSeparators` /
+ * `hideOrphanEdgeBorders` walk `picker.links`. Nothing else is consulted. So a
+ * signature over exactly those two sequences is not a heuristic for "did
+ * anything change" — it is the passes' whole input domain, and an unchanged
+ * signature means all four are provably no-ops.
+ *
+ * Keyed on ATTRIBUTES AND TEXT, not on the hidden-language set. #586 proposed
+ * the latter and #592 pinned the two things it breaks, both of which move the
+ * DOM without moving that set:
+ *
+ *   - a blocked duplicate arriving after the first pass. `dedupByLanguage`
+ *     keeps it out of `picker.links`, so the hidden languages still read
+ *     exactly ['ru'] while a clickable blocked link sits on the page
+ *     (movar#293). Guarded on languages, the picker is skipped and it leaks.
+ *   - a container separator the site re-renders back as a bare text node.
+ *     Languages do not move, and the separator stays stranded for the life of
+ *     the page.
+ *
+ * Both change this signature — the first adds a child, the second turns one of
+ * our `text-divider` spans back into a text node — so both still repair. The
+ * separate half of the answer is WHERE the guard sits: only the four passes are
+ * skipped. `filterPickerLinks` (which is what actually hides, and the first
+ * case's real fix) runs every tick as before, and so do the surface
+ * attach/detach calls, whose own guards check that the mark is still connected
+ * — something a container signature cannot see.
+ *
+ * Attributes rather than a hand-picked few: `style` carries the border override
+ * and the hide, `data-movar-*` the original text a re-render would strip, and a
+ * site re-applying its own inline style must still be repaired. Reading them
+ * all costs one pass over a handful of attributes and cannot go stale the way
+ * an enumerated list does.
+ */
+/** One element's contribution to {@link separatorInputSignature}.
+ *
+ *  Attributes in document order, not sorted: order is stable for an element
+ *  nothing has touched, and sorting costs a comparator on every element of
+ *  every picker on every tick to buy nothing. A site that rewrote the same
+ *  attributes in a different order would simply spend one more re-run and
+ *  settle, because the signature is re-stamped from the state we leave. */
+function describeForSignature(el: HTMLElement): string {
+  let attrs = '';
+  for (const attribute of el.attributes) attrs += `${attribute.name}=${attribute.value};`;
+  return `${el.tagName}[${attrs}]${el.textContent}`;
+}
+
+function separatorInputSignature(picker: Picker): string {
+  const parts: string[] = [];
+
+  for (const node of picker.container.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) parts.push(`t:${node.nodeValue ?? ''}`);
+    else if (node instanceof HTMLElement) parts.push(`e:${describeForSignature(node)}`);
+    else parts.push(`n:${String(node.nodeType)}`);
+  }
+
+  // Not folded into the loop above: a wrapper case puts the classified link a
+  // level down, where neither its hidden state nor its own text is visible in
+  // the wrapper's entry. `trimOrphanSeparators` reads exactly that link.
+  for (const link of picker.links) {
+    const own = link.el.parentElement === picker.container ? 'c' : '-';
+    parts.push(`l:${own}:${String(link.el.children.length)}:${describeForSignature(link.el)}`);
+  }
+
+  return parts.join('\u0000');
+}
+
 function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter | undefined): void {
-  hideUselessDividers(picker);
-  hideOrphanEdgeBorders(picker);
-  trimOrphanSeparators(picker);
-  trimContainerTextSeparators(picker);
+  // Four traversals per MutationObserver fire, on SPA pages that re-render
+  // aggressively (#586) — replaced by one.
+  //
+  // READS, not writes. #586 describes the passes as writing to the DOM every
+  // tick; they do not. hideElement, hideEdgeBorderSide and both trims each
+  // early-out once their work is done, so a steady tick is pure traversal, and
+  // a characterization test in picker.filter.test.ts pins that. What is saved
+  // is the traversal itself — including hideUselessDividers' O(children x
+  // links) `contains` scan — at the cost of one signature walk. Measured in
+  // jsdom over a 12-language picker in steady state, three runs each: ~120 ->
+  // ~92 us per tick, about 23%. A real saving, and a modest one — jsdom is not
+  // a browser, and the honest claim is
+  // "fewer walks", not "no longer writes".
+  const dirty = separatorState.get(picker.container) !== separatorInputSignature(picker);
+  if (dirty) {
+    hideUselessDividers(picker);
+    hideOrphanEdgeBorders(picker);
+    trimOrphanSeparators(picker);
+    trimContainerTextSeparators(picker);
+  }
+
+  // Deliberately OUTSIDE the guard. These carry their own idempotence, keyed on
+  // what the mark says AND on its host still being connected — a host the site
+  // tore off leaves the container's own children untouched, so this signature
+  // would happily skip the re-attach and the entry would stay hidden with
+  // nothing explaining it. That is the silent concealment this file exists to
+  // prevent, and it is worth the two cheap calls.
   detachForeignSurfaces(picker);
   LAYOUT_SURFACES[picker.layout].attach(picker, presenter);
+
+  // Re-read rather than reusing the value above: the passes just mutated the
+  // very inputs the signature is taken over, and attach may add a host of its
+  // own. What next tick must match is the state we are leaving behind.
+  if (dirty) separatorState.set(picker.container, separatorInputSignature(picker));
 }
 
 // The cyclomatic count comes from the per-picker pipeline: hide links, then

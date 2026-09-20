@@ -1433,6 +1433,83 @@ describe('filterPickers — regional-variant duplicates of a blocked language (m
   });
 });
 
+describe('filterPickers — what the unguarded re-run is load-bearing for (#586)', () => {
+  // #586 proposes skipping a picker whose state signature is unchanged, so the
+  // four separator passes stop re-running on every observer tick. Both cases
+  // below pass today and FAIL under that guard when it is keyed on the
+  // hidden-language set, because neither of them changes it.
+  //
+  // They are here as characterization, not as a fix: they pin the two things
+  // any such guard has to keep working, neither of which the rest of this file
+  // covers. See the issue for the prototype that fails them.
+
+  const NBSP = '\u00A0';
+
+  it('hides a blocked duplicate that arrives after the first pass', () => {
+    setBody(`
+      <div id="picker">
+        <a id="ru" href="/x" hreflang="ru">RU</a>
+        <a id="uk" href="/y" hreflang="uk">UK</a>
+        <a id="en" href="/z" hreflang="en">EN</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+
+    // The site adds a regional variant of the language that is ALREADY hidden.
+    // dedupByLanguage keeps it out of picker.links, so collectHiddenLanguages
+    // still reports exactly ['ru'] — a signature built from that cannot see
+    // this arrive. Skipping the picker on it would skip filterPickerLinks,
+    // which is what hides, and the blocked language leaks through the new
+    // element exactly as it did in movar#293.
+    const extra = document.createElement('a');
+    extra.id = 'ru-ua';
+    extra.href = '/w';
+    extra.setAttribute('hreflang', 'ru-UA');
+    extra.textContent = 'RU';
+    document.querySelector<HTMLElement>('#picker')!.append(extra);
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru-ua')!.style.display).toBe('none');
+  });
+
+  it('re-trims a container separator the site re-rendered back', () => {
+    setBody(
+      `<div id="picker">UA${NBSP}|${NBSP}<a id="ru" href="https://e.com/ru">RU</a>${NBSP}|${NBSP}<a id="en" href="https://e.com/en">EN</a></div>`,
+    );
+    const trimmed = [
+      'el:span[text-divider]:UA',
+      'el:a[hidden]:RU',
+      'el:span[text-divider]:',
+      'el:a:EN',
+    ];
+    const container = document.querySelector<HTMLElement>('#picker')!;
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    // A second tick, so the picker is in the steady state a guard would be
+    // skipping from — one pass in, the hidden-language set has not settled yet.
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(describeNodes(container)).toEqual(trimmed);
+
+    // The site re-renders its own separator back as a bare text node while
+    // Movar's hides stay in place — an SPA repainting the strip around the
+    // entry it did not touch. The hidden-language set does not move, so a
+    // signature guard would skip and leave the separator stranded for the life
+    // of the page. Re-running the passes unguarded is what repairs it, which is
+    // the same property trimOrphanSeparators' own doc comment relies on for its
+    // snapshot: the repetition is the repair, not waste.
+    const stray = container.querySelectorAll<HTMLElement>('[data-movar-kind="text-divider"]')[1]!;
+    stray.replaceWith(
+      container.ownerDocument.createTextNode(stray.getAttribute('data-movar-original-text')!),
+    );
+    expect(describeNodes(container)).not.toEqual(trimmed);
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(describeNodes(container)).toEqual(trimmed);
+  });
+});
+
 describe('filterPickers — list-shaped pickers get an in-row chip, never tooltips', () => {
   // The bigfive-test.com report: its language `<Select>` portals 42
   // `<li role="option">` rows into a dropdown, nine of which are languages

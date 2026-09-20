@@ -1677,6 +1677,25 @@ describe('filterPickers — a layout verdict that changes takes its old surface 
     expect(getEntryCurtainHosts()).toHaveLength(1);
     expect(getTooltipHosts()).toHaveLength(0);
   });
+
+  it('removes list-era chips once the picker stops reading as a list', () => {
+    // The mirror of the case above, and the arm that LAYOUT_SURFACES now
+    // derives rather than naming: a site that tears its listbox roles back off
+    // (a popover recycled into a plain strip) reads as 'list' on one pass and
+    // 'inline' on the next. The chips have to come down with it, or they stand
+    // in rows that are no longer rows.
+    const list = setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(getEntryCurtainHosts()).toHaveLength(1);
+    expect(getTooltipHosts()).toHaveLength(0);
+
+    list.removeAttribute('role');
+    for (const row of list.children) row.removeAttribute('role');
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+    expect(getTooltipHosts().length).toBeGreaterThan(0);
+  });
 });
 
 describe('filterPickers — restore covers rows the Picker snapshot never saw', () => {

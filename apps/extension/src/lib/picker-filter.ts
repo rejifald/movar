@@ -18,6 +18,7 @@ import type {
   FilterOptions,
   FilterResult,
   Picker,
+  PickerLayout,
 } from '@movar/lang-pickers/types';
 
 /** Pattern for class tokens that mark an element as a visual separator
@@ -767,6 +768,21 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
   }
 }
 
+/** Every language currently hidden in this picker, in DOM order, deduped. The
+ *  tooltip lists EVERY hidden language — not just the ones hidden in the current
+ *  call — so MutationObserver re-fires don't "forget" earlier hides. */
+function collectHiddenLanguages(picker: Picker): LanguageCode[] {
+  const hiddenLangsInOrder: LanguageCode[] = [];
+  const seenHiddenLang = new Set<LanguageCode>();
+  for (const link of picker.links) {
+    if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
+    if (seenHiddenLang.has(link.language)) continue;
+    seenHiddenLang.add(link.language);
+    hiddenLangsInOrder.push(link.language);
+  }
+  return hiddenLangsInOrder;
+}
+
 /**
  * Mark a native `<select>` with a badge beside the control.
  *
@@ -791,11 +807,8 @@ function markHiddenEntries(picker: Picker, presenter: ContentPresenter | undefin
  * are, and for a sharper reason: a rebuilt badge would restart its fade and drop
  * an open tooltip mid-read.
  */
-function markNativeControl(
-  picker: Picker,
-  hiddenLanguages: LanguageCode[],
-  presenter: ContentPresenter | undefined,
-): void {
+function markNativeControl(picker: Picker, presenter: ContentPresenter | undefined): void {
+  const hiddenLanguages = collectHiddenLanguages(picker);
   const key = surfaceKey(hiddenLanguages, presenter);
   if (hiddenLanguages.length === 0 || presenter?.hasVisiblePresentation !== true) {
     detachMark(controlBadgeMarks, picker.container);
@@ -830,11 +843,8 @@ function markNativeControl(
  * presenter — so a link that stops being a tooltip candidate never leaves
  * its old host/registry entry behind.
  */
-function annotateSurvivingLinks(
-  picker: Picker,
-  hiddenLanguages: LanguageCode[],
-  presenter: ContentPresenter | undefined,
-): void {
+function annotateSurvivingLinks(picker: Picker, presenter: ContentPresenter | undefined): void {
+  const hiddenLanguages = collectHiddenLanguages(picker);
   const key = surfaceKey(hiddenLanguages, presenter);
   // Nothing hidden means nothing to explain — and any tooltip still up is now
   // stale, so this is a detach, never a bare return.
@@ -943,20 +953,46 @@ function filterPickerLinks(
   return picker.links.filter((link) => !shouldHide(link.language));
 }
 
-/** Every language currently hidden in this picker, in DOM order, deduped. The
- *  tooltip lists EVERY hidden language — not just the ones hidden in the current
- *  call — so MutationObserver re-fires don't "forget" earlier hides. */
-function collectHiddenLanguages(picker: Picker): LanguageCode[] {
-  const hiddenLangsInOrder: LanguageCode[] = [];
-  const seenHiddenLang = new Set<LanguageCode>();
-  for (const link of picker.links) {
-    if (!link.el.hasAttribute(HIDDEN_ATTR)) continue;
-    if (seenHiddenLang.has(link.language)) continue;
-    seenHiddenLang.add(link.language);
-    hiddenLangsInOrder.push(link.language);
-  }
-  return hiddenLangsInOrder;
+/**
+ * The one surface each layout gets, and the registry holding it.
+ *
+ * `Picker.layout` decides two things that used to be decided in two places: the
+ * surface that explains the gap, and where that surface's marks are tracked.
+ * The first was a branch ladder in {@link cleanupSurvivingContainer}, the second
+ * a set of `layout !== …` booleans in {@link detachForeignSurfaces} — the same
+ * mapping, written twice, with nothing keeping them in step. Adding a fourth
+ * layout (a combobox, a flag grid) meant finding every site by hand, and missing
+ * one compiled cleanly. As a `Record<PickerLayout, …>` a missing arm is a type
+ * error, and `detachForeignSurfaces` falls out of the table instead of
+ * restating it.
+ *
+ * What each layout gets and why is argued at the attach function it names; the
+ * short version is that the surface has to go somewhere the layout can hold it.
+ */
+interface LayoutSurface {
+  /** Where this layout's marks are tracked. */
+  registry: MarkRegistry;
+  /** What `registry` is keyed BY — the one thing the two uses disagree on, and
+   *  so the one thing the table has to carry: per-entry surfaces are keyed by
+   *  each classified link, the badge by the container it floats beside.
+   *  {@link detachForeignSurfaces} needs it to know what to hand
+   *  {@link detachMark}. */
+  scope: 'entry' | 'container';
+  /** Attach or refresh this layout's surface across one picker. Every arm is
+   *  idempotent across MutationObserver re-fires and detaches what it skips. */
+  attach: (picker: Picker, presenter: ContentPresenter | undefined) => void;
 }
+
+const LAYOUT_SURFACES: Record<PickerLayout, LayoutSurface> = {
+  // Each row owns a full-width slot, so the gap is markable where the entry was.
+  list: { registry: entryChips, scope: 'entry', attach: markHiddenEntries },
+  // An `<option>` can hold nothing and measures 0x0 — the mark goes beside the
+  // control, and is the one surface keyed by the container rather than a link.
+  native: { registry: controlBadgeMarks, scope: 'container', attach: markNativeControl },
+  // The separator passes close the gap completely, so the only anchor left on an
+  // inline strip is something that survived.
+  inline: { registry: survivorTooltips, scope: 'entry', attach: annotateSurvivingLinks },
+};
 
 /**
  * Drop any surface belonging to a layout this picker no longer has.
@@ -969,17 +1005,22 @@ function collectHiddenLanguages(picker: Picker): LanguageCode[] {
  * the chip went up while the inline-era survivor tooltips remained as hover
  * traps over the listbox rows — the defect being fixed, re-created by the fix.
  *
+ * Reads {@link LAYOUT_SURFACES} rather than naming the foreign kinds, so a new
+ * layout is dropped correctly here the moment it has a row — there is no second
+ * place to remember.
+ *
  * Every call is a no-op when there is nothing of that kind to drop, so this
  * costs nothing in the steady state.
  */
 function detachForeignSurfaces(picker: Picker): void {
-  const dropTooltips = picker.layout !== 'inline';
-  const dropChips = picker.layout !== 'list';
-  for (const link of picker.links) {
-    if (dropTooltips) detachMark(survivorTooltips, link.el);
-    if (dropChips) detachMark(entryChips, link.el);
+  for (const [layout, surface] of Object.entries(LAYOUT_SURFACES)) {
+    if (layout === picker.layout) continue;
+    if (surface.scope === 'container') {
+      detachMark(surface.registry, picker.container);
+      continue;
+    }
+    for (const link of picker.links) detachMark(surface.registry, link.el);
   }
-  if (picker.layout !== 'native') detachMark(controlBadgeMarks, picker.container);
 }
 
 /**
@@ -1000,9 +1041,9 @@ function detachForeignSurfaces(picker: Picker): void {
  * chip's "click-to-restore = exact picker state" contract.
  *
  * The four passes run for every layout — a list picker simply has no separators
- * for them to find. What the layout picks is the SURFACE that explains the gap:
- * an in-row chip for a list, the survivor tooltip for an inline strip (see
- * {@link markHiddenEntries} for why a list must not get the tooltip).
+ * for them to find. What the layout picks is the SURFACE that explains the gap,
+ * and {@link LAYOUT_SURFACES} is where that choice is made; naming the arms
+ * here too would be the same mapping written a third time.
  */
 function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter | undefined): void {
   hideUselessDividers(picker);
@@ -1010,15 +1051,7 @@ function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter |
   trimOrphanSeparators(picker);
   trimContainerTextSeparators(picker);
   detachForeignSurfaces(picker);
-  if (picker.layout === 'list') {
-    markHiddenEntries(picker, presenter);
-    return;
-  }
-  if (picker.layout === 'native') {
-    markNativeControl(picker, collectHiddenLanguages(picker), presenter);
-    return;
-  }
-  annotateSurvivingLinks(picker, collectHiddenLanguages(picker), presenter);
+  LAYOUT_SURFACES[picker.layout].attach(picker, presenter);
 }
 
 // The cyclomatic count comes from the per-picker pipeline: hide links, then

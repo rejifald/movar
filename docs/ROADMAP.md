@@ -27,9 +27,12 @@ lane** that is planned now but built later.
   surfaces need no re-sync.
 - **v1.7.0 never reached the App Store.** Its `release-safari` job uploaded a build
   on 2026-08-22 and succeeded, but `altool --upload-app` only _delivers_; the
-  submission is `safari-submit.yml`, a separate manual dispatch, and it was never run
+  submission was `safari-submit.yml`, a separate manual dispatch, and it was never run
   for that version. The build is superseded rather than rescued — it predates every
-  macOS change above.
+  macOS change above. **The trap itself is closed**: submission is now the
+  `submit-safari` job in release.yml, so a published Release carries Safari into the
+  review queue without anyone remembering a second dispatch. v1.9.0 was the last
+  version to fall into it.
 - **A tag alone ships nothing.** `.github/workflows/release.yml` submits to the
   Chrome Web Store, Firefox AMO, and Edge Add-ons only when the `extension-vX.Y.Z`
   **GitHub Release is published** (the tag must match `apps/extension/package.json`);
@@ -45,10 +48,14 @@ lane** that is planned now but built later.
   `store-assets/copy/summary.uk.md` and `description.uk.md`; the CWS, AMO, and Edge
   Ukrainian listings still carry the old wordmark and need re-uploading with this
   submission.
-- **Safari ships from CI — in two steps, and the second one is manual.**
+- **Safari ships from CI — in two steps, both automatic.**
   `release-safari` archives, notarizes and uploads on a published GitHub Release;
-  `safari-submit.yml` then creates the version, attaches the build, fills "What's
-  New" per localization and submits (`plan` → `prepare` → `submit`). Both have worked
+  `submit-safari` then waits for Apple to finish processing that exact build,
+  creates the version, attaches it, fills "What's New" per localization and
+  submits — on both platforms, under the one approval that released the upload.
+  The second step used to be a manual `safari-submit.yml` dispatch, which is how
+  v1.7.0 and v1.9.0 were stranded; that workflow is now the rescue path
+  (`resume`, re-run, `plan`, backfill) rather than the route. Both have worked
   since [#386](https://github.com/rejifald/movar/pull/386) — v1.6.2 went up and into
   review entirely from CI on 2026-08-11. The long-standing "headless provisioning
   401" diagnosis was wrong; the 401 was a malformed `APPLE_ASC_ISSUER_ID`. Xcode

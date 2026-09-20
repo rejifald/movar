@@ -1,5 +1,12 @@
 # @movar/page-language
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [74c3c8b]
+  - @movar/lang-pickers@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes

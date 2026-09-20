@@ -83,6 +83,11 @@ export interface OpenPopupOptions {
   search?: string;
 }
 
+/** How far before `clockTime` the fake clock is installed, so `pauseAt` always
+ *  jumps FORWARD to the target. One minute — vastly more than the drift between
+ *  the install and the pause, and still nothing on about:blank to fire. */
+const CLOCK_INSTALL_LEAD_MS = 60_000;
+
 /**
  * Open the popup at `chrome-extension://<id>/popup.html` and prepare it
  * for assertion / snapshot: pin viewport, emulate reduced motion, wait
@@ -121,8 +126,19 @@ export async function openPopup(
   // `Cannot read properties of undefined (reading 'controller')` instead
   // of an assertion failure (#585). Installing first makes the ordering
   // explicit; the `pauseAt` that follows still does the freezing.
+  //
+  // Install a minute EARLIER than the target, never at it. The installed
+  // clock ticks, so `install({ time: T })` followed by `pauseAt(T)` asks it
+  // to jump to an instant it has usually just passed — `pauseAt` rejects that
+  // with `Cannot fast-forward to the past`. It only reproduces when something
+  // advances the clock between the two calls, so it passed locally and failed
+  // on CI. Landing a minute short guarantees the jump is always forwards, by
+  // far more than any drift between the two calls.
+  //
+  // The jump fires nothing: this runs BEFORE `goto`, on about:blank, so there
+  // are no page timers in the skipped interval to run.
   if (options.clockTime !== undefined) {
-    await page.clock.install({ time: options.clockTime });
+    await page.clock.install({ time: options.clockTime - CLOCK_INSTALL_LEAD_MS });
     await page.clock.pauseAt(options.clockTime);
   }
   await page.goto(`chrome-extension://${extensionId}/popup.html${options.search ?? ''}`);

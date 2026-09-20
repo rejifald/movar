@@ -83,11 +83,6 @@ export interface OpenPopupOptions {
   search?: string;
 }
 
-/** How far before `clockTime` the fake clock is installed, so `pauseAt` always
- *  jumps FORWARD to the target. One minute — vastly more than the drift between
- *  the install and the pause, and still nothing on about:blank to fire. */
-const CLOCK_INSTALL_LEAD_MS = 60_000;
-
 /**
  * Open the popup at `chrome-extension://<id>/popup.html` and prepare it
  * for assertion / snapshot: pin viewport, emulate reduced motion, wait
@@ -113,32 +108,27 @@ export async function openPopup(
       : { reducedMotion: 'reduce' },
   );
   // Clock setup must precede `goto` — Playwright only intercepts time
-  // functions for code loaded after install.
+  // functions for code loaded after install. `pauseAt` installs the
+  // controllable clock AND freezes it at the given epoch (vs plain
+  // `install({ time })`, which sets the start time but lets the clock
+  // tick on — `Date.now()` then drifts ~10-200ms between install and
+  // the popup actually calling it, defeating exact-equality assertions
+  // on `pauseFor('1h')`'s persisted `until` value). The popup never
+  // needs time to advance during these tests, so a frozen clock is
+  // strictly safer.
   //
-  // `install({ time })` alone is NOT enough: it sets the start time but
-  // lets the clock tick on, so `Date.now()` drifts ~10-200ms before the
-  // popup reads it, defeating exact-equality assertions on
-  // `pauseFor('1h')`'s persisted `until` value. `pauseAt` is what freezes
-  // it, and the popup never needs time to advance in these tests.
-  //
-  // Both calls, in this order: `pauseAt` on its own leaves the clock's
-  // installation implicit, which is how it can raise an internal
-  // `Cannot read properties of undefined (reading 'controller')` instead
-  // of an assertion failure (#585). Installing first makes the ordering
-  // explicit; the `pauseAt` that follows still does the freezing.
-  //
-  // Install a minute EARLIER than the target, never at it. The installed
-  // clock ticks, so `install({ time: T })` followed by `pauseAt(T)` asks it
-  // to jump to an instant it has usually just passed — `pauseAt` rejects that
-  // with `Cannot fast-forward to the past`. It only reproduces when something
-  // advances the clock between the two calls, so it passed locally and failed
-  // on CI. Landing a minute short guarantees the jump is always forwards, by
-  // far more than any drift between the two calls.
-  //
-  // The jump fires nothing: this runs BEFORE `goto`, on about:blank, so there
-  // are no page timers in the skipped interval to run.
+  // Do NOT add an explicit `install()` before this. #585 read the
+  // intermittent `clock.pauseAt: TypeError: Cannot read properties of
+  // undefined (reading 'controller')` as the implicit installation being at
+  // fault; #590 acted on that and it made things worse twice over. Installing
+  // AT the target makes `pauseAt` jump to an instant the ticking clock has
+  // just passed — `Cannot fast-forward to the past`, which only reproduces
+  // when something advances the clock in between, so it passed locally and
+  // broke CI. Installing EARLIER than the target fixes that, and then CI
+  // raised the identical `controller` TypeError on `clock.install` instead:
+  // the internal error follows whichever clock call goes first, so it is not
+  // about implicit installation at all and the extra call buys nothing.
   if (options.clockTime !== undefined) {
-    await page.clock.install({ time: options.clockTime - CLOCK_INSTALL_LEAD_MS });
     await page.clock.pauseAt(options.clockTime);
   }
   await page.goto(`chrome-extension://${extensionId}/popup.html${options.search ?? ''}`);

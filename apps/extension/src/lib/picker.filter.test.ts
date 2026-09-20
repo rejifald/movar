@@ -1037,6 +1037,28 @@ describe('filterPickers — native <select> marks the option in place', () => {
     expect(ru.getAttribute('data-movar-original-text')).toBe('Русский');
   });
 
+  it('names a language once even when two regional variants were hidden', () => {
+    // allLinks carries the pre-dedup set, so ru-RU and ru-UA are two hidden
+    // entries for one language. The mark and the popup summary both read that
+    // list; without the dedup the same language would be announced twice.
+    setBody(`
+      <select id="lang-select">
+        <option value="uk" hreflang="uk" selected>Українська</option>
+        <option value="ru-ru" hreflang="ru-RU">Русский (Россия)</option>
+        <option value="ru-ua" hreflang="ru-UA">Русский (Украина)</option>
+      </select>
+    `);
+    const result = filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    // Both variants go — the leak movar#293 was about.
+    expect(result.hiddenLinks).toHaveLength(2);
+    for (const value of ['ru-ru', 'ru-ua']) {
+      expect(document.querySelector<HTMLOptionElement>(`option[value="${value}"]`)!.disabled).toBe(
+        true,
+      );
+    }
+  });
+
   it('leaves the surviving options untouched', () => {
     setupSelectPicker();
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
@@ -1074,6 +1096,24 @@ describe('filterPickers — native <select> marks the option in place', () => {
     const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
     expect(ru.getAttribute('data-movar-original-text')).toBe('Русский');
     expect(ru.textContent).toBe(NEUTRAL_LABEL);
+  });
+
+  it('restores a hide-mode option, which carries no snapshot to put back', () => {
+    // The restore runs unmarkOption over every hidden entry, marked or not. An
+    // option concealed in hide mode has no ORIGINAL_TEXT_ATTR, so the undo has
+    // to be a no-op on the text rather than blanking it — the shape a blind
+    // `textContent = getAttribute(...)` would get wrong.
+    setupSelectPicker();
+    filterPickersWithPresenter(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(ru.hidden).toBe(true);
+
+    teardownContentModification(testContentPresenter);
+
+    expect(ru.textContent).toBe('Русский');
+    expect(ru.hidden).toBe(false);
+    expect(ru.disabled).toBe(false);
+    expect(ru.hasAttribute('data-movar-hidden')).toBe(false);
   });
 
   it('re-labels when the UI locale changes under a live page', () => {
@@ -1147,6 +1187,25 @@ describe('filterPickers — divider element edge cases', () => {
     `);
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     // The leading separator is orphaned (no left link) and hidden.
+    expect(document.querySelector<HTMLElement>('.sep')!.style.display).toBe('none');
+  });
+
+  it('finds the adjacent link past a comment node between entries', () => {
+    // Sites emit comments and stray text between picker entries (template
+    // engines, SSR hydration markers). `adjacentElement` walks past every
+    // non-element node to reach the real neighbour; stopping at the first node
+    // would read "no link on this side" and strand the separator visible.
+    setBody(`
+      <div id="picker">
+        <a id="ua" href="/ua/x">UA</a>
+        <span class="sep">|</span>
+        <!-- hydration marker -->
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
     expect(document.querySelector<HTMLElement>('.sep')!.style.display).toBe('none');
   });
 
@@ -1973,6 +2032,45 @@ describe('filterPickers — a dropdown that opens without touching the DOM', () 
 
     expect(Fake.instances).toHaveLength(1);
     expect(Fake.instances[0]!.observed).toEqual([document.querySelector('#picker')]);
+  });
+
+  it('stops watching a container the site has removed', () => {
+    // The watcher holds the container in a module-level Map, and a ResizeObserver
+    // callback is the only thing that runs after an SPA drops the picker: nothing
+    // else would ever notice. Without the disconnected arm the entry — and the
+    // element it keys — stay reachable for the life of the page.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const observer = Fake.instances[0]!;
+    expect(observer.observed).toHaveLength(1);
+
+    document.querySelector('#picker')!.remove();
+    observer.cb();
+
+    expect(observer.observed).toEqual([]);
+    expect(observer.disconnected).toBe(true);
+  });
+
+  it('keeps the shared observer alive while another picker is still watched', () => {
+    // One observer serves the whole page, so unwatching one container must not
+    // disconnect the other's. Two list pickers, one removed.
+    const Fake = installFakeObserver();
+    setupListboxPicker();
+    const second = document.createElement('div');
+    second.innerHTML = document
+      .querySelector('#picker')!
+      .outerHTML.replace('id="picker"', 'id="picker-2"');
+    document.body.append(second);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const observer = Fake.instances[0]!;
+    expect(observer.observed).toHaveLength(2);
+
+    document.querySelector('#picker')!.remove();
+    observer.cb();
+
+    expect(observer.observed).toEqual([document.querySelector('#picker-2')]);
+    expect(observer.disconnected).toBe(false);
   });
 
   it('re-floors the chip when the rows gain a box, with no second pass', () => {

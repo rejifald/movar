@@ -206,6 +206,18 @@ stays the one declared exception, and that the job stays chained to the
 approved upload (`needs: release-safari` + `uploaded == 'true'`) — so it can
 never submit on its own or when the upload was skipped.
 
+**The note spans the versions Apple actually missed.** The App Store shows one
+version's "What's New" and nothing else, so a release that never reached it
+takes its notes down with it — v1.7.0's and v1.9.0's readers were never told
+what those releases changed. `apple-submit.mjs` asks Apple what it holds on
+each platform (iOS and macOS can disagree) and stacks every note since, newest
+first, capped at Apple's 4000 characters with the oldest dropped first and
+named in the log. `RELEASE-NOTES.md` stays one block per version, which is what
+movar.fyi/changelog, AMO and the GitHub Release body all want; only the App
+Store note is composed. The decision logic is
+[release-span.mjs](../scripts/lib/release-span.mjs) — pure and separately
+tested, the same split as `review-resume.mjs`.
+
 Because submission is now part of the release, **RELEASE-NOTES.md is load-bearing
 for the release to finish**. The `prepare` job verifies that this version has a
 uk _and_ an en block before anything is built, on every trigger — so a

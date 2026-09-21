@@ -52,6 +52,7 @@ import { fileURLToPath } from 'node:url';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
 import { resumeDecision, stagedVersionIds } from './lib/review-resume.mjs';
 import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
+import { versionsToAnnounce, composeNote } from './lib/release-span.mjs';
 
 const repoRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const env = (name, fallback = '') => (process.env[name] ?? '').trim() || fallback;
@@ -86,6 +87,14 @@ const IN_FLIGHT_STATES = new Set([
   'PROCESSING_FOR_APP_STORE',
   'READY_FOR_SALE',
 ]);
+
+/** States meaning the version GOT to Apple, for deciding which notes this
+ *  submission still has to carry. IN_FLIGHT_STATES plus the resting state an
+ *  older version ends in once a newer one replaces it — a version that shipped
+ *  and was superseded still reached its readers, so its notes are spent.
+ *  Mirrors check-store-parity.mjs's REACHED_APPLE, copied rather than imported
+ *  because that file runs `process.exit(await main())` at import. */
+const REACHED_APPLE = new Set([...IN_FLIGHT_STATES, 'REPLACED_WITH_NEW_VERSION']);
 
 /** Submission states worth looking at — anything not yet finished with. */
 const OPEN_SUBMISSION_STATES = 'READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES';
@@ -184,7 +193,10 @@ async function declareExportCompliance(token, build) {
   throw new Error(`declaring export compliance failed: ${res.status} ${res.detail}`);
 }
 
-async function submitPlatform(token, { appId, platform, version, notes, buildNumber, timeoutMin }) {
+async function submitPlatform(
+  token,
+  { appId, platform, version, allNotes, buildNumber, timeoutMin },
+) {
   step(`${platform} — ${version}`);
 
   // --- the build -----------------------------------------------------------
@@ -259,6 +271,40 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
     await declareExportCompliance(token, build);
   }
 
+  // --- which versions' notes this submission owes --------------------------
+  // The App Store shows ONE version's "What's New", so a release that never
+  // reached it takes its notes down with it — v1.7.0 and v1.9.0 both did. Ask
+  // Apple what it actually has on THIS platform (iOS and macOS can disagree)
+  // and carry every version since. See lib/release-span.mjs.
+  const shipped = await request(
+    token,
+    `/v1/apps/${appId}/appStoreVersions?${new URLSearchParams({
+      'filter[platform]': platform,
+      limit: '50',
+    })}`,
+  );
+  const reached =
+    shipped.status === 200
+      ? (shipped.body?.data ?? [])
+          .filter((r) => REACHED_APPLE.has(r.attributes?.appStoreState ?? r.attributes?.state))
+          .map((r) => r.attributes?.versionString)
+          .filter(Boolean)
+      : [];
+  if (shipped.status !== 200) {
+    // Not fatal: the span falls back to this version alone, which is what the
+    // old behaviour was. Worth saying out loud, because a silent narrowing
+    // here is a release its readers are never told about.
+    log(
+      `  ⚠ could not read this platform's version history (${shipped.status}) — announcing ${version} only`,
+    );
+  }
+  const span = versionsToAnnounce(version, reached, [...allNotes.keys()]);
+  log(
+    span.length > 1
+      ? `  announcing ${span.join(' + ')} — Apple never received ${span.slice(1).join(', ')}`
+      : `  announcing ${version}`,
+  );
+
   // --- release notes, per localization -------------------------------------
   const localizations = await requireOk(
     token,
@@ -268,7 +314,7 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
   if (found.length === 0) log('  ⚠ version has no localizations yet');
   for (const localization of found) {
     const locale = localization.attributes?.locale;
-    const note = noteForLocale(notes, locale);
+    const note = noteForLocale(allNotes.get(version), locale);
     if (!note) {
       // Loud, because App Store Connect rejects a version whose localization
       // has no "What's New" — better to name the missing locale now than to
@@ -277,12 +323,23 @@ async function submitPlatform(token, { appId, platform, version, notes, buildNum
         `no "What's New" written for locale ${locale}. Add a "### … (${locale.split('-')[0]})" block under "## ${version}" in RELEASE-NOTES.md.`,
       );
     }
+    // Reserve the footer's own length before trimming: withChangelogLink
+    // appends it AFTER this, so a composed note that exactly fills the cap
+    // would overflow at Apple.
+    const composed = composeNote(span, (v) => noteForLocale(allNotes.get(v), locale), {
+      overhead: withChangelogLink('', locale, { format: 'text' }).length,
+    });
+    if (composed.dropped.length > 0) {
+      log(
+        `  ⚠ ${locale}: ${composed.dropped.join(', ')} dropped from the note — the field caps at 4000 characters`,
+      );
+    }
     // "What's New" is plain text — no markup, and the URL is not tappable on
     // the App Store — so the footer spells the address out in full.
-    const whatsNew = withChangelogLink(note, locale, { format: 'text' });
+    const whatsNew = withChangelogLink(composed.note, locale, { format: 'text' });
     await write(
       token,
-      `set What's New for ${locale} (${note.split('\n')[0].slice(0, 40)}…)`,
+      `set What's New for ${locale} (${composed.announced.join(' + ')})`,
       `/v1/appStoreVersionLocalizations/${localization.id}`,
       {
         method: 'PATCH',
@@ -479,14 +536,14 @@ async function main() {
   const allNotes = parseReleaseNotes(
     readFileSync(nodePath.resolve(repoRoot, whatsNewPath), 'utf8'),
   );
-  const notes = allNotes.get(version);
-  if (!notes || notes.size === 0) {
+  const targetNotes = allNotes.get(version);
+  if (!targetNotes || targetNotes.size === 0) {
     console.error(
       `✗ No "## ${version}" block in ${whatsNewPath}. App Store Connect requires "What's New" for every localization on every version after the first.`,
     );
     process.exit(1);
   }
-  log(`release notes: ${[...notes.keys()].join(', ')}`);
+  log(`release notes: ${[...targetNotes.keys()].join(', ')}`);
 
   const apps = await requireOk(
     token,
@@ -514,7 +571,7 @@ async function main() {
               appId: app.id,
               platform,
               version,
-              notes,
+              allNotes,
               buildNumber,
               timeoutMin,
             }),

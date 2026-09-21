@@ -5,6 +5,7 @@ import { testContentPresenter } from './dom-test-helpers';
 import { teardownContentModification } from './content-modification';
 import { detachAllCurtains } from './curtain';
 import { detachAllTooltips } from './tooltip';
+import { HIDDEN_ATTR } from '@movar/lang-pickers/types';
 import {
   setBody,
   setup001ComUaPicker,
@@ -1485,6 +1486,21 @@ describe('filterPickers — regional-variant duplicates of a blocked language (m
   });
 });
 
+/** Every DOM write `run` makes inside `target`, synchronously. */
+function recordWrites(target: HTMLElement, run: () => void): MutationRecord[] {
+  const observer = new MutationObserver(() => {});
+  observer.observe(target, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    characterData: true,
+  });
+  run();
+  const records = observer.takeRecords();
+  observer.disconnect();
+  return records;
+}
+
 describe('filterPickers — what the unguarded re-run is load-bearing for (#586)', () => {
   // #586 proposes skipping a picker whose state signature is unchanged, so the
   // four separator passes stop re-running on every observer tick. Both cases
@@ -1559,6 +1575,58 @@ describe('filterPickers — what the unguarded re-run is load-bearing for (#586)
 
     filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
     expect(describeNodes(container)).toEqual(trimmed);
+  });
+
+  // Two more, added with the guard. NEITHER proves the guard fires — a skip and
+  // an idempotent re-run are indistinguishable on screen, which is the whole
+  // difficulty here; the saving is measured, not asserted (see the commit).
+  // What they do pin is worth more than that:
+  //
+  //   - the first CORRECTS the issue. #586 says the passes "write to the DOM"
+  //     on every tick. They do not: hideElement, hideEdgeBorderSide and both
+  //     trims all early-out once their work is done, so a steady tick is reads
+  //     only. This passes on main, unguarded, and is here so that stays true —
+  //     a future pass that writes unconditionally would be caught by it rather
+  //     than by a page janking.
+  //   - the second pins what the guard's signature has to be KEYED ON. Keyed on
+  //     structure and text alone it would not see a site re-applying its own
+  //     inline style over Movar's, and the repair would never run. It is the
+  //     attributes in the signature that make it fail-safe.
+  it('writes nothing on a tick where the picker has not changed (true on main too)', () => {
+    setBody(
+      `<div id="picker"><a id="uk" href="/uk" hreflang="uk">UK</a><span class="divider">|</span><a id="ru" href="/ru" hreflang="ru">RU</a><span class="divider">|</span><a id="en" href="/en" hreflang="en">EN</a></div>`,
+    );
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    const records = recordWrites(container, () => {
+      filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    });
+
+    expect(records).toEqual([]);
+  });
+
+  it('repairs a hide the site dropped, which only an attribute-keyed guard sees', () => {
+    setBody(
+      `<div id="picker"><a id="uk" href="/uk" hreflang="uk">UK</a><span class="divider">|</span><a id="ru" href="/ru" hreflang="ru">RU</a><span class="divider">|</span><a id="en" href="/en" hreflang="en">EN</a></div>`,
+    );
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    // The site re-renders the divider Movar had hidden, dropping the hide with
+    // it. Nothing about the hidden-language set moved.
+    const divider = container.querySelectorAll<HTMLElement>('.divider')[0]!;
+    divider.removeAttribute('style');
+    divider.removeAttribute(HIDDEN_ATTR);
+
+    const records = recordWrites(container, () => {
+      filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    });
+
+    expect(records.length).toBeGreaterThan(0);
+    expect(divider.style.display).toBe('none');
   });
 });
 

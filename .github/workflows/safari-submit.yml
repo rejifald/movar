@@ -5,22 +5,36 @@ name: Safari submit for review
 # "What's New" for every localization, answers export compliance, and submits
 # for review — for iOS and macOS.
 #
-# WHY IT IS SEPARATE FROM release-safari
+# THIS IS NO LONGER THE NORMAL PATH — release.yml's `submit-safari` job is.
 #
-# `release-safari` ends at `altool --upload-app`, which only delivers a build.
-# Everything after that was hand-work in the App Store Connect UI. It lives in
-# its own workflow rather than as extra steps there because:
+# Submission used to live only here, as a manual `workflow_dispatch` someone
+# had to remember after every release. Twice nobody did: v1.7.0 (uploaded
+# 2026-08-22) and v1.9.0 (uploaded 2026-09-20) each ended as a green release
+# with a build sitting unsubmitted at Apple, while users stayed on the previous
+# version. A publishing pipeline whose last step is "remember to do this" does
+# not publish, so a published Release now runs `submit-safari` automatically,
+# against the exact build it just uploaded.
 #
-#   - Apple's build processing takes minutes to tens of minutes, and waiting
-#     for it on the macOS runner release-safari needs would burn 10x-priced
-#     minutes doing nothing. This is pure HTTP, so it runs on Linux.
-#   - It is re-runnable. If processing outlasts the wait, or a locale's note
-#     was wrong, you re-run this without rebuilding or re-uploading anything.
-#   - Submission is a different decision from "produce a build", and deserves
-#     its own approval.
+# WHAT THIS WORKFLOW IS FOR NOW
+#
+#   - RESCUE. `resume` finishes a submission left staged in READY_FOR_REVIEW,
+#     which no other mode can advance (scripts/lib/review-resume.mjs). This is
+#     the only way out of that state, and it is why the workflow stays.
+#   - RE-RUN. If Apple's processing outlasted the automatic job's wait, or a
+#     locale's note was wrong, re-run here without rebuilding or re-uploading.
+#   - INSPECTION. `plan` prints exactly what a submission would do, reading
+#     only — useful before or after a release, and it is how you check a
+#     version's real state at Apple.
+#   - PREPARE-ONLY. `prepare` stages a version without submitting it, for a
+#     release you want to hold or edit by hand in App Store Connect.
+#   - BACKFILL. Submitting a version whose release predates the automatic job.
+#
+# It shares the `safari-submit` concurrency group with that job, so a manual
+# run and an automatic one queue rather than race for the same app version.
 #
 # Every run first prints a PLAN (reads only, no approval needed). Any write is
-# behind the `production` environment gate.
+# behind the `production` environment gate — this workflow keeps that gate
+# because, unlike the automatic job, nothing upstream has approved it.
 
 on:
   workflow_dispatch:

@@ -8,6 +8,13 @@ pnpm-lock.yaml
 coverage
 *.tsbuildinfo
 
+# fallow's local working dir (snapshots, caches), written by `pnpm metrics`.
+# Git ignores it through .fallow/.gitignore, but prettier reads only the ROOT
+# .gitignore, so without this entry every metrics run leaves a fresh unformatted
+# snapshot behind and reddens `format:check`. Its sibling .metrics/ needs no
+# entry — that one IS in the root .gitignore.
+.fallow
+
 # Real-world HTML fixtures must remain byte-preserving for parser regressions.
 **/*.fixture.html
 

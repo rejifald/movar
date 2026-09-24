@@ -325,6 +325,17 @@ export const guideStrings = {
    * nothing in the checker's privacy line.
    */
   installMeta: 'безкоштовно · відкритий код · нічого не надсилає',
+  /**
+   * Copy-button labels — ONE pair for the whole guide, not one per surface.
+   * Two consumers share them: the diagnosis card's settings-address button
+   * (`guide-diagnosis.ts`'s `diagnosisStrings.copy`/`.copied`, which now just
+   * re-exports these) and the "words to hide" copy widgets on
+   * `/uk/guide/prykhovani-slova` (`hidden-words.ts`). Both are "here is text,
+   * put it on your clipboard", and a second copy of either label is exactly
+   * how the two would drift apart after one gets edited.
+   */
+  copy: 'Копіювати',
+  copied: 'Скопійовано',
   index: {
     pageTitle: 'Як зробити українську мовою за замовчуванням — Movar',
     pageDescription:

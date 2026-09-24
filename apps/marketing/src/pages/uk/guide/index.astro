@@ -9,7 +9,7 @@
  * are actually configuring. A reader who arrives from a search for one
  * platform never has to read any of it.
  *
- * The whole page runs to roughly 6700px — twenty cards across five groups,
+ * The whole page runs to roughly 6700px — a card grid across five groups,
  * three rules, a twenty-item checklist, and the framing either side of it —
  * and until now had no way to move through it except scrolling blind. The
  * sticky rail below fixes that with five same-page anchors, one per group,
@@ -25,6 +25,7 @@ import {
   Circle,
   CircleUser,
   Cookie,
+  EyeOff,
   Film,
   Gamepad2,
   Globe,
@@ -99,6 +100,7 @@ const CARD_ICON: Record<string, typeof Monitor> = {
   youtube: Play,
   steam: Gamepad2,
   socmerezhi: Share2,
+  'prykhovani-slova': EyeOff,
   'telegram-tiktok': MessageCircle,
   'netflix-spotify': Film,
   sajty: Cookie,

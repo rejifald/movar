@@ -33,7 +33,7 @@
 
 import type { BrowserUiMockup } from '@movar/browser-ui';
 
-import { pluralForm } from './guide';
+import { guideStrings, pluralForm } from './guide';
 
 /** The language the guide is trying to get to the top of the list. */
 const TARGET_LANGUAGE = 'uk';
@@ -635,9 +635,12 @@ export const diagnosisStrings = {
   /** Right-hand side of the count strip: instructions rot, so they carry a date. */
   stepsUpdated: 'Кроки оновлено',
   /** The address control. Not a link — browsers block navigation to chrome://
-   *  and about: from a page, so pasting is the only thing that works. */
-  copy: 'Копіювати',
-  copied: 'Скопійовано',
+   *  and about: from a page, so pasting is the only thing that works.
+   *  Labels live in `guideStrings.copy`/`.copied` (`./guide`) — this widget
+   *  is one of two surfaces on the guide that copy text to the clipboard,
+   *  and a second copy of either label is how they would drift apart. */
+  copy: guideStrings.copy,
+  copied: guideStrings.copied,
 
   /** Leading sentence of every explanation but the no-data one. */
   lead: 'Кожен сайт обирає з цього списку найвищу мову, яку він підтримує. ',

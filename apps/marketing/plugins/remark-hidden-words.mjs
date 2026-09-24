@@ -39,6 +39,13 @@ function transformer(tree, file) {
   replaceHiddenWordsBlocks(tree, docPath);
 }
 
+/** The lone test for "is this node a fence this plugin owns", split out so
+ *  the walker below reads as one branch rather than a compound condition —
+ *  same move as `isChartImage` in `remark-inline-chart.mjs`. */
+function isHiddenWordsFence(node) {
+  return node.type === 'code' && node.lang === 'hidden-words';
+}
+
 /**
  * Walk the tree and swap every `hidden-words` fenced code block in place.
  * Manual recursion over `children`, matching `remark-inline-chart.mjs`,
@@ -49,7 +56,7 @@ function replaceHiddenWordsBlocks(node, docPath) {
   if (!Array.isArray(children)) return;
 
   for (const [index, child] of children.entries()) {
-    if (child.type === 'code' && child.lang === 'hidden-words') {
+    if (isHiddenWordsFence(child)) {
       children[index] = { type: 'html', value: renderForFence(child, docPath) };
     } else {
       replaceHiddenWordsBlocks(child, docPath);

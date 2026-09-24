@@ -201,10 +201,26 @@ those letters is safe only where entries match whole words — as a substring, �
 «інтернет». Threads does not document its rule, so its list holds only entries that contain one
 of the four letters.
 
+Where the words themselves come from splits by list. `RUSSIAN_ONLY_LETTERS` and
+`WORDS_WITH_RUSSIAN_LETTERS` (the Threads paste list) are DERIVED from `@movar/lang-detect`
+(`distinctiveLetters`, `getProfiles`) at module load, not hand-typed — a langtell version bump
+moves both without a hand edit. Letters rank by how many `ru.words.frequent` entries contain
+each, most-encountered first; the Threads words are the top `THREADS_WORD_COUNT` (20 today) of
+`ru.words.frequent` itself that carry one of those letters, in langtell's own array order — that
+order is corpus-frequency rank today but not yet a documented guarantee of the package
+(rejifald/langtell#38). `WORDS_WITHOUT_RUSSIAN_LETTERS` stays hand-CURATED for now: the obvious
+derivation (`ru.words.frequent` minus `uk.words.frequent`) can't be used until
+rejifald/langtell#37 lands, because langtell's `uk` frequent list currently carries roughly
+ninety Russian words and a naive difference today would drop the entire curated set. Its
+_order_, though, already follows langtell rank (ascending, most frequent first) — only its
+membership is pinned. See the derivation comments in `src/lib/hidden-words.ts` for specifics.
+
 Two guards keep the lists and the claims around them honest. `hidden-words.test.ts` is a class
 guard on the lists: a lone character must be one of the four letters (a lone «и» would hide
 almost every Ukrainian post on Bluesky), every multi-character Threads entry must carry one, and
-no entry may be a known Russian-looking Ukrainian word. `guide-callouts.test.ts` is a
+no entry may be a known Russian-looking Ukrainian word — plus, for the two derived lists, an
+independent recomputation from `@movar/lang-detect` rather than a re-check of this module's own
+arithmetic. `guide-callouts.test.ts` is a
 capability-claim guard: a guide page's `movar.claim`/`.body` that uses a hiding verb must name a
 host the extension has a page-content model for (`apps/extension/src/sites/registry.ts`'s
 `models`, hand-mirrored because marketing cannot import the extension) or be one of the pages
@@ -257,18 +273,19 @@ public/
 
 ## Dependencies
 
-| Package                                             | Why                                                                                                                   |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `astro` ^5                                          | Static site framework                                                                                                 |
-| `@tailwindcss/vite` ^4 + `tailwindcss` ^4           | Utility CSS; integrated as a Vite plugin (no `@astrojs/tailwind`)                                                     |
-| `@astrojs/sitemap`                                  | Generates `sitemap-index.xml` at build with per-locale hreflang alternates                                            |
-| `lucide-astro`                                      | Icons in `.astro` components                                                                                          |
-| `lucide-react`                                      | Icons in Storybook (React) stories                                                                                    |
-| `@movar/brand` (workspace)                          | `FEEDBACK_URL`, `SOURCE_URL`, `DISCORD_URL`/`INSTAGRAM_URL`/`FACEBOOK_URL` used in Header, Footer, Close, Limitations |
-| `@movar/ui` (workspace)                             | `tokens.css` design tokens (imported in `global.css`); `BrandMark` component used in `OgCard.tsx`                     |
-| `@fontsource/manrope` + `@fontsource/ibm-plex-mono` | Self-hosted fonts; no external font requests                                                                          |
-| `@storybook/react-vite` ^10                         | Component dev/review; runs on `:6007` (`MARKETING_STORYBOOK_PORT`)                                                    |
-| `playwright`                                        | Headless screenshot for OG card capture                                                                               |
+| Package                                             | Why                                                                                                                                                        |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `astro` ^5                                          | Static site framework                                                                                                                                      |
+| `@tailwindcss/vite` ^4 + `tailwindcss` ^4           | Utility CSS; integrated as a Vite plugin (no `@astrojs/tailwind`)                                                                                          |
+| `@astrojs/sitemap`                                  | Generates `sitemap-index.xml` at build with per-locale hreflang alternates                                                                                 |
+| `lucide-astro`                                      | Icons in `.astro` components                                                                                                                               |
+| `lucide-react`                                      | Icons in Storybook (React) stories                                                                                                                         |
+| `@movar/brand` (workspace)                          | `FEEDBACK_URL`, `SOURCE_URL`, `DISCORD_URL`/`INSTAGRAM_URL`/`FACEBOOK_URL` used in Header, Footer, Close, Limitations                                      |
+| `@movar/lang-detect` (workspace)                    | `distinctiveLetters`/`getProfiles` derive the hidden-words guide's letter + Threads lists at build time; build-time/test-only, never shipped to the client |
+| `@movar/ui` (workspace)                             | `tokens.css` design tokens (imported in `global.css`); `BrandMark` component used in `OgCard.tsx`                                                          |
+| `@fontsource/manrope` + `@fontsource/ibm-plex-mono` | Self-hosted fonts; no external font requests                                                                                                               |
+| `@storybook/react-vite` ^10                         | Component dev/review; runs on `:6007` (`MARKETING_STORYBOOK_PORT`)                                                                                         |
+| `playwright`                                        | Headless screenshot for OG card capture                                                                                                                    |
 
 No `@astrojs/react` integration — React is only used in Storybook and the OG card capture script.
 

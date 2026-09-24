@@ -20,7 +20,7 @@
 - **Ownership is additive and cannot argue against anyone** — that is what the veto exists for. A closed set has no rung that says "this is a language none of you are", so a roster missing `be` used to spend Belarusian's `і`s electing Ukrainian while `ы`/`ў`/`э` counted for nobody. Widening the roster, not weakening the veto, is the fix when a language keeps coming back `'unknown'`.
 - The shadow oracle (`classifyDivergence`) is diagnostic-only. It MUST NOT ship in the published extension even disabled — see `../../../apps/extension/` and the observability-separate-dev-extension memory note.
 - `normalizeLanguageCode` MUST NOT be used on URL path segments that might contain language-prefixed slugs like `/ru-return-warranty`; use `normalizeBCP47` only on documented BCP-47 attributes.
-- Consumers: `../lang-pickers/AGENTS.md`, `../page-content/AGENTS.md`, `../page-language/AGENTS.md`, and the diagnostics dev-extension.
+- Consumers: `../lang-pickers/AGENTS.md`, `../page-content/AGENTS.md`, `../page-language/AGENTS.md`, and the diagnostics dev-extension. Also `apps/marketing` — build-time only: `src/lib/hidden-words.ts` derives the `/uk/guide/prykhovani-slova` word lists from `distinctiveLetters`/`getProfiles` at module load (the remark plugin and vitest), never shipped to the browser.
 - **Pitfall** — `classifyBySnippet` is count-based and provenance-blind: feeding it text that isn't the content's own language (host UI chrome, platform-translated titles) lets a few keep-language tokens outvote a short blocked-language body. Callers must hand it the content's own text only. See [`../../docs/pitfalls.md`](../../docs/pitfalls.md) §1.
 
 ## Public API / entry points

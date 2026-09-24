@@ -2,19 +2,28 @@
  * Class guard for `hidden-words.ts` — the "words to hide" lists the guide
  * teaches readers to paste into Threads/Bluesky/Mastodon.
  *
- * This does not re-verify any single entry by hand (that verification lives
- * in the module's own comments, checked against each network's moderation
- * source). It asserts the SHAPE that keeps every entry safe under every
- * matching rule those three networks use — so a future edit that adds one
- * word without thinking through where it is safe fails here instead of
- * shipping a reader a mute that hides Ukrainian text.
+ * It does not re-verify most entries by hand (that verification lives in the
+ * module's own comments, checked against each network's moderation source).
+ * It asserts the SHAPE that keeps every entry safe under every matching rule
+ * those three networks use — so a future edit that adds one word without
+ * thinking through where it is safe fails here instead of shipping a reader
+ * a mute that hides Ukrainian text.
+ *
+ * Two groups (`RUSSIAN_ONLY_LETTERS`, `WORDS_WITH_RUSSIAN_LETTERS`) are now
+ * derived from `@movar/lang-detect` rather than hand-typed — those get an
+ * extra layer here that DOES re-derive, independently, from the same
+ * package (`getProfiles`), so a change to the derivation logic in
+ * `hidden-words.ts` is checked against the package it claims to follow
+ * rather than against its own arithmetic.
  */
 import { describe, expect, it } from 'vitest';
+import { getProfiles } from '@movar/lang-detect';
 
 import {
   EXCLUDED_LOOKALIKES,
   HIDDEN_WORDS_LISTS,
   RUSSIAN_ONLY_LETTERS,
+  THREADS_WORD_COUNT,
   WORDS_WITHOUT_RUSSIAN_LETTERS,
   WORDS_WITH_RUSSIAN_LETTERS,
   isHiddenWordsListId,
@@ -24,6 +33,16 @@ import {
 /** Every letter Ukrainian orthography uses — hardcoded rather than imported,
  *  so this guard does not trust the same code it is checking. */
 const UKRAINIAN_ALPHABET = 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя';
+
+/** Fetched independently of `hidden-words.ts`'s own module-scope copy — same
+ *  package, same call, but a second read rather than an import of the
+ *  module's internal binding, so a bug in how `hidden-words.ts` reads or
+ *  caches the profile can't also hide itself from this file. `.find()`
+ *  rather than destructuring `getProfiles(['ru'])[0]` so the "ru" profile
+ *  might genuinely be missing is visible in the type, not just in the
+ *  array's nominal length. */
+const RU_PROFILE = getProfiles(['ru']).find((profile) => profile.code === 'ru');
+const LIVE_RU_FREQUENT_WORDS: readonly string[] = RU_PROFILE?.words?.frequent ?? [];
 
 /** Plain lowercase Cyrillic, no whitespace, no apostrophe, and — checked
  *  separately below by name — none of the Ukrainian-only letters і ї є ґ:
@@ -39,14 +58,32 @@ function hasRussianLetter(word: string): boolean {
 }
 
 describe('RUSSIAN_ONLY_LETTERS', () => {
-  it('is exactly the four Russian letters Ukrainian never uses', () => {
-    expect(RUSSIAN_ONLY_LETTERS).toEqual(['ы', 'э', 'ъ', 'ё']);
+  // A SET check, not `.toEqual([...])`: the ORDER is derived (ranked by how
+  // often each letter shows up in `ru.words.frequent` — see the module
+  // comment) and can shift on a langtell bump even though the four letters
+  // themselves are not expected to. The MEMBERSHIP below is a pin, but it is
+  // a copy-integrity pin, not a snapshot of this module's own arithmetic:
+  // `src/content/guide/prykhovani-slova.md` names these exact four letters
+  // in its prose and says which other languages share each one (ы/э/ё with
+  // Belarusian, ъ with Bulgarian, all four with Kazakh) — if langtell ever
+  // changes the set, that prose has to change in the same PR, and this is
+  // the test that would catch the mismatch.
+  it('is non-empty and, as a set, exactly the four Russian letters Ukrainian never uses', () => {
+    expect(RUSSIAN_ONLY_LETTERS.length).toBeGreaterThan(0);
+    expect(new Set(RUSSIAN_ONLY_LETTERS)).toEqual(new Set(['ы', 'э', 'ъ', 'ё']));
   });
 
   it('contains no Ukrainian letter', () => {
     for (const letter of RUSSIAN_ONLY_LETTERS) {
       expect(UKRAINIAN_ALPHABET.includes(letter), `"${letter}" must not be Ukrainian`).toBe(false);
     }
+  });
+
+  it('is ordered by non-increasing usage count in ru.words.frequent', () => {
+    const counts = RUSSIAN_ONLY_LETTERS.map(
+      (letter) => LIVE_RU_FREQUENT_WORDS.filter((word) => word.includes(letter)).length,
+    );
+    expect(counts).toEqual(counts.toSorted((a, b) => b - a));
   });
 });
 
@@ -69,7 +106,7 @@ describe('the «и» trap — a lone letter must be a Russian-exclusive one', ()
         // Ukrainian post on a platform matching Bluesky's rule — the exact
         // failure EXCLUDED_LOOKALIKES exists to name.
         expect(
-          (RUSSIAN_ONLY_LETTERS as readonly string[]).includes(word),
+          RUSSIAN_ONLY_LETTERS.includes(word),
           `${id}: "${word}" is a lone letter but not Russian-exclusive`,
         ).toBe(true);
       }
@@ -101,6 +138,36 @@ describe('WORDS_WITH_RUSSIAN_LETTERS vs WORDS_WITHOUT_RUSSIAN_LETTERS', () => {
       if (word.length <= 1) continue;
       expect(hasRussianLetter(word), `threads: "${word}"`).toBe(true);
     }
+  });
+});
+
+describe('WORDS_WITH_RUSSIAN_LETTERS — derived from @movar/lang-detect', () => {
+  it(`is the first ${THREADS_WORD_COUNT} ru.words.frequent entries with a Russian-only letter`, () => {
+    // Recomputed from a fresh `getProfiles` call rather than imported from
+    // `hidden-words.ts` — this checks the module's derivation against the
+    // package it claims to follow, not against its own filter/slice.
+    const expected = LIVE_RU_FREQUENT_WORDS.filter((word) =>
+      RUSSIAN_ONLY_LETTERS.some((letter) => word.includes(letter)),
+    ).slice(0, THREADS_WORD_COUNT);
+
+    // Non-empty first: an empty `ru.words.frequent` would make both sides `[]`
+    // and pass, while the page's Threads list silently shrank to four letters.
+    expect(WORDS_WITH_RUSSIAN_LETTERS.length).toBeGreaterThan(0);
+    expect(WORDS_WITH_RUSSIAN_LETTERS).toEqual(expected);
+  });
+});
+
+describe('WORDS_WITHOUT_RUSSIAN_LETTERS — curated, ranked by langtell frequency', () => {
+  it('every curated word is present in ru.words.frequent', () => {
+    for (const word of WORDS_WITHOUT_RUSSIAN_LETTERS) {
+      const present = LIVE_RU_FREQUENT_WORDS.includes(word);
+      expect(present, `"${word}" missing from ru.words.frequent`).toBe(true);
+    }
+  });
+
+  it('is sorted by ascending rank within ru.words.frequent (most frequent first)', () => {
+    const ranks = WORDS_WITHOUT_RUSSIAN_LETTERS.map((word) => LIVE_RU_FREQUENT_WORDS.indexOf(word));
+    expect(ranks).toEqual(ranks.toSorted((a, b) => a - b));
   });
 });
 

@@ -321,6 +321,9 @@ importers:
       '@movar/fonts':
         specifier: workspace:*
         version: link:../../packages/fonts
+      '@movar/lang-detect':
+        specifier: workspace:*
+        version: link:../../packages/lang-detect
       '@movar/theme':
         specifier: workspace:*
         version: link:../../packages/theme

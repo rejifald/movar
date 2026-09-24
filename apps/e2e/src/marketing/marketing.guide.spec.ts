@@ -754,16 +754,22 @@ test.describe('guide — hidden words', () => {
       const page = await context.newPage();
       await page.goto(HIDDEN_WORDS_PAGE, { waitUntil: 'domcontentloaded' });
 
-      // `letters` is RUSSIAN_ONLY_LETTERS verbatim (`hidden-words.ts`), so the
-      // first entry is deterministically «ы» — this is the one place a
-      // literal is the right comparison, because the claim under test is
-      // "clicking THIS entry copies THIS word", not "copies whatever is there".
+      // `letters` is RUSSIAN_ONLY_LETTERS verbatim (`hidden-words.ts`), but
+      // that list's order is now derived from langtell's word-frequency data
+      // rather than hand-typed, so it can shift on a langtell bump. Read the
+      // first chip's own text instead of asserting a literal «ы» — same
+      // reasoning as the threads block above: a second copy of "what the
+      // first entry is" would drift from `hidden-words.ts` independently of
+      // whatever this test asserts. The claim under test stays "clicking an
+      // entry copies THAT entry's own text", not "copies «ы» specifically".
       const first = page.locator('[data-hidden-words="letters"] [data-hidden-words-entry]').first();
-      await expect(first).toHaveText('ы');
+      const displayed = (await first.textContent())?.trim() ?? '';
+      expect(displayed.length).toBeGreaterThan(0);
+
       await first.click();
 
       const clipboard = await page.evaluate(async () => navigator.clipboard.readText());
-      expect(clipboard).toBe('ы');
+      expect(clipboard).toBe(displayed);
 
       await context.close();
     });

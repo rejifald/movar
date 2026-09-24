@@ -675,3 +675,97 @@ test.describe('guide — homepage section', () => {
     });
   });
 });
+
+/**
+ * `/uk/guide/prykhovani-slova` — the "words to hide" muted-words lists for
+ * Threads, Bluesky and Mastodon. Covers the machinery every page built from
+ * `hidden-words.ts` shares, not this one page's copy: the paste block reads
+ * and stays inert without JavaScript, the entry blocks read as plain text
+ * either way, and with JavaScript the copy buttons put the right text on the
+ * clipboard. See `src/lib/hidden-words.ts` for the markup contract and
+ * `pages/uk/guide/[...slug].astro` for the client script under test.
+ */
+const HIDDEN_WORDS_PAGE = '/uk/guide/prykhovani-slova';
+
+test.describe('guide — hidden words', () => {
+  test.describe('without JavaScript', () => {
+    test.use({ javaScriptEnabled: false });
+
+    test('the threads paste block is readable and its copy button stays hidden', async ({
+      page,
+    }) => {
+      await page.goto(HIDDEN_WORDS_PAGE, { waitUntil: 'domcontentloaded' });
+
+      const text = page.locator('[data-hidden-words="threads"] [data-hidden-words-text]');
+      await expect(text).toBeVisible();
+      expect((await text.textContent())?.trim().length ?? 0).toBeGreaterThan(0);
+
+      // The button ships `hidden` in the static markup; only the page's
+      // script clears it, so with JS off it must stay hidden forever rather
+      // than sit on screen doing nothing.
+      await expect(
+        page.locator('[data-hidden-words="threads"] [data-hidden-words-copy]'),
+      ).toBeHidden();
+    });
+
+    test('the letters and words entry blocks are readable as plain text', async ({ page }) => {
+      await page.goto(HIDDEN_WORDS_PAGE, { waitUntil: 'domcontentloaded' });
+
+      for (const id of ['letters', 'words']) {
+        const entries = page.locator(`[data-hidden-words="${id}"] [data-hidden-words-entry]`);
+        expect(await entries.count(), id).toBeGreaterThan(0);
+        await expect(entries.first()).toBeVisible();
+      }
+    });
+  });
+
+  test.describe('with JavaScript', () => {
+    test("the threads copy button puts the block's own text on the clipboard", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        permissions: ['clipboard-read', 'clipboard-write'],
+      });
+      const page = await context.newPage();
+      await page.goto(HIDDEN_WORDS_PAGE, { waitUntil: 'domcontentloaded' });
+
+      // Read from the page rather than pasting the word list as a literal
+      // here — a second copy of it would drift from `hidden-words.ts`
+      // independently of whatever this test asserts.
+      const textLocator = page.locator('[data-hidden-words="threads"] [data-hidden-words-text]');
+      const displayed = (await textLocator.textContent())?.trim() ?? '';
+      expect(displayed.length).toBeGreaterThan(0);
+
+      const button = page.locator('[data-hidden-words="threads"] [data-hidden-words-copy]');
+      await expect(button).toBeVisible();
+      await button.click();
+
+      await expect(button).toHaveText('Скопійовано');
+      const clipboard = await page.evaluate(async () => navigator.clipboard.readText());
+      expect(clipboard).toBe(displayed);
+
+      await context.close();
+    });
+
+    test('clicking the first "letters" entry copies exactly that letter', async ({ browser }) => {
+      const context = await browser.newContext({
+        permissions: ['clipboard-read', 'clipboard-write'],
+      });
+      const page = await context.newPage();
+      await page.goto(HIDDEN_WORDS_PAGE, { waitUntil: 'domcontentloaded' });
+
+      // `letters` is RUSSIAN_ONLY_LETTERS verbatim (`hidden-words.ts`), so the
+      // first entry is deterministically «ы» — this is the one place a
+      // literal is the right comparison, because the claim under test is
+      // "clicking THIS entry copies THIS word", not "copies whatever is there".
+      const first = page.locator('[data-hidden-words="letters"] [data-hidden-words-entry]').first();
+      await expect(first).toHaveText('ы');
+      await first.click();
+
+      const clipboard = await page.evaluate(async () => navigator.clipboard.readText());
+      expect(clipboard).toBe('ы');
+
+      await context.close();
+    });
+  });
+});

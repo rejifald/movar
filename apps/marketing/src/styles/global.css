@@ -629,6 +629,159 @@ body {
 }
 
 /*
+ * The guide's "words to hide" copy-paste widgets — see `src/lib/hidden-words.ts`
+ * for the markup contract (the single source; a remark plugin inlines its
+ * output into the Markdown body, so exactly like `.m-chart` below, these
+ * classes can never appear literally in a `.md` file and so can never carry a
+ * Tailwind utility) and the `<script>` in `pages/uk/guide/[...slug].astro`
+ * for the behaviour that keys off them.
+ *
+ * Two shapes, one visual language. The paste box is one long mono line the
+ * reader selects or copies whole — Threads takes a single comma-separated
+ * batch. The entry list is a row of chips, one per word — Bluesky and
+ * Mastodon each take one entry per add. `.hidden-words__entry` repeats the
+ * `.article-prose code` recipe above rather than relying on it by tag: the
+ * page's script upgrades a chip from `<code>` to a real `<button>` once it
+ * wires the copy handler, and a bare-tag selector rule stops matching the
+ * instant the tag does.
+ *
+ * No margin-top of its own on the block itself when it is a direct child of
+ * `.article-prose` — `.article-prose > * + *` already gives every direct
+ * child that rhythm, the same reason `.m-chart` below declares none either.
+ * A guide step is often a numbered list item with the fence indented under
+ * it, though, and that rhythm rule only reaches DIRECT children — hence the
+ * `li >` rule further down, for the one case a fence lands inside an `<li>`
+ * instead of at the top level.
+ */
+.article-prose .hidden-words {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* The one case `.article-prose > * + *` cannot reach: a fence indented under
+   a numbered step lands inside that `<li>`, not as a direct child of
+   `.article-prose`, so it gets no rhythm from that rule at all. */
+.article-prose li > .hidden-words {
+  margin-top: 0.75rem;
+}
+
+.article-prose .hidden-words__paste {
+  display: block;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--corner-inset);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  color: var(--ink-strong);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* The whole point of a paste box: a click anywhere selects the lot, even
+     where the copy button below is refused (see the script's fallback). */
+  user-select: all;
+}
+
+.article-prose .hidden-words__copy {
+  align-self: flex-start;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--corner-chip);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  color: var(--ink-strong);
+  cursor: pointer;
+  transition:
+    border-color 150ms,
+    color 150ms;
+}
+
+.article-prose .hidden-words__copy:hover {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+.article-prose .hidden-words__copy:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.article-prose .hidden-words__entries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* `.article-prose li + li` (above) sets `margin-top: 0.5rem` on every `<li>`
+   after the first, which would push each chip after the one before it down
+   out of the flex-wrap row — two classes beats that rule's one, so this
+   wins without needing `!important`. */
+.article-prose .hidden-words__entries > li {
+  margin: 0;
+}
+
+/*
+ * Same border/background/font/radius as `.article-prose code`, padded out to
+ * a ≥2.5rem (40px) touch target on the 4px grid — a chip this size wearing
+ * tiny inline-code padding would read as broken rather than as a button.
+ */
+.article-prose .hidden-words__entry {
+  display: inline-flex;
+  min-height: 2.5rem;
+  min-width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  color: var(--ink-strong);
+}
+
+/* Only a `<button>` after the script upgrades it takes these — the bare
+   `<code>` chip a no-JS visitor sees is not a control. */
+.article-prose button.hidden-words__entry {
+  cursor: pointer;
+  transition: border-color 150ms;
+}
+
+.article-prose button.hidden-words__entry:hover {
+  border-color: var(--accent-text);
+}
+
+.article-prose button.hidden-words__entry:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.article-prose .hidden-words__entry[data-copied] {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+/* Standard visually-hidden clip: present for `aria-live` to announce, never
+   painted. `display: none` would pull it out of the accessibility tree along
+   with the page, defeating the point of a live region. */
+.article-prose .hidden-words__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
  * Article charts are inlined SVG (see `plugins/remark-inline-chart.mjs`), which
  * is the whole reason they can be themed at all: an `<img>`-loaded SVG is an
  * isolated document and would see none of this.

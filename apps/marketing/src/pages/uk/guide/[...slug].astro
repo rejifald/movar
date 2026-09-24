@@ -135,3 +135,125 @@ const siblingsHeading = t.page.siblingsHeading.replace(
   </main>
   <Footer lang={lang} />
 </BaseLayout>
+
+<script>
+  /*
+   * Progressive enhancement for every `hidden-words` block a page's body may
+   * contain — see `src/lib/hidden-words.ts` for the markup contract each
+   * block renders to, and `plugins/remark-hidden-words.mjs` for where that
+   * markup comes from. Pure DOM: the word lists themselves are already in
+   * the static HTML by the time this runs, so the script only ever reads
+   * what render produced and imports nothing from the data module — a
+   * no-JS visitor already sees every word, just without a copy button.
+   *
+   * No-op without a `[data-hidden-words]` block (most guide pages have
+   * none) and idempotent: `data-wired` marks a block once it is set up, so
+   * running this twice cannot double-bind a click handler.
+   */
+  const COPIED_MS = 1600;
+
+  /**
+   * Writes to the clipboard, swallowing every way it can fail: a rejected
+   * permission, an insecure context, or the API simply not existing (the
+   * property access throws before the `await`, and a synchronous throw
+   * inside a `try` in an async function is caught exactly like an async
+   * rejection). Callers fall back to select-to-copy on `false` — a refusal
+   * must never swallow the click.
+   */
+  async function copyText(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function selectContents(node: Element): void {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }
+
+  /** The `paste`-format block: unhide its button, and wire one whole-text copy. */
+  function wirePaste(block: HTMLElement): void {
+    const text = block.querySelector<HTMLElement>('[data-hidden-words-text]');
+    const button = block.querySelector<HTMLButtonElement>('[data-hidden-words-copy]');
+    if (!text || !button) return;
+
+    button.hidden = false;
+    const idleLabel = button.textContent ?? '';
+    const copiedLabel = button.dataset['copiedLabel'] ?? idleLabel;
+
+    button.addEventListener('click', () => {
+      void copyText(text.textContent ?? '')
+        .then((copied) => {
+          if (!copied) {
+            // Refused or unavailable — leave the reader something to select
+            // and copy by hand rather than swallowing the click.
+            selectContents(text);
+            return;
+          }
+          button.textContent = copiedLabel;
+          window.setTimeout(() => {
+            button.textContent = idleLabel;
+          }, COPIED_MS);
+        })
+        .catch(() => {
+          /* copyText() never rejects; belt-and-suspenders. */
+        });
+    });
+  }
+
+  /** The `entries`-format block: upgrade each word chip into its own copy button. */
+  function wireEntries(block: HTMLElement): void {
+    const copyLabel = block.dataset['copyLabel'] ?? '';
+    const copiedLabel = block.dataset['copiedLabel'] ?? copyLabel;
+    const status = block.querySelector<HTMLElement>('[data-hidden-words-status]');
+
+    for (const entry of block.querySelectorAll<HTMLElement>('[data-hidden-words-entry]')) {
+      const word = entry.textContent ?? '';
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = entry.className;
+      button.setAttribute('data-hidden-words-entry', '');
+      button.textContent = word;
+      button.setAttribute('aria-label', `${copyLabel}: ${word}`);
+      entry.replaceWith(button);
+
+      button.addEventListener('click', () => {
+        void copyText(word)
+          .then((copied) => {
+            if (!copied) {
+              // Refused or unavailable — same fallback as the paste block:
+              // let the reader select and copy the word by hand.
+              selectContents(button);
+              return;
+            }
+            button.toggleAttribute('data-copied', true);
+            // Includes the word, not just the bare label: two consecutive
+            // copies of DIFFERENT entries must change the live region's text
+            // to be re-announced — identical text is not re-read.
+            if (status) status.textContent = `${copiedLabel}: ${word}`;
+            window.setTimeout(() => {
+              button.toggleAttribute('data-copied', false);
+            }, COPIED_MS);
+          })
+          .catch(() => {
+            /* copyText() never rejects; belt-and-suspenders. */
+          });
+      });
+    }
+  }
+
+  for (const block of document.querySelectorAll<HTMLElement>('[data-hidden-words]')) {
+    if (block.hasAttribute('data-wired')) continue;
+    block.setAttribute('data-wired', '');
+
+    if (block.dataset['format'] === 'paste') wirePaste(block);
+    else wireEntries(block);
+  }
+</script>

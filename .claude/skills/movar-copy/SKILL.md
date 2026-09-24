@@ -67,6 +67,11 @@ catching it. Recent examples of claims that were false when written:
   `@movar/lang-pickers` walks the DOM for any switcher.
 - Per-element filtering implied to work on marketplaces — `models` is
   `[googleModel, youtubeModel]` and nothing else.
+- The same claim again, in seven `/uk/guide` callouts: «ховає російські дописи
+  на сторінці — у Facebook, Instagram та X» and six siblings (Telegram, TikTok,
+  Steam, Netflix, Spotify, Gmail). The guide's callouts are now guarded by
+  `apps/marketing/src/lib/guide-callouts.test.ts`; every other surface still
+  relies on this read.
 - «Знімки з реальної збірки — не макет» on the homepage drum — the PNGs are
   Storybook-rendered approximations with fictitious `.example` domains, which
   `apps/extension/store-assets/REQUIREMENTS.md` in fact **requires**.

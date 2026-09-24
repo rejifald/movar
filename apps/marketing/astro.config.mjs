@@ -10,6 +10,7 @@ import { slug as githubSlug } from 'github-slugger';
 import tailwindcss from '@tailwindcss/vite';
 
 import { remarkInlineChart } from './plugins/remark-inline-chart.mjs';
+import { remarkHiddenWords } from './plugins/remark-hidden-words.mjs';
 
 const SITE = 'https://movar.fyi';
 
@@ -107,8 +108,17 @@ export default defineConfig({
      * Article charts are SVG and must be inlined rather than linked — an
      * `<img>`-loaded SVG cannot reach the page's fonts or theme variables.
      * See `plugins/remark-inline-chart.mjs`.
+     *
+     * The guide's "words to hide" lists are a different shape of the same
+     * problem: not media that needs inlining, but a copy-paste widget that
+     * must never fork into a second copy of its data. `remarkHiddenWords`
+     * swaps a ` ```hidden-words <id>` ` fence for that single source's own
+     * rendered markup (`src/lib/hidden-words.ts`) — see
+     * `plugins/remark-hidden-words.mjs`. Order after `remarkInlineChart`
+     * because the two never touch the same node, so it is a note for the
+     * reader rather than a real dependency.
      */
-    remarkPlugins: [remarkInlineChart],
+    remarkPlugins: [remarkInlineChart, remarkHiddenWords],
   },
   site: SITE,
   output: 'static',

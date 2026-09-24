@@ -130,12 +130,15 @@ to a third-party outlet keeps its submitted text there verbatim
 (`ukrainska-za-zamovchuvannyam.md`), because a second full copy would only drift from the live
 one.
 
-**What the guide adds on top of the blog's rules.** `/uk/guide` is twenty small instruction
-pages plus a hub, and it differs from the blog in five ways worth knowing before editing it:
+**What the guide adds on top of the blog's rules.** `/uk/guide` is a set of small,
+single-purpose instruction pages plus a hub, and it differs from the blog in five ways worth
+knowing before editing it:
 
 - A guide page carries `updated`, not `pubDate`, and the hub sorts by `group` + `order` rather
   than by date — a post is finished when published, an instruction is only as good as its last
-  check against the vendor's live UI. Keep `order` sparse (10, 20, 30…).
+  check against the vendor's live UI. Keep `order` sparse (10, 20, 30…). A new page also needs
+  its id in `CARD_ICON` (`src/pages/uk/guide/index.astro`) — a missing id silently gets a bare
+  circle on the hub — and changes the hub's visual baselines (`pnpm e2e:baselines:marketing`).
 - A page's `match` tokens must come from `GUIDE_MATCH_TOKENS` in `src/lib/guide.ts`, the same
   list `detectTokens` emits. The collection schema is built from it, so an invented token fails
   the build. It was a free `z.string()` once, and a dead `match: ['google']` shipped.
@@ -175,6 +178,39 @@ Guide copy lives in `src/lib/guide.ts` (chrome, the three rules, the checklist),
 `src/lib/guide-diagnosis.ts` (the diagnosis and its fixes) and in the Markdown (steps). Closing CTA for both sections is `components/ReaderCta.astro`, which takes
 the pitch as a prop — the blog's argues the diagnosis, the guide's starts from what settings
 cannot reach.
+
+**The hidden-words widget** (`src/lib/hidden-words.ts`) is the single source for every "words
+to hide" list a guide page can render — today, `/uk/guide/prykhovani-slova`, which teaches
+hiding Russian-language posts through Threads', Bluesky's and Mastodon's own muted-words
+settings. A guide page's body is one Markdown file with no seam for a component, so the seam is
+a fenced code block whose info string is `hidden-words <id>`, with `<id>` one of
+`HIDDEN_WORDS_LISTS`'s keys: `threads`, `letters` or `words`. `plugins/remark-hidden-words.mjs` (wired into
+`astro.config.mjs` after `remarkInlineChart`, the same fence-to-HTML pattern) replaces that
+fence with the module's rendered markup at build time. It imports the `.ts` module directly:
+Astro tries a native import of the config first and falls back to Vite's TS-transpiling load
+whenever that throws, and `hidden-words.ts` imports nothing Astro-specific. An unknown or
+missing id throws at build time with the file and the id, rather than shipping a page with a
+silently empty step. The page's own `<script>` (`pages/uk/guide/[...slug].astro`) wires the copy
+buttons; styling is `.article-prose .hidden-words*` in `styles/global.css`, beside
+`.article-prose code`, because generated Markdown cannot carry Tailwind utilities.
+
+Which list goes where is decided by each network's matching rule, not by taste. A Russian-only
+letter (ы э ъ ё) can never touch Ukrainian text, but it only does anything where a one-character
+entry matches inside words (Bluesky; Mastodon with «Ціле слово» off). A Russian word without
+those letters is safe only where entries match whole words — as a substring, «нет» hides
+«інтернет». Threads does not document its rule, so its list holds only entries that contain one
+of the four letters.
+
+Two guards keep the lists and the claims around them honest. `hidden-words.test.ts` is a class
+guard on the lists: a lone character must be one of the four letters (a lone «и» would hide
+almost every Ukrainian post on Bluesky), every multi-character Threads entry must carry one, and
+no entry may be a known Russian-looking Ukrainian word. `guide-callouts.test.ts` is a
+capability-claim guard: a guide page's `movar.claim`/`.body` that uses a hiding verb must name a
+host the extension has a page-content model for (`apps/extension/src/sites/registry.ts`'s
+`models`, hand-mirrored because marketing cannot import the extension) or be one of the pages
+about such a host. It was written after seven callouts were found promising per-card hiding on
+Facebook, Instagram, X, Telegram, TikTok, Steam, Netflix, Spotify and Gmail — none of which has
+a model.
 
 **Key sections on the home page** (in render order): `Header`, `Hero`, `Problem`, `Stakes`, `HowItWorks`, `Privacy`, `Examples`, `Limitations`, `Close`, `Footer`. `BeforeAfter` exists as a component and Storybook story but is not currently rendered in any page.
 

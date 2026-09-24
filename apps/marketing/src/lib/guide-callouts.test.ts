@@ -16,6 +16,17 @@
  * edge), so `HOSTS_WITH_CONTENT_MODEL` below is a hand-kept mirror of that
  * `models` array — update it, by hand, the day a host's model lands there.
  *
+ * Checks `movar.body` only — `movar.claim` is never a Movar capability claim
+ * to begin with. The schema (`content.config.ts`) draws the line explicitly:
+ * `claim` is "the boundary of THIS page's settings, phrased as a statement
+ * about the platform the reader just configured, not about Movar", and
+ * `body` "is what Movar does about it". `prykhovani-slova.md` is the case
+ * that showed why the distinction matters here: its claim — «Фільтр шукає
+ * літери, а не мову: білоруський допис він сховає так само, як
+ * російський.» — uses «сховає» for the NETWORK's own filter, not Movar, so
+ * checking `claim` flagged a true sentence about someone else's product for
+ * the wrong reason.
+ *
  * Written 2026-09-24, when it caught seven callouts promising per-card
  * hiding on a host with no model — firefox, google-akaunt, google-servisy,
  * netflix-spotify, socmerezhi, steam, telegram-tiktok, all in `movar.body`.
@@ -39,7 +50,7 @@ const HOSTS_WITH_CONTENT_MODEL = ['Google', 'YouTube'];
 
 /**
  * Guide pages whose entire subject IS a modelled host, so a hiding claim in
- * `movar.claim`/`movar.body` correctly never repeats the host's name —
+ * `movar.body` correctly never repeats the host's name —
  * `youtube.md`'s body says «він ховає російські блоки на сторінці», never
  * "YouTube"; `google-poshuk.md`'s says «і ховає ті результати», never
  * "Google". Hand-kept in step with {@link HOSTS_WITH_CONTENT_MODEL} for the
@@ -78,14 +89,12 @@ const HIDING_VERB_PATTERN = /хов/iu;
 
 interface GuideFrontmatter {
   readonly movar?: {
-    readonly claim?: unknown;
     readonly body?: unknown;
   };
 }
 
 interface GuidePage {
   readonly id: string;
-  readonly claim: string;
   readonly body: string;
 }
 
@@ -93,12 +102,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-/** Read `movar.<field>` out of already-narrowed frontmatter, or `''` when the
+/** Read `movar.body` out of already-narrowed frontmatter, or `''` when the
  *  shape is not what the schema promises — this guard fails LOUD on a
- *  hiding claim, never silently on a missing field. */
-function readMovarField(movar: GuideFrontmatter['movar'], field: 'claim' | 'body'): string {
+ *  hiding claim, never silently on a missing field. `movar.claim` is not
+ *  read here at all — see the module comment for why. */
+function readMovarBody(movar: GuideFrontmatter['movar']): string {
   if (!isRecord(movar)) return '';
-  const value = movar[field];
+  const value = movar.body;
   return typeof value === 'string' ? value : '';
 }
 
@@ -110,8 +120,7 @@ function readGuidePages(): readonly GuidePage[] {
       const frontmatter = parseFrontmatter(raw).frontmatter as GuideFrontmatter;
       return {
         id: name.replace(/\.md$/, ''),
-        claim: readMovarField(frontmatter.movar, 'claim'),
-        body: readMovarField(frontmatter.movar, 'body'),
+        body: readMovarBody(frontmatter.movar),
       };
     });
 }
@@ -130,21 +139,19 @@ describe('guide capability claims — hiding is only claimed where a model backs
     expect(pages.length).toBeGreaterThan(0);
   });
 
-  // One test per page × field, so a failure names exactly which page and
-  // field to fix rather than a single "N pages failed" line.
+  // One test per page, so a failure names exactly which page to fix rather
+  // than a single "N pages failed" line.
   for (const page of pages) {
-    for (const field of ['claim', 'body'] as const) {
-      it(`${page.id}: movar.${field}`, () => {
-        const text = page[field];
-        if (!HIDING_VERB_PATTERN.test(text)) return; // no hiding claim here — nothing to check
+    it(`${page.id}: movar.body`, () => {
+      const text = page.body;
+      if (!HIDING_VERB_PATTERN.test(text)) return; // no hiding claim here — nothing to check
 
-        expect(
-          namesAModelledHost(text, page.id),
-          `${page.id}: movar.${field} claims hiding ("${text}") but names none of ` +
-            `${HOSTS_WITH_CONTENT_MODEL.join(', ')}, and "${page.id}" is not in ` +
-            'PAGES_ABOUT_MODELLED_HOSTS',
-        ).toBe(true);
-      });
-    }
+      expect(
+        namesAModelledHost(text, page.id),
+        `${page.id}: movar.body claims hiding ("${text}") but names none of ` +
+          `${HOSTS_WITH_CONTENT_MODEL.join(', ')}, and "${page.id}" is not in ` +
+          'PAGES_ABOUT_MODELLED_HOSTS',
+      ).toBe(true);
+    });
   }
 });

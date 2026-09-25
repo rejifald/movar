@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "project": "movar",
+  "lang": "uk",
+  "title": "Інші проєкти студії",
+  "studio": { "name": "Oleks Crane", "href": "https://olekscrane.com/work/movar" },
+  "all": { "label": "Усі проєкти", "href": "https://olekscrane.com/work" },
+  "related": [
+    {
+      "name": "Langtell",
+      "tagline": "Визначає мову коротких текстів і показує, чому саме так.",
+      "href": "https://olekscrane.com/work/langtell"
+    }
+  ],
+  "ask": null
+}

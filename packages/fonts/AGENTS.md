@@ -13,6 +13,7 @@ Font License — subset to Latin + Cyrillic, one CSS entry per cut:
 | `@movar/fonts/fixel-text-500.css`    | `Fixel Text`    | 500    |
 | `@movar/fonts/fixel-text-600.css`    | `Fixel Text`    | 600    |
 | `@movar/fonts/fixel-text-700.css`    | `Fixel Text`    | 700    |
+| `@movar/fonts/fixel-display-400.css` | `Fixel Display` | 400    |
 | `@movar/fonts/fixel-display-700.css` | `Fixel Display` | 700    |
 | `@movar/fonts/fixel-display-800.css` | `Fixel Display` | 800    |
 
@@ -75,13 +76,22 @@ None at runtime. `scripts/subset-fixel.mts` (repo root) uses `subset-font`.
 ## Working on it
 
 The committed subsets are reproducible: re-running `scripts/subset-fixel.mts`
-against a freshly downloaded `FixelAll.zip` regenerates all six byte-for-byte,
+against a freshly downloaded `FixelAll.zip` regenerates all seven byte-for-byte,
 which is how to prove what is in `files/` is really upstream Fixel.
 
 Adding a weight means: subset it (`scripts/subset-fixel.mts`), add its CSS
 entry, then import it from the surfaces that need it — and check that something
 actually renders that weight first. Every cut here is ~45 KB on the wire, and
 the extension popup pays it on open.
+
+`fixel-display-400.woff2` (the marketing site's studio band title,
+`apps/marketing/src/components/StudioBand.astro`) came in via the same
+Latin+Cyrillic pipeline one step removed: copied from the `oleks-crane` brand
+kit's own `brand/fonts/web/FixelDisplay-Regular.woff2`, which that kit cut from
+the same `FixelAll.zip` source with the same coverage. It was not re-subset
+locally — there was no unpacked archive to point `--src` at in that session —
+so `subset-fixel.mts`'s `CUTS` entry for it is unverified against a fresh zip
+until someone runs the regeneration with the archive in hand.
 
 Changing the _family_ is a `@movar/theme` change (`fontFamily`), not a change
 here — and it moves the whole product, so read `fontFamily.brand`'s comment

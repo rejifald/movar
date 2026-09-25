@@ -10,7 +10,7 @@
  * v4), so a token regression on any surface lands here as a diff.
  *
  * ─────────────────────────────────────────────────────────────────────
- * Matrix — 48 page baselines + 10 dedicated captures = 58
+ * Matrix — 48 page baselines + 18 dedicated captures = 66
  * ─────────────────────────────────────────────────────────────────────
  *
  *   pages:   whatever `./pages` lists, deliberately NOT restated here. That
@@ -28,9 +28,12 @@
  *   scheme:  light · dark             — the `prefers-color-scheme` token flip,
  *            so a dark-only regression can't hide behind a passing light cell.
  *
- *   The other 10 sit OUTSIDE that matrix, each for a reason argued below:
- *   header (4) and footer (4) because they render on every page, and the
- *   post's closing CTA (2, uk-only) because it rendered in none.
+ *   The other 18 sit OUTSIDE that matrix, each for a reason argued below:
+ *   header (4) and footer (4) because they render on every page, the studio
+ *   band (8: 2 widths x 2 locales x 2 schemes) because its layout genuinely
+ *   changes shape across widths and the rest of this matrix never varies the
+ *   viewport, and the post's closing CTA (2, uk-only) because it rendered in
+ *   none.
  *
  * Determinism: `animations: 'disabled'` (config) cancels the infinite hero-aurora
  * keyframes to their initial frame; `reducedMotion: 'reduce'` trips the site's
@@ -59,6 +62,15 @@
  * dedicated capture — 4 more baselines (`marketing-header-<locale>[-dark].png`).
  * Between the two clips, a page baseline is now the page's own content and
  * nothing else, which is what it was always meant to assert.
+ *
+ * Studio band: `StudioBand.astro` renders as `Footer.astro`'s sibling, right
+ * after `</footer>` — outside the `<footer>` element `measureFooterTop`
+ * clips to, and past the end of every page baseline's clip, so it invalidates
+ * none of them and needs coverage of its own the same way the footer and
+ * header do. It gets 8 dedicated baselines rather than 4, because it is the
+ * one dedicated capture whose own layout changes shape across widths (1/2/4
+ * columns) — every other capture in this file, page baselines included,
+ * renders at whatever the ambient viewport is and never varies it.
  *
  * The post's closing block gets a dedicated capture for the OPPOSITE reason —
  * not that it is in every baseline, but that it was in none. `CLIP_HEIGHT_PX`
@@ -112,6 +124,19 @@ const LOCALES = [
 const SCHEMES = [
   { colorScheme: 'light', suffix: '' },
   { colorScheme: 'dark', suffix: '-dark' },
+] as const;
+
+/**
+ * The studio band's own two widths (anatomy.md §5's "primary viewport" —
+ * desktop 1440 — plus the phone width its `-375` reference images draw), on
+ * top of the locale x scheme matrix every other dedicated capture here
+ * shares. Unlike the rest of this suite, the band's own layout genuinely
+ * changes shape across widths (1/2/4 columns), so — unlike the footer and
+ * header captures, which don't vary the ambient viewport — this one does.
+ */
+const STUDIO_BAND_VIEWPORTS = [
+  { key: '1440', width: 1440, height: 900 },
+  { key: '375', width: 375, height: 900 },
 ] as const;
 
 /**
@@ -401,6 +426,30 @@ for (const locale of LOCALES) {
           `marketing-footer-${locale.key}${scheme.suffix}.png`,
         );
       });
+
+      /**
+       * The studio band's own baselines — the credit strip `StudioBand.astro`
+       * renders right after the footer on every page (see `AGENTS.md` "The
+       * studio band"). Shot once per width rather than left at the ambient
+       * viewport, because its layout is the point: 1 column below 640px, 2
+       * from 640, 4 from 1024 — a single-viewport capture would only ever
+       * exercise one of the three.
+       *
+       * `#studio-band` rather than an element buried in the page: the band is
+       * `Footer.astro`'s sibling, not its descendant, so it needs its own
+       * selector — `page.locator('footer')` above stops at `</footer>`.
+       */
+      for (const bandViewport of STUDIO_BAND_VIEWPORTS) {
+        test(`studio-band-${bandViewport.key}`, async ({ page }) => {
+          await page.setViewportSize({ width: bandViewport.width, height: bandViewport.height });
+          await page.goto(locale.isUk ? '/uk/' : '/', { waitUntil: 'domcontentloaded' });
+          await settlePage(page, locale.isUk);
+
+          await expect(page.locator('#studio-band')).toHaveScreenshot(
+            `marketing-studio-band-${bandViewport.key}-${locale.key}${scheme.suffix}.png`,
+          );
+        });
+      }
 
       /** The header's own baseline — the other half of what the page clip
        *  drops. Same one-shot reasoning as the footer above. */

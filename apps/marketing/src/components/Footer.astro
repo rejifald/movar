@@ -2,6 +2,7 @@
 import { socialLinks } from '../lib/social-links';
 import { footerColumns } from '../lib/footer-links';
 import { localeInstallHref, strings, type Locale } from '../i18n';
+import StudioBand from './StudioBand.astro';
 
 interface Props {
   lang?: Locale;
@@ -137,6 +138,17 @@ const linkClass = '-mx-2 px-2 py-3 transition hover:text-ink-strong sm:mx-0 sm:p
     </div>
   </div>
 </footer>
+
+{/*
+ * The studio band — a sibling after the footer, not inside it, so the
+ * footer's own markup and its visual baselines stay exactly as they are
+ * (see `apps/e2e/src/marketing/marketing.visual.spec.ts`'s footer clip).
+ * Astro components may have several root nodes, so this needs no wrapper;
+ * `Footer.astro` renders on every page, which is the whole mechanism that
+ * gets the band onto every page without editing any of them — see
+ * `AGENTS.md` "The studio band".
+ */}
+<StudioBand lang={lang} />
 
 <script>
   import { wireDownloadCta } from '../lib/download-cta';

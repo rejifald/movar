@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "project": "movar",
+  "lang": "en",
+  "title": "Other projects by the studio",
+  "studio": { "name": "Oleks Crane", "href": "https://olekscrane.com/work/movar" },
+  "all": { "label": "All projects", "href": "https://olekscrane.com/work" },
+  "related": [
+    {
+      "name": "Langtell",
+      "tagline": "Tell me the language.",
+      "href": "https://olekscrane.com/work/langtell"
+    }
+  ],
+  "ask": null
+}

@@ -9,6 +9,9 @@
 @import '@movar/fonts/fixel-text-500.css';
 @import '@movar/fonts/fixel-text-600.css';
 @import '@movar/fonts/fixel-text-700.css';
+/* Display 400 — the studio band's title only (see the token block near the
+ * end of this file); every other display use on this site is 700/800. */
+@import '@movar/fonts/fixel-display-400.css';
 @import '@movar/fonts/fixel-display-700.css';
 @import '@movar/fonts/fixel-display-800.css';
 
@@ -858,4 +861,60 @@ body {
   margin-top: 3rem;
   border: 0;
   border-top: 1px solid var(--border);
+}
+
+/* =========================================================================
+ * The studio band — the credit strip `StudioBand.astro` renders right after
+ * the footer on every page (docs/design/studio-band/anatomy.md in the
+ * `olekscrane` repo, frozen 2026-09-26): "built by Oleks Crane" and links to
+ * the studio's other projects. It renders in the STUDIO's own brand colours —
+ * Ink on White in light, Paper on Ink in dark — not Movar's
+ * `--surface-*`/`--ink-*` palette, because it credits a different brand
+ * rather than describing this product. Scoped here rather than folded into
+ * `@movar/theme` for the same reason the "How it works" band's fills are
+ * scoped above: these six values belong to Oleks Crane's brand kit, and
+ * mirror its own `src/app/globals.css` (which holds the contrast targets
+ * they meet), not this site's design system.
+ *
+ * `--fs-studio-title` and `--ls-studio-title` are the title's size and
+ * tracking — off both the shared `text-ui-*` ladder and Tailwind's own scale,
+ * because the title is sized to match cap heights with the wordmark beside
+ * it (22.86px at a 16px cap), not to a step of either.
+ * ========================================================================= */
+:root {
+  --studio-band-bg: #ffffff;
+  --studio-band-ink: #0b0e0c;
+  --studio-band-muted: #474a47;
+  --studio-band-subtle: #686a68;
+  --studio-band-line: rgb(11 14 12 / 20%);
+  --studio-band-accent: #b4343b;
+  --fs-studio-title: 22.86px; /* 1.4286rem — cap-matched to the 16px-cap wordmark beside it */
+  --ls-studio-title: -0.01em;
+  --studio-wordmark-h: 17.19px; /* the kit's minimum: 16px cap x 1.0743; width follows the SVG's own viewBox */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --studio-band-bg: #0b0e0c;
+    --studio-band-ink: #f2f4f1;
+    --studio-band-muted: #d1d3d1;
+    --studio-band-subtle: #b7bab7;
+    --studio-band-line: rgb(242 244 241 / 16%);
+    --studio-band-accent: #e75655;
+  }
+}
+
+/*
+ * The band's own focus ring: the studio's accent (a red — see the token block
+ * above — not Movar's forest green) at the anatomy's own geometry, 3px offset
+ * and 2px radius rather than the site default 2px/1px (the global
+ * `:where(a, …):focus-visible` rule under "Focus" above). Scoped to
+ * `#studio-band` and specific enough to win over that zero-specificity rule
+ * without `!important` — the same override mechanism `#how-it-works` already
+ * uses for its own ring colour, extended here to offset and radius too.
+ */
+#studio-band :where(a):focus-visible {
+  outline-color: var(--studio-band-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
 }

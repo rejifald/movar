@@ -26,7 +26,8 @@
     "@movar/theme": "workspace:*",
     "@movar/ui": "workspace:*",
     "astro": "^5.0.0",
-    "lucide-astro": "^0.556.0"
+    "lucide-astro": "^0.556.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

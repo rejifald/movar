@@ -80,6 +80,7 @@ const CUTS = [
   { src: 'FixelText-Medium.woff2', out: 'fixel-text-500.woff2' },
   { src: 'FixelText-SemiBold.woff2', out: 'fixel-text-600.woff2' },
   { src: 'FixelText-Bold.woff2', out: 'fixel-text-700.woff2' },
+  { src: 'FixelDisplay-Regular.woff2', out: 'fixel-display-400.woff2' },
   { src: 'FixelDisplay-Bold.woff2', out: 'fixel-display-700.woff2' },
   { src: 'FixelDisplay-ExtraBold.woff2', out: 'fixel-display-800.woff2' },
 ] as const;

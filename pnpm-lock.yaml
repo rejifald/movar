@@ -336,6 +336,9 @@ importers:
       lucide-astro:
         specifier: ^0.556.0
         version: 0.556.0(astro@5.18.1(@types/node@25.9.1)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.4)(tsx@4.22.3)(typescript@6.0.3)(yaml@2.9.0))
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.4
@@ -9084,7 +9087,7 @@ snapshots:
       eslint: 9.39.4(jiti@2.6.1)
       ts-pattern: 5.9.0
       typescript: 6.0.3
-      zod: 4.4.3
+      zod: 3.25.76
     transitivePeerDependencies:
       - supports-color
 
@@ -11733,8 +11736,8 @@ snapshots:
       '@babel/parser': 7.29.7
       eslint: 9.39.4(jiti@2.6.1)
       hermes-parser: 0.25.1
-      zod: 4.4.3
-      zod-validation-error: 4.0.2(zod@4.4.3)
+      zod: 3.25.76
+      zod-validation-error: 4.0.2(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
 
@@ -13990,7 +13993,7 @@ snapshots:
       jsonwebtoken: 9.0.3
       listr2: 10.2.1
       ofetch: 1.5.1
-      zod: 4.4.3
+      zod: 3.25.76
 
   punycode@2.3.1: {}
 
@@ -15732,9 +15735,9 @@ snapshots:
       typescript: 6.0.3
       zod: 3.25.76
 
-  zod-validation-error@4.0.2(zod@4.4.3):
+  zod-validation-error@4.0.2(zod@3.25.76):
     dependencies:
-      zod: 4.4.3
+      zod: 3.25.76
 
   zod@3.25.76: {}
 

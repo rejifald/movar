@@ -230,6 +230,34 @@ a model.
 
 **Key sections on the home page** (in render order): `Header`, `Hero`, `Problem`, `Stakes`, `HowItWorks`, `Privacy`, `Examples`, `Limitations`, `Close`, `Footer`. `BeforeAfter` exists as a component and Storybook story but is not currently rendered in any page.
 
+**The studio band.** `components/StudioBand.astro` is the credit strip after the footer on
+_every_ page — the studio (Oleks Crane) that built Movar, and links to its other projects.
+It renders from `Footer.astro`, right after `</footer>`, rather than from each page, so
+nothing else had to change to pick it up. Spec: `docs/design/studio-band/anatomy.md` in the
+`olekscrane` repo (frozen 2026-09-26; not part of this checkout). Three things carry the whole
+component:
+
+- **Its data is a committed file, not a live call** — `data/studio-band.en.json` and
+  `.uk.json`, validated at build by `lib/studio-band.ts` (zod — a direct dependency, not
+  `astro:content`'s re-exported `z`, because that virtual module doesn't resolve under plain
+  `vitest run`, and `studio-band.test.ts` needs it too). A malformed file fails `astro build`
+  rather than shipping a broken band.
+  The shape is already the olekscrane.com API's, so once that ships (rejifald/olekscrane#29) a
+  scheduled job can refresh these files by PR instead of a person editing JSON by hand. On
+  movar.fyi `ask` is `null` in both locales — no "Discuss a project" link, since Movar runs no
+  ads and a sales pitch on every page would read as one — but the component renders the full
+  ask/no-ask contract either way.
+- **Its colours are the studio's brand kit, not this site's.** Six `--studio-band-*` custom
+  properties in `styles/global.css` (Ink on White in light, Paper on Ink in dark, switching with
+  the same bare `prefers-color-scheme` this site already uses), scoped outside
+  `--surface-*`/`--ink-*` on purpose — it is crediting a different brand, not describing this
+  product. The band's own focus ring (the studio's red accent, 3px offset, 2px radius) overrides
+  the site default the same way `#how-it-works` already overrides `--focus-ring` for its own
+  permanently-dark surface.
+- **Its wordmark is an inline SVG**, the kit's own path copied character for character (never
+  redrawn) — the one hand-inlined SVG this site's lucide-only icon rule allows, because it is a
+  logo, not an icon (see "Icons are lucide" in the root `AGENTS.md`).
+
 **OG card**: `src/og/OgCard.tsx` — React component rendered to a static 1200×630 PNG by `scripts/capture-og-images.mts` (Playwright). Run with `pnpm capture:og`.
 
 ## Layout
@@ -245,6 +273,8 @@ src/
   content/
     blog/            # one Markdown file per post + assets/ (article illustrations)
     guide/           # one Markdown file per settings-guide page (uk-only)
+  data/
+    studio-band.en.json / studio-band.uk.json  # the studio band's copy + links (see "The studio band")
   pages/
     index.astro / install.astro / privacy.astro / transparency.astro / why-this-happens.astro
     how-movar-works.astro / why-not-ai.astro / changelog.astro / 404.astro
@@ -258,6 +288,7 @@ src/
     blog.ts          # blog routes + its Ukrainian-only chrome copy (deliberately not in i18n.ts)
     safeguards.ts    # /transparency#cant-spy: safeguard ids + their primary-source citations
                      # (evidence lives here, copy in i18n.ts, so uk/en can't cite different docs)
+    studio-band.ts   # zod-validates data/studio-band.*.json at build; see "The studio band"
   og/
     OgCard.tsx       # React OG card component
     OgCard.stories.tsx

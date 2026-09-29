@@ -155,7 +155,7 @@ jobs:
         with:
           name: extension-output
           path: apps/extension/.output/
-          retention-days: 14
+          retention-days: 7
           if-no-files-found: error
           # Required: WXT writes to `.output/`, whose leading dot makes
           # every file count as "hidden" under the action's default filter.

@@ -116,30 +116,21 @@ jobs:
   # freshness. Kept out of this file so the override label can re-run the gate
   # (via `labeled` events) without re-triggering the heavy build/e2e jobs below.
 
-  # Per-browser unpacked extensions for PR testers. We upload the wxt
-  # output directory (not the wxt zip), so the GitHub-wrapped artifact
-  # download extracts straight to `manifest.json` + the rest at the
-  # root — no nested zip to confuse anyone. Chrome/Edge: "Load unpacked"
-  # on the extracted folder. Firefox: `about:debugging` → "Load Temporary
-  # Add-on…" → pick `manifest.json`. The release workflow ships the
-  # chrome zip to both Chrome Web Store and Edge Add-ons (built from the
-  # same `chrome-mv3/` output), so the chrome leg's artifact is labeled
-  # `movar-chrome-edge`. Safari builds the unpacked extension; actually
-  # installing in Safari still needs the Xcode wrapper.
+  # Build check for all three browser targets (chrome-mv3, firefox-mv3,
+  # safari-mv3). Output is not uploaded: see the note on the steps below.
   #
   # No `needs: verify`: the build runs in parallel with `verify` (and
   # `e2e-offline`) so a lint/type failure and a build failure surface
-  # independently. One job builds all three browsers sequentially and uploads
-  # the three unpacked artifacts — a single `pnpm install` instead of three and
-  # three fewer runner slots than the old per-browser matrix, and it stays one
-  # check line on a PR instead of three. Sequential builds still finish within
-  # the `e2e-offline` critical path, so the PR wall-clock is unchanged.
-  # `ci-gate` (below) aggregates this into the single required check.
+  # independently. One job builds all three browsers sequentially — a single
+  # `pnpm install` instead of three and three fewer runner slots than the old
+  # per-browser matrix, and it stays one check line on a PR instead of three.
+  # Sequential builds still finish within the `e2e-offline` critical path, so
+  # the PR wall-clock is unchanged. `ci-gate` (below) aggregates this into the
+  # single required check.
   #
   # Trade-off vs the old `fail-fast: false` matrix: a broken chrome build stops
   # the job before firefox/safari build, so you see the first failure rather
-  # than all three at once. Uploads are interleaved after each build, so an
-  # earlier browser's artifact still survives a later browser's build failure.
+  # than all three at once.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -151,41 +142,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # chrome-mv3 is also the artifact shipped to CWS + Edge (built from the
-      # same output), hence the `movar-chrome-edge` label.
+      # Build-only: the three builds prove each browser target still compiles.
+      # Nothing downloads their output (release.yml builds its own
+      # `extension-output`), so they are deliberately NOT uploaded. Uploading
+      # ~0.7 MB x 3 on every PR/push piled up ~430 artifacts per browser
+      # (~290 MB each) and exhausted the account-wide artifact quota, which
+      # broke uploads in other repos. To try a PR build locally, run
+      # `pnpm --filter @movar/extension build:<browser>`.
       - run: pnpm --filter @movar/extension build:chrome
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: movar-chrome-edge
-          path: apps/extension/.output/chrome-mv3/
-          if-no-files-found: error
-          # `.output/` starts with a dot, so upload-artifact treats it as a
-          # hidden path and skips it by default. Opt in explicitly.
-          include-hidden-files: true
-          # CI build outputs with no downstream consumer (release.yml builds
-          # its own `extension-output`). Without this they inherit the repo
-          # default of 90 days: ~2000 artifacts / 1.26 GB had accumulated and
-          # exhausted the account-wide artifact-storage quota, which then broke
-          # uploads in *other* repos.
-          retention-days: 7
-
       - run: pnpm --filter @movar/extension build:firefox
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: movar-firefox
-          path: apps/extension/.output/firefox-mv3/
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 7
-
       - run: pnpm --filter @movar/extension build:safari
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: movar-safari
-          path: apps/extension/.output/safari-mv3/
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 7
 
   # Movar Audit against movar.fyi — we run our own instrument on our own site.
   #

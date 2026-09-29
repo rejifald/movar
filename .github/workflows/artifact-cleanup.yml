@@ -1,0 +1,74 @@
+name: Artifact cleanup
+
+# Deletes this repo's Actions artifacts older than a threshold. GitHub Free
+# gives the whole account 500 MB of artifact storage shared across every repo,
+# so leftovers here can block uploads in other repos. Artifacts only: caches,
+# releases and packages are never touched.
+#
+# `extension-output` (release.yml's build, downloaded by the approval-gated
+# store jobs, which can wait days for a human) is excluded; its own
+# `retention-days` expires it.
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: Delete artifacts older than this many days
+        type: number
+        default: 2
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+
+concurrency:
+  group: artifact-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MAX_AGE_DAYS: ${{ inputs.max_age_days || 2 }}
+      DRY_RUN: ${{ inputs.dry_run || false }}
+    steps:
+      - name: Delete old artifacts
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d "${MAX_AGE_DAYS} days ago" +%s)
+          now=$(date -u +%s)
+          list=$(mktemp)
+
+          # Stream every page to a file (one TSV row per artifact); never
+          # accumulate pages in a shell variable or argv (ARG_MAX).
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired | not) | [.id, .name, .size_in_bytes, .created_at] | @tsv' \
+            > "$list"
+
+          count=0
+          bytes=0
+          while IFS=$'\t' read -r id name size created; do
+            [ "$name" = "extension-output" ] && continue
+            created_s=$(date -u -d "$created" +%s)
+            [ "$created_s" -ge "$cutoff" ] && continue
+            age_days=$(( (now - created_s) / 86400 ))
+            echo "delete id=${id} name=${name} size=${size}B age=${age_days}d"
+            if [ "$DRY_RUN" != "true" ]; then
+              # An artifact can expire between listing and deleting; tolerate 404.
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}" --silent \
+                || { echo "  skipped (already gone?)"; continue; }
+            fi
+            count=$((count + 1))
+            bytes=$((bytes + size))
+          done < "$list"
+
+          verb="Deleted"
+          [ "$DRY_RUN" = "true" ] && verb="Would delete"
+          echo "${verb} ${count} artifacts, $((bytes / 1048576)) MiB freed (older than ${MAX_AGE_DAYS} days)"

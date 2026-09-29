@@ -93,5 +93,5 @@ jobs:
           path: |
             apps/e2e/playwright-report/
             apps/e2e/test-results/
-          retention-days: 14
+          retention-days: 2
           if-no-files-found: ignore

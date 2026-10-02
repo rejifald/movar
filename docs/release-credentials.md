@@ -191,7 +191,7 @@ shows:
 
 | Surface                 | Filled by                                           |
 | ----------------------- | --------------------------------------------------- |
-| App Store (iOS + macOS) | `release-safari` → `safari-submit.yml`              |
+| App Store (iOS + macOS) | `release-safari` → `submit-safari`                  |
 | Firefox listing         | `release-firefox` → `scripts/amo-release-notes.mjs` |
 | movar.fyi/changelog     | built from the file at deploy time                  |
 | GitHub Release body     | `prepare` fills it from the matching block          |

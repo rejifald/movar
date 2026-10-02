@@ -83,6 +83,30 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.9.1
+
+This is a small performance release. The change is in language switchers: the
+same hidden entry still gets repaired when a site changes it, but Movar no
+longer repeats the full cleanup work when the switcher has not changed.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.9.1
+
+Покращено
+• На сторінках, які часто перемальовують той самий перемикач мов, Мовар більше не прибирає розділювачі навколо прихованих пунктів наново, коли перемикач не змінився. Приховані мови лишаються прихованими, а сторінка отримує менше повторної роботи.
+```
+
+### English (en)
+
+```
+What's new in 1.9.1
+
+Improved
+• On pages that redraw the same language switcher again and again, Movar no longer cleans up the separators around hidden entries from scratch when the switcher has not changed. Hidden languages stay hidden, with less repeated page work.
+```
+
 ## 1.9.0
 
 Two changes a user meets and one they only meet on the way out. The lead is the

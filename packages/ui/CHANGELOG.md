@@ -1,5 +1,12 @@
 # @movar/ui
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [e0c60d7]
+  - @movar/fonts@0.0.2
+
 ## 0.0.1
 
 ### Patch Changes

@@ -106,13 +106,24 @@ function launchOptsFor(headless: boolean): { headless: boolean; channel?: 'chrom
  *  the 30s test timeout so a genuine no-show still fails with a pointed
  *  error inside the test. */
 const SW_EVENT_TIMEOUT_MS = 15_000;
+const SETTINGS_KEY = 'settings';
 
 /** Budget for the storage clear+seed evaluate against one SW instance. A
  *  healthy worker answers in milliseconds; a worker Chrome is mid-teardown
  *  can leave the call hanging with no error at all, so we cut it short and
  *  retry instead of eating the whole test timeout (observed as `Test timeout
  *  of 30000ms exceeded while setting up "serviceWorker"`). */
-const SW_SEED_EVALUATE_TIMEOUT_MS = 5_000;
+const SW_SEED_EVALUATE_TIMEOUT_MS = 10_000;
+
+/** On a cold profile Chrome dispatches runtime.onInstalled while the e2e
+ *  fixture is also trying to seed storage. The background install handler first
+ *  writes product defaults when no settings exist; if the fixture writes before
+ *  that handler's read/then-write completes, the handler can overwrite the e2e
+ *  seed. Wait for that first product write, then replace it with the test seed.
+ */
+const INSTALL_SETTINGS_TIMEOUT_MS = 3_000;
+const INSTALL_SETTINGS_POLL_INTERVAL_MS = 25;
+const POST_SEED_GRACE_MS = 50;
 
 /** Chrome tears down and restarts MV3 service workers at will right after
  *  install — more often on a loaded machine. One restart mid-seed happens in
@@ -196,11 +207,51 @@ async function seedServiceWorker(context: BrowserContext): Promise<Worker> {
     const sw = await waitForServiceWorker(context, deadWorkers);
     try {
       await withDeadline(
-        sw.evaluate(async (settings: MovarSettings) => {
-          await chrome.storage.sync.clear();
-          await chrome.storage.local.clear();
-          await chrome.storage.sync.set({ settings });
-        }, E2E_SETTINGS),
+        sw.evaluate(
+          async ({
+            settings,
+            settingsKey,
+            installSettingsTimeoutMs,
+            installSettingsPollIntervalMs,
+            postSeedGraceMs,
+          }: {
+            settings: MovarSettings;
+            settingsKey: string;
+            installSettingsTimeoutMs: number;
+            installSettingsPollIntervalMs: number;
+            postSeedGraceMs: number;
+          }) => {
+            const deadline = Date.now() + installSettingsTimeoutMs;
+            while (Date.now() < deadline) {
+              const stored = await chrome.storage.sync.get(settingsKey);
+              if (stored[settingsKey] != null) break;
+              await new Promise<void>((resolve) => {
+                setTimeout(resolve, installSettingsPollIntervalMs);
+              });
+            }
+
+            await chrome.storage.sync.clear();
+            await chrome.storage.local.clear();
+            await chrome.storage.sync.set({ [settingsKey]: settings });
+            await new Promise<void>((resolve) => {
+              setTimeout(resolve, postSeedGraceMs);
+            });
+            await chrome.storage.sync.set({ [settingsKey]: settings });
+
+            const seeded = await chrome.storage.sync.get(settingsKey);
+            const storedSettings = seeded[settingsKey] as MovarSettings | undefined;
+            if (storedSettings?.contentModification !== settings.contentModification) {
+              throw new Error('service-worker storage seed did not persist e2e settings');
+            }
+          },
+          {
+            settings: E2E_SETTINGS,
+            settingsKey: SETTINGS_KEY,
+            installSettingsTimeoutMs: INSTALL_SETTINGS_TIMEOUT_MS,
+            installSettingsPollIntervalMs: INSTALL_SETTINGS_POLL_INTERVAL_MS,
+            postSeedGraceMs: POST_SEED_GRACE_MS,
+          },
+        ),
         SW_SEED_EVALUATE_TIMEOUT_MS,
         `service-worker storage seed (attempt ${attempt}/${SW_SEED_ATTEMPTS})`,
       );

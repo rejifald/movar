@@ -1,5 +1,12 @@
 # @movar/diagnostics
 
+## 0.0.7
+
+### Patch Changes
+
+- @movar/ui@0.0.2
+- @movar/app-shell@0.0.4
+
 ## 0.0.6
 
 ### Patch Changes

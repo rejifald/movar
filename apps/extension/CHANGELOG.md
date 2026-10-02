@@ -1,5 +1,25 @@
 # @movar/extension
 
+## 1.9.1
+
+### Patch Changes
+
+- 50f7562: Stop re-walking a picker that has not changed. `cleanupSurvivingContainer` ran its four separator passes — `hideUselessDividers`, `hideOrphanEdgeBorders`, `trimOrphanSeparators`, `trimContainerTextSeparators` — on every debounced re-walk, for the life of the page. Once any entry in a picker is hidden, `survivors.length < picker.links.length` is permanently true, so on an SPA that re-renders aggressively every MutationObserver fire paid for all four again (#586).
+
+  They now run only when a signature over their input domain changed. That domain is what makes the guard provable rather than a heuristic: `hideUselessDividers` and `trimContainerTextSeparators` walk the container's DIRECT children only — going deeper would classify a `/` inside a button label as a divider — and the other two walk `picker.links`. Nothing else is consulted, so an unchanged signature means all four are no-ops by construction, not by hope.
+
+  **#586's premise about the cost was wrong, and the fix is smaller than the issue implies.** The issue says the passes "write to the DOM" every tick. They do not: `hideElement`, `hideEdgeBorderSide` and both trims each early-out once their work is done, so a steady tick is pure traversal and writes nothing. A characterization test pins that, and it passes on main unmodified. What is saved is the traversal — four walks down to one, including `hideUselessDividers`' O(children x links) `contains` scan. Measured in jsdom over a 12-language picker in steady state, three runs each: ~120 -> ~92 us per tick, about 23%. jsdom is not a browser and the honest claim is "fewer walks", not "no longer writes".
+
+  **Keyed on attributes and text, not on the hidden-language set.** #586 proposed the latter and #592 pinned the two things it breaks, both of which move the DOM without moving that set: a blocked duplicate arriving after the first pass (`dedupByLanguage` keeps it out of `picker.links`, so the languages still read exactly `['ru']` while a clickable blocked link sits on the page — movar#293), and a container separator the site re-renders back as a bare text node. Both change this signature, so both still repair. Weakening the signature to structure and text alone fails a test on purpose: it is the attributes that catch a site re-applying its own inline style over Movar's.
+
+  **Two things stay deliberately outside the guard.** `filterPickerLinks` runs every tick as before — it is what actually hides, and it is the real answer to the duplicate case above. So do the surface attach/detach calls: their own guards check the mark is still CONNECTED, and a host the site tore off leaves the container's children untouched, so a container signature would skip the re-attach and leave an entry hidden with nothing explaining it. That is the silent concealment this file exists to prevent, and it is worth the two cheap calls.
+
+- Updated dependencies [e0c60d7]
+  - @movar/fonts@0.0.2
+  - @movar/ui@0.0.2
+  - @movar/app-shell@0.0.4
+  - @movar/options-ui@0.0.4
+
 ## 1.9.0
 
 ### Minor Changes

@@ -285,8 +285,9 @@ jobs:
   # split a job and only this `needs:` list changes — the ruleset never has to.
   # Runs even when a dependency fails or is skipped (`if: !cancelled()`) and fails
   # iff any listed job failed or was cancelled. `!cancelled()` rather than
-  # `always()` so a run cancelled as a whole does not spend a runner on a verdict
-  # nobody reads. Skipped jobs are treated as
+  # `always()`: when the whole run is cancelled the gate is cancelled too (which
+  # still blocks a merge) instead of spending a runner to fail. Skipped jobs are
+  # treated as
   # non-blocking. The full pre-submission suite (`pnpm verify:release`) is NOT a
   # dependency: it runs post-merge in its own `verify-release.yml` on pushes to
   # main, so it never shows up as a PR check at all.

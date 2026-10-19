@@ -283,8 +283,10 @@ jobs:
   # `.github/rulesets/main-metrics-gate.json`). Aggregating the PR-gating jobs
   # here means branch protection references ONE stable context: add, rename, or
   # split a job and only this `needs:` list changes — the ruleset never has to.
-  # Runs even when a dependency fails or is skipped (`if: always()`) and fails
-  # iff any listed job failed or was cancelled. Skipped jobs are treated as
+  # Runs even when a dependency fails or is skipped (`if: !cancelled()`) and fails
+  # iff any listed job failed or was cancelled. `!cancelled()` rather than
+  # `always()` so a run cancelled as a whole does not spend a runner on a verdict
+  # nobody reads. Skipped jobs are treated as
   # non-blocking. The full pre-submission suite (`pnpm verify:release`) is NOT a
   # dependency: it runs post-merge in its own `verify-release.yml` on pushes to
   # main, so it never shows up as a PR check at all.
@@ -301,7 +303,7 @@ jobs:
   # leaving it out would fail OPEN on precisely the job that decides whether the
   # archive runs at all.
   ci-gate:
-    if: always()
+    if: ${{ !cancelled() }}
     needs: [verify, build, audit-site, e2e-offline, safari-wrapper-changes, safari-archive]
     runs-on: ubuntu-latest
     steps:

@@ -181,7 +181,17 @@ export function detect(text: string, candidates: readonly string[]): DetectResul
   // `francResidualVerdict` makes. It can only differ for text whose dominant
   // script is decided by URLs or handles, and it never affects the verdict,
   // which comes from `classifyBySnippet` itself.)
-  const scoped = scopeCandidates(text, profiles);
+  // Under movar's `isolateScripts` a discriminating minority script can decide
+  // when the dominant one holds a lone candidate (docs/mixed-script-snippets.md):
+  // «Самые дешевые … | Victron Multiplus II 48V» is decided among the Cyrillic
+  // candidates, not the dominant Latin `en`. Describe that comparison, by
+  // scoping on the winner's own alphabet to get the candidates of its script.
+  const dominant = scopeCandidates(text, profiles);
+  const winner = profiles.find((profile) => profile.code === verdict.language);
+  const scoped =
+    winner === undefined || dominant.includes(winner)
+      ? dominant
+      : scopeCandidates(winner.alphabet, profiles);
   const scopedCodes = new Set(scoped.map((profile: LanguageProfile) => profile.code));
 
   const letters = distinctiveLetters(scoped);

@@ -11,7 +11,7 @@
  */
 import { francAll } from 'franc';
 import type { LanguageCode } from './lang-codes';
-import { FRANC_RUNG, RUNG3_MIN_LENGTH, scopeCandidates } from './classify';
+import { FRANC_RUNG, RUNG3_MIN_LENGTH, scopeCandidates, textInScope } from './classify';
 import type { LanguageProfile, Rung3Resolver, RungVerdict } from './classify';
 
 /** Oracle franc floor — lower than rung 3; the divergence margin gate filters weak calls. */
@@ -53,8 +53,8 @@ export const francRung3Resolver: Rung3Resolver = (text, scoped) => {
 
 /**
  * Full rung-3 verdict for one snippet given UNSCOPED candidates — scopes to the
- * dominant script (as classifyBySnippet does internally), then applies the franc
- * backstop. Convenience for hosts that hold the candidate profiles but not the
+ * dominant script and hands franc only that script's words (as classifyBySnippet
+ * does internally), then applies the franc backstop. Convenience for hosts that hold the candidate profiles but not the
  * per-text scoping classifyBySnippet does — e.g. the extension's background
  * worker resolving the content filter's residual snippets by message.
  */
@@ -62,17 +62,20 @@ export function francResidualVerdict(
   text: string,
   candidates: readonly LanguageProfile[],
 ): RungVerdict | null {
-  return francRung3Resolver(text, scopeCandidates(text, candidates));
+  const scoped = scopeCandidates(text, candidates);
+  return francRung3Resolver(textInScope(text, scoped), scoped);
 }
 
 /**
  * Off-path franc oracle for the shadow comparison (see shadow.ts). Scopes to the
- * text's dominant script like the classifier and opines whenever franc can (a
+ * text's dominant script and reads only that script's words, like the
+ * classifier, and opines whenever franc can (a
  * lower floor than rung 3) — the divergence margin gate filters weak calls.
  */
 export function francOracle(
   text: string,
   candidates: readonly LanguageProfile[],
 ): { language: LanguageCode; margin: number } | null {
-  return francScore(text, scopeCandidates(text, candidates), ORACLE_MIN_LENGTH);
+  const scoped = scopeCandidates(text, candidates);
+  return francScore(textInScope(text, scoped), scoped, ORACLE_MIN_LENGTH);
 }

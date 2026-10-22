@@ -16,6 +16,21 @@ describe('detect', () => {
     expect(result.discriminating).toBe(true);
   });
 
+  it('describes the comparison that decided a mixed-script title, not the dominant script', () => {
+    // 22 Latin letters outweigh 20 Cyrillic, but the lone Latin candidate can't
+    // choose; the Cyrillic clause decides, so uk/ru are the set compared.
+    const result = detect('Самые дешевые в Украине | Victron Multiplus II 48V 6k5va', [
+      'uk',
+      'en',
+      'ru',
+    ]);
+    expect(result.language).toBe('ru');
+    expect(evidenceFor(result, 'ru')?.inScope).toBe(true);
+    expect(evidenceFor(result, 'uk')?.inScope).toBe(true);
+    expect(evidenceFor(result, 'en')?.inScope).toBe(false);
+    expect(evidenceFor(result, 'ru')?.letters).toContain('ы');
+  });
+
   it('echoes the roster it was given, in order, whatever the verdict', () => {
     const result = detect('Это русский текст', ['be', 'uk', 'ru']);
     expect(result.candidates).toEqual(['be', 'uk', 'ru']);

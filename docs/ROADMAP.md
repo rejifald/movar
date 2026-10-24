@@ -5,24 +5,20 @@ defines the **next version** (scope + Definition of Done) and the **deferred
 lane** that is planned now but built later.
 
 - **GitHub milestones:** [v1.3.0 — Safari + Diagnostics view](https://github.com/rejifald/movar/milestone/1) (shipped) · [vNext (backlog)](https://github.com/rejifald/movar/milestone/2)
-- **Last published:** `@movar/extension` v1.7.0 (tag `extension-v1.7.0`, GitHub Release published 2026-08-22) — submitted from CI to the Chrome Web Store, Firefox AMO, and Edge Add-ons. The App Store is a version behind on v1.6.2; see "Where things stand".
+- **Last published:** `@movar/extension` v1.9.2 (tag `extension-v1.9.2`, GitHub Release published 2026-10-24) — submitted from CI to the Chrome Web Store, Firefox AMO, Edge Add-ons, and the App Store (iOS and macOS in review), all from the one release run; see "Where things stand".
 - **v1.5.1 was cut but never published.** `apps/extension/package.json` was bumped to `1.5.1` and the `extension-v1.5.1` tag pushed (commit `3575d61`), but no GitHub Release was ever published on that tag — and `.github/workflows/release.yml` triggers on `release: [published]`, not on a tag push, so no store job ran and `1.5.1` never reached a user. Its single fix (YouTube search-result video clicks) folds into v1.5.2.
 - **v1.1.0 was skipped.** `apps/extension/package.json` was bumped to `1.1.0` (commit `ef7121e`) but never tagged or released; that work folded into v1.2.0. The number `1.1.0` was never published to any store and will not be.
 
 ---
 
-## Where things stand (v1.7.0 on the browser stores; v1.6.2 on the App Store; v1.8.0 being cut)
+## Where things stand (v1.9.2 submitted to every store, 2026-10-24)
 
-- **v1.8.0 is the release being cut**, and it is an Apple-led one. The three
-  `minor` changesets are all host-app work — macOS gets a layout of its own instead
-  of the phone screen in a window ([#551](https://github.com/rejifald/movar/pull/551)),
-  the Detector's roster editor folds into the tab it describes
-  ([#522](https://github.com/rejifald/movar/pull/522)), and the verdict and its
-  evidence become one card ([#540](https://github.com/rejifald/movar/pull/540)) —
-  joined by the iPad's measured column
-  ([#553](https://github.com/rejifald/movar/pull/553)) and the macOS clipping fixes
-  ([#552](https://github.com/rejifald/movar/pull/552)). The remaining changesets are
-  `@movar/audit` / `@movar/audit-engine` and reach a user only through the Audit tab.
+- **v1.9.2 is the latest release** (2026-10-24), a patch. The Google empty-results
+  retry no longer reloads AI Mode mid-answer and the Google rule no longer touches
+  Google News search ([#612](https://github.com/rejifald/movar/pull/612)); mixed-script
+  titles are judged per script ([#611](https://github.com/rejifald/movar/pull/611)).
+  One release run published to Chrome, Edge and Firefox and put both App Store
+  platforms into review through `submit-safari`, with no manual dispatch.
   **No manifest-permission change since v1.5.0**, so the permission-justification
   surfaces need no re-sync.
 - **v1.7.0 never reached the App Store.** Its `release-safari` job uploaded a build
@@ -69,8 +65,8 @@ lane** that is planned now but built later.
   handles versions, notes, compliance and submission, and no screenshots at all.
   **macOS and iOS/iPadOS are both live** on one listing
   ([id6779282071](https://apps.apple.com/app/id6779282071); macOS since 2026-06-30),
-  serving v1.6.2 with **v1.8.0 in review** on both platforms (submitted from CI
-  2026-08-30) — as recorded in `deployment-checklist.md`'s store table.
+  with **v1.9.2 in review** on both platforms (submitted from CI 2026-10-24) — as
+  recorded in `deployment-checklist.md`'s store table.
 - **Diagnostics lives outside the product.** Content-retaining/analysing tooling ships
   separately, never in the trust-critical MIT artifact. It lives in
   `apps/diagnostics`, a private, never-published dev extension that re-runs

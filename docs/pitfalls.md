@@ -561,6 +561,64 @@ serves `<html lang="ru">` on every locale and its Ukrainian pages must stay resc
 
 ---
 
+## 7. One script's letters decide a question about another ("cross-script evidence")
+
+> _Tags: lang-detect, content-filter, classifier, mixed-script_
+
+**Signature.** A card whose text mixes Cyrillic and Latin gets the wrong verdict, and which
+way it goes depends on the _proportion_ of the two scripts, not on what the Cyrillic says.
+Two faces:
+
+- **Under-hide:** a Russian title with a long Latin product name is kept as `en`
+  («Самые дешевые в Украине | Victron Multiplus II 48V 6k5va»). The verdict carries
+  `discriminating: false`, and the Cyrillic part alone classifies `ru`.
+- **Over-hide:** an English title containing a short Ukrainian name is hidden as `ru`
+  at rung 3 («Interview with Володимир Зеленський on CNN»). The name alone is too short to
+  reach franc at all.
+
+**Blast radius.** Everything that classifies snippet text: `classifyBySnippet` and its
+callers (the extension worker, Movar Audit's `detect()`, the diagnostics panel, the Safari
+host app's Detector tab), the declared-language fusion (`buildDeclaredClassifier`), and the
+off-path franc callers (`francOracle`, `francResidualVerdict`). Also any code that _explains_
+a verdict by re-deriving its scope with `scopeCandidates`.
+
+**Root cause.** Two ways letters of the wrong script count as evidence:
+
+1. **Scoping by letter count.** The classifier keeps only candidates in the text's dominant
+   script. When that script holds a single candidate (Latin = `{en}` for a default user), the
+   candidate can't lose, so its "win" only says Latin had more letters. Nothing downstream
+   read the `discriminating: false` flag that says so.
+2. **franc's floor measured on the whole string.** `RUNG3_MIN_LENGTH` (24) is a guard
+   against trigram noise on short text. Measured on the mixed string, the Latin words lift a
+   20-character Cyrillic name over it, and franc, restricted to `{uk, ru}`, misreads it.
+
+**Guard.** Judge each script on its own evidence. This is langtell's `isolateScripts`,
+applied once in `@movar/lang-detect` as `MOVAR_CLASSIFY_OPTIONS`:
+
+- When the dominant script holds one candidate, and another script holds ≥2 candidates and
+  ≥ `MINORITY_MIN_LETTERS` (8) letters outside quotations, classify that span alone with
+  rungs 1–2. An abstention keeps the old verdict.
+- The rung-3 resolver gets only the scope's own script (`textInScope`), and its floor is
+  measured on that span. Single-script text is passed through untouched.
+- Never call langtell's classifier directly from movar code: import `classifyBySnippet`
+  from `@movar/lang-detect`, which carries the options. When explaining a verdict, describe
+  the scope that decided it (scope the winner's alphabet), not the dominant script's.
+
+**Instances.**
+
+- Reported 2026-10-22 on Google: the Victron title above was kept for a Ukrainian user.
+- Found while designing the fix: the Zelensky title above was hidden in production.
+- Movar Audit's `detect()` (`packages/audit-engine/src/detect.ts`) re-derived the dominant
+  scope to explain a verdict, so it would have reported `ru` winning while "not in scope".
+
+**Review checklist.**
+
+- Does this code count letters or characters across the whole string to decide something
+  about one script?
+- Does a length floor or ratio include text that can't vote for the candidates in question?
+- Does a verdict from a one-candidate scope reach anything that treats it as evidence?
+- Is a new classifier call site going through `@movar/lang-detect` rather than `langtell`?
+
 ## 8. A navigating side effect ran on a surface its rule was never vetted for ("scope leak")
 
 > _Tags: site-rules, search-params, redirects, dnr, google, empty-results-retry, host-match_

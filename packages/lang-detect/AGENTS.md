@@ -41,7 +41,7 @@ behind the opt-in `@movar/lang-detect/franc` subpath (`src/franc.ts`).
 - `LanguageDetectionEngine` — interface: `id`, `isAvailable()`, `detect()`
 - `detectLanguageFromTextWith(engines, text, ctx?): Promise<DetectedLanguage | null>` — engine-agnostic dispatcher; caller supplies the roster (franc-free)
 - `chromeAiEngine` / `createChromeAiEngine()` — opportunistic chrome-ai engine singleton + factory (never triggers a model download)
-- `classifyBySnippet(text, candidates, rung3?): SnippetVerdict` — multi-rung snippet classifier (franc-free core; rung 3 fires only when a `Rung3Resolver` is injected)
+- `classifyBySnippet(text, candidates, rung3?): SnippetVerdict` — multi-rung snippet classifier (franc-free core; rung 3 fires only when a `Rung3Resolver` is injected). Delegates to langtell under `MOVAR_CLASSIFY_OPTIONS` (`isolateScripts`: each script of a mixed-script snippet is judged on its own evidence — see `../../docs/mixed-script-snippets.md`). Movar code must import it from here, never from `langtell/classify` directly
 - `LanguageProfile` — `{ code, alphabet, words: { function, frequent }, iso6393? }`
 - `Rung3Resolver` — `(text, scoped) => SnippetVerdict | null` — injectable rung-3 backstop seam (the franc implementation lives on the `/franc` subpath)
 - `SnippetVerdict` — `{ language, margin, rung: 1 | '2a' | '2b' | 3 | null }`

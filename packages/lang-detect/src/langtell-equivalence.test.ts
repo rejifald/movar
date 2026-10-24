@@ -13,9 +13,13 @@
  * langtell additionally carries a `discriminating` flag that this package's
  * verdict lacks; consumers read only language/margin/rung, so the comparison is
  * deliberately scoped to that triple.
+ *
+ * movar classifies under `MOVAR_CLASSIFY_OPTIONS` (./classify), so the langtell
+ * side is called with the same options: this guards the delegation, not the
+ * options' effect (that lives in test/mixed-script.test.ts).
  */
 import { describe, expect, it } from 'vitest';
-import { classifyBySnippet as movarClassify } from './classify';
+import { classifyBySnippet as movarClassify, MOVAR_CLASSIFY_OPTIONS } from './classify';
 import type { LanguageProfile, SnippetVerdict } from './classify';
 import { francRung3Resolver } from './classify-franc';
 import { getProfiles } from './profiles';
@@ -64,7 +68,7 @@ const SAMPLES: readonly { label: string; text: string; expectLang: string }[] = 
 describe('langtell/classify ↔ @movar/lang-detect classifyBySnippet equivalence', () => {
   it.each(SAMPLES)('agrees on the verdict triple for $label', ({ text, expectLang }) => {
     const movar = movarClassify(text, candidates, francRung3Resolver);
-    const langtell = langtellClassify(text, candidates, francRung3Resolver);
+    const langtell = langtellClassify(text, candidates, francRung3Resolver, MOVAR_CLASSIFY_OPTIONS);
 
     // The two ports must produce the same language/margin/rung consumers read.
     expect(triple(langtell)).toEqual(triple(movar));
@@ -78,7 +82,7 @@ describe('langtell/classify ↔ @movar/lang-detect classifyBySnippet equivalence
     // 'unknown' identically — proving the ladder up to rung 2 is also in lockstep.
     const text = 'Сегодня состоялась большая встреча представителей различных компаний';
     const movar = movarClassify(text, candidates);
-    const langtell = langtellClassify(text, candidates);
+    const langtell = langtellClassify(text, candidates, undefined, MOVAR_CLASSIFY_OPTIONS);
     expect(triple(langtell)).toEqual(triple(movar));
     expect(movar.rung).toBeNull();
   });

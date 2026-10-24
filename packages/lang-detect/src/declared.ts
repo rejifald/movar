@@ -24,6 +24,7 @@
  * the content bundle to reference its types.
  */
 import { compile } from 'langtell';
+import { MOVAR_CLASSIFY_OPTIONS } from './classify';
 import type { LanguageProfile, SnippetVerdict } from './classify';
 import type { LanguageCode } from './lang-codes';
 
@@ -73,7 +74,11 @@ export function isFusedVerdict(verdict: SnippetVerdict | FusedVerdict): verdict 
 export function buildDeclaredClassifier(
   candidates: readonly LanguageProfile[],
 ): (text: string, declared: LanguageCode) => FusedVerdict {
-  const detect = compile({ candidates, nodeLangAttributes: [DECLARED_ATTR] });
+  const detect = compile({
+    candidates,
+    nodeLangAttributes: [DECLARED_ATTR],
+    ...MOVAR_CLASSIFY_OPTIONS,
+  });
   return (text, declared) => {
     const verdict = detect({ text, attrs: { [DECLARED_ATTR]: declared } });
     return { language: verdict.language, confidence: verdict.confidence, fused: true };

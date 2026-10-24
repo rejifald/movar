@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { classifyBySnippet } from './classify';
 import type { LanguageProfile } from './classify';
-import { francOracle, francRung3Resolver } from './classify-franc';
+import { francOracle, francResidualVerdict, francRung3Resolver } from './classify-franc';
 import { be, bg, en, ru, uk } from './profiles';
 
 /**
@@ -113,5 +113,25 @@ describe('francOracle', () => {
   it('returns null when fewer than two candidates share the dominant script', () => {
     // Latin text → Cyrillic candidates scoped out → < 2 candidates → null.
     expect(francOracle('Apple Music playlist here', [uk, ru])).toBeNull();
+  });
+});
+
+describe('francResidualVerdict — the Safari Detector tab’s residual backstop', () => {
+  it('reads a long distinctive-free Russian residual as ru at rung 3', () => {
+    expect(
+      francResidualVerdict('Сегодня состоялась большая встреча представителей различных компаний', [
+        uk,
+        en,
+        ru,
+      ]),
+    ).toMatchObject({ language: 'ru', rung: 3 });
+  });
+
+  it('judges a mixed title on its Cyrillic words alone, so a short name abstains', () => {
+    // The English would lift «Володимир Зеленський» (20 characters) over the
+    // 24-character floor; franc reads only the scope's own script.
+    expect(
+      francResidualVerdict('Interview with Володимир Зеленський on CNN', [uk, en, ru]),
+    ).toBeNull();
   });
 });

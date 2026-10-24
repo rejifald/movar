@@ -337,6 +337,10 @@ describe('buildGoogleSearchRedirectRule', () => {
       'https://www.google.com/search?tbm=isch',
       // `oq` must not satisfy the `q` gate.
       'https://www.google.com/search?oq=test',
+      // Sibling products on subdomains (requestDomains alone would match them):
+      // News serves its own /search?q= and 302s a rewritten hl back.
+      'https://news.google.com/search?q=test&hl=en-US&gl=US&ceid=US:en',
+      'https://support.google.com/search?q=test',
     ])('does not match %s', (url) => {
       expect(ruleRegex().test(url)).toBe(false);
     });

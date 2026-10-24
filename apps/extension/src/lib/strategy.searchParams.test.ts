@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { applyStrategy } from './strategy';
+import { applyStrategy, isInSearchParamsScope } from './strategy';
 import type { LangStrategy } from '../sites/types';
 import { makeContext } from './strategy.test-utils';
 
@@ -530,5 +530,56 @@ describe('applyStrategy — searchParams', () => {
       expect([...target.searchParams].map(([name]) => name).toSorted()).toEqual(['hl', 'q']);
       expect(target.toString()).not.toContain('TokenA');
     });
+  });
+});
+
+const at = (href: string): URL => new URL(href);
+
+describe('isInSearchParamsScope', () => {
+  // Rule-level machinery that follows the rewrite (the empty-results retry)
+  // shares its URL scope through this predicate. Google AI Mode (udm=50)
+  // renders `#search` with zero organic hits by design; an unscoped retry
+  // read it as an empty SERP and reloaded the chat mid-answer.
+  const scoped: LangStrategy = {
+    type: 'searchParams',
+    params: [{ name: 'hl' }],
+    onlyOnPath: '/search',
+    onlyWhenParam: 'q',
+    onlyWhenParamValueIn: { name: 'udm', values: ['14', 'web'] },
+  };
+
+  it('passes the plain results page (no udm, or an allowed udm)', () => {
+    expect(isInSearchParamsScope(scoped, at('https://www.google.com/search?q=a'))).toBe(true);
+    expect(isInSearchParamsScope(scoped, at('https://www.google.com/search?q=a&udm=14'))).toBe(
+      true,
+    );
+    expect(isInSearchParamsScope(scoped, at('https://www.google.com/search?q=a&udm=web'))).toBe(
+      true,
+    );
+  });
+
+  it('rejects every gate miss: disallowed udm (AI Mode), wrong path, missing q', () => {
+    expect(
+      isInSearchParamsScope(scoped, at('https://www.google.com/search?q=a&udm=50&lr=lang_uk')),
+    ).toBe(false);
+    expect(isInSearchParamsScope(scoped, at('https://www.google.com/maps?q=a'))).toBe(false);
+    expect(isInSearchParamsScope(scoped, at('https://www.google.com/search'))).toBe(false);
+  });
+
+  it('looks through compound strategies to their searchParams steps', () => {
+    const compound: LangStrategy = {
+      type: 'compound',
+      steps: [{ type: 'cookie', name: 'lang', values: { uk: 'uk' } }, scoped],
+    };
+    expect(isInSearchParamsScope(compound, at('https://www.google.com/search?q=a'))).toBe(true);
+    expect(isInSearchParamsScope(compound, at('https://www.google.com/search?q=a&udm=50'))).toBe(
+      false,
+    );
+  });
+
+  it('passes any URL for a strategy with no searchParams step (no URL scoping)', () => {
+    expect(isInSearchParamsScope({ type: 'hreflang' }, at('https://example.com/x?udm=50'))).toBe(
+      true,
+    );
   });
 });

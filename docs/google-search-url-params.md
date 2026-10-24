@@ -197,6 +197,16 @@ redirect (adding `hl`/`lr`, stripping `sei`/`gs_lcrp`) is harmless in isolation
 actually stops any FURTHER engagement once the page has loaded. Left as a
 known, deliberate asymmetry between the two layers for now.
 
+The consequence: an AI Mode URL **does** carry `lr`, so every content-script
+mechanism keyed on `lr` must share the rewrite's scope too, not just the
+rewrite. The empty-results retry (`emptyResultsRetry`) didn't. AI Mode renders
+`#search` with no `#rso [data-hveid]` cards (confirmed live), which is the exact
+empty-SERP shape, so the retry `location.replace`d the chat just before its
+answer streamed in. The page blinked and the answer stayed blank until a manual
+refresh. `content-runtime.ts` now gates the retry on `isInSearchParamsScope`
+(`lib/strategy.ts`), the same gates `applySearchParams` uses. The general bug class and how
+to sweep for it: [pitfalls.md §8](pitfalls.md), "scope leak".
+
 ### Defense in depth: enforceCheckedOnce
 
 The gate above makes AI Mode a no-op, but the underlying class of bug — a
@@ -241,9 +251,11 @@ render per search, and the poisoned request never reaches Google.
 - **Condition** — derived from the same gates the content-script rule uses:
   every `google.*` ccTLD (`GOOGLE_REQUEST_DOMAINS` in `@movar/host-match`,
   generated from the same suffix set as `isGoogleHost` and parity-tested
-  against it), a `/search` path prefix, a present `q` param (RE2
-  `regexFilter`; `oq=` cannot satisfy it), `main_frame` only. `/maps` and
-  q-less surfaces never match. Allowlisted and snoozed hosts are excluded,
+  against it), anchored by the regex to the bare / `www.` host
+  (`isGoogleSerpHost` — `news.google.com` also serves `/search?q=` and 302s a
+  rewritten `hl` back when its `ceid` edition disagrees), a `/search` path
+  prefix, a present `q` param (RE2 `regexFilter`; `oq=` cannot satisfy it),
+  `main_frame` only. `/maps` and q-less surfaces never match. Allowlisted and snoozed hosts are excluded,
   and the rule is regenerated from `settings.priority` on every settings /
   pause / snooze change, exactly like the Accept-Language rule.
 - **Action** — `queryTransform`: `addOrReplaceParams` writes `hl` (top

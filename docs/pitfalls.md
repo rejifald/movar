@@ -618,3 +618,115 @@ applied once in `@movar/lang-detect` as `MOVAR_CLASSIFY_OPTIONS`:
 - Does a length floor or ratio include text that can't vote for the candidates in question?
 - Does a verdict from a one-candidate scope reach anything that treats it as evidence?
 - Is a new classifier call site going through `@movar/lang-detect` rather than `langtell`?
+
+## 8. A navigating side effect ran on a surface its rule was never vetted for ("scope leak")
+
+> _Tags: site-rules, search-params, redirects, dnr, google, empty-results-retry, host-match_
+
+**Signature.** A page Movar has a rule for, but which is **not** the page the rule was built
+for, **blinks or reloads on its own**, and afterwards loses state or shows a blank or reset
+view. A manual refresh then looks fine. Typical victims are a sibling surface on the same
+host or path: an AI chat mode, a vertical tab (images, news, shopping), or a sibling product
+on a subdomain (`news.`, `support.`). Signs that point here: the page shares the vetted
+page's **path or host** but differs in a mode param (`udm=50`) or a subdomain, and the
+reload happens **after load** (a timer) or on **every request** (the network layer), not
+when you click something.
+
+**Blast radius.** Any code that can navigate (`location.replace`/`reload`, a DNR redirect, a
+synthetic click that navigates) and decides **where** it applies separately from the rule's
+own scope:
+
+- The `searchParams` rewrite's gates: `onlyOnPath`, `onlyWhenParam`, `onlyWhenParamValueIn`
+  (`passesSearchParamsGates`, `lib/strategy.ts`).
+- Rule-level companions that act on the same rule: `emptyResultsRetry`
+  (`lib/empty-results-retry.ts`, called from `applyOnceInner` in `lib/content-runtime.ts`),
+  and any future retry, fixup or cleanup hook on `SiteRule`.
+- The DNR pre-request redirect (`buildGoogleSearchRedirectRule`, `lib/dnr.ts`). It is a
+  **second copy** of the scope written in RE2, and RE2 can't express everything (no
+  lookaround, so the `udm` allowlist isn't mirrored there).
+- The rule's host scope (`SiteRule.match` / `matchHost`). Note that DNR `requestDomains`
+  also matches **every subdomain** of the domains it lists.
+
+**Root cause.** Each of these layers holds its own copy of "where does this apply", and the
+copies drift. Two shapes:
+
+1. **A narrowed rewrite, an unnarrowed companion.** The rewrite was scoped to plain results
+   (`udm` absent, `14` or `web`), but the empty-results retry still ran on every page of the
+   rule's host. The retry keys on "the filter param is present + a results container with
+   zero cards". AI Mode gets that param from the network layer (the DNR rule can't mirror
+   the `udm` allowlist), and its page has `#search` with no `#rso [data-hveid]` cards by
+   design. So the retry reloaded the chat right before the answer streamed in.
+2. **A path gate taken as a host gate.** "It's path/param-gated, so a broad host match is
+   harmless" is false whenever a sibling product on the same registrable domain uses the
+   **same path**. `news.google.com` serves `/search?q=`; Movar rewrote it to `hl=uk`, and
+   when the URL names another edition (`ceid=US:en`) Google News 302s `hl` straight back, so
+   Movar and the server fight over the URL.
+
+The heuristics are not wrong where they were built. They are wrong on surfaces they were
+never tested on, and nothing stopped them from running there.
+
+**Guard.** One source of scope, reused by every layer:
+
+1. **Companions ask the rule's own gates.** Gate any rule-level side effect on
+   `isInSearchParamsScope(rule.strategy, url)` (`lib/strategy.ts`). It reuses
+   `passesSearchParamsGates` and looks through `compound` strategies. Don't write a second
+   copy of the path/param/mode check next to the side effect.
+2. **Allowlist the vetted surface, don't blocklist the broken one.** Use
+   `onlyWhenParamValueIn` (absent, or one of the listed values), not "skip `udm=50`". A
+   vertical Google ships tomorrow is then out of scope by default.
+3. **Host scope = the hosts actually tested.** Use a narrow predicate (`isGoogleSerpHost`:
+   `google.<tld>` / `www.google.<tld>`), not "every subdomain of the brand". For DNR,
+   `requestDomains` alone reaches all subdomains, so anchor the host in `regexFilter` as
+   well (`^https?://(?:www\.)?google\.[^/?]+…`).
+4. **When a layer can't mirror the scope** (RE2 limits), write the gap down beside the code
+   _and_ make sure nothing downstream reads that layer's output as a signal. AI Mode carries
+   `lr` because of the DNR gap, so every content-script mechanism keyed on `lr` must be
+   gated by the content-script scope.
+5. **Regression test on the sibling surface's real shape.** Copy the sibling page's DOM and
+   URL as found live (`#search` present, zero cards, `udm=50` **with** `lr`), not just a
+   plain-results fixture, and assert that no `location.replace` happens after the settle
+   timer. For a host or DNR scope change, add the sibling host to the registry and coverage
+   "no rule" lists and to the DNR `regexFilter` "does not match" list.
+
+**How to find more instances quickly.**
+
+- From the vetted page, list every tab and mode link (on Google: `a[href*="/search?"]`,
+  grouped by `udm`/`tbm`) and each sibling subdomain that shares the path. Load each one
+  **with the params Movar would add** and check (a) whether the server redirects them back
+  (`performance.getEntriesByType('navigation')[0].redirectCount`), and (b) whether any
+  companion heuristic's DOM condition holds there (e.g. `#search` present, zero
+  `#rso [data-hveid]`).
+- `rg -n "emptyResultsRetry|location\.(replace|reload)|redirect:" apps/extension/src`, then
+  for each hit ask: which scope check does it run, and is it the rule's own?
+- Headless Playwright gets Google's captcha (`/sorry`). Use a normal Chrome user-agent and
+  the `build:e2e` variant (it holds host permissions), or probe in a real browser.
+
+**Instances.**
+
+- **Google AI Mode reload (2026-10-24).** In AI Mode (`/search?…&udm=50`) the page blinked
+  right after "thinking" and the answer stayed blank until a manual refresh. Cause: the
+  empty-results retry wasn't gated by the rewrite's `udm` allowlist, as described in Root
+  cause shape 1. Fixed by gating the retry in `applyOnceInner` on `isInSearchParamsScope`.
+  Test: `content.test.ts`, "never retries on Google AI Mode, even with lr present and no
+  organic cards".
+- **Google News `hl` fight (2026-10-24).** `googleRule` matched `isGoogleHost` (every
+  subdomain) and the DNR rule matched all subdomains through `requestDomains`, so
+  `news.google.com/search?q=…&ceid=US:en` was rewritten to `hl=uk` and Google 302'd it
+  back. This was the "path-gated, so harmless" assumption from issue #372. Fixed by switching
+  `matchHost` to `isGoogleSerpHost` and anchoring the DNR `regexFilter` host. Tests: in
+  `registry.test.ts`, `coverage.test.ts` and `dnr.test.ts`.
+- **Earlier sibling (pitfall-adjacent):** AI Mode's per-turn `replaceState` re-added `sei`
+  and forced a reload on every chat turn, until `onlyWhenParamValueIn` scoped the rewrite
+  itself (docs/google-search-url-params.md, "AI Mode chat").
+
+**Review checklist.**
+
+- Does this new side effect navigate? Which scope check does it run, and is it the rule's
+  own (`isInSearchParamsScope`) rather than a second copy?
+- Is the scope an allowlist of tested surfaces, or a blocklist of the ones that broke?
+- Does the host predicate cover only hosts someone tested, including subdomains that share
+  the path? For DNR, is the host anchored in `regexFilter` and not left to `requestDomains`?
+- If one layer can't express the scope, is the gap written down, and does anything
+  downstream treat that layer's additions (e.g. `lr`) as evidence?
+- Is there a test on the sibling surface's real DOM/URL shape asserting that no navigation
+  happens?

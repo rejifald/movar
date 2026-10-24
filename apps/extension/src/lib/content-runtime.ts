@@ -45,7 +45,7 @@ import {
 } from './pause';
 import { clearPickerChoice, getPickerChoice, recordPickerChoice } from './session-choice';
 import { getSettings, onSettingsChange, setSettings } from './settings';
-import { applyStrategy } from './strategy';
+import { applyStrategy, isInSearchParamsScope } from './strategy';
 import type { StrategyContext } from './strategy';
 import { hostMatchesAllowlist } from './host-match';
 import { pickerChoiceForTarget } from './picker-click';
@@ -786,8 +786,15 @@ async function applyOnceInner(settings: MovarSettings, generation: number): Prom
   // when the switch ladder above did NOT navigate (the URL is already at
   // target), which is exactly the stuck state. Arms a settle-time check that
   // retries once without the rule's filter param; gated on `target` because a
-  // filter Movar didn't add isn't Movar's to remove.
-  if (rule?.emptyResultsRetry && target != null) {
+  // filter Movar didn't add isn't Movar's to remove. Scoped like the rewrite
+  // itself: Google AI Mode (`udm=50`) still gets `lr` from the DNR layer and
+  // renders `#search` with zero organic hits by design, so an unscoped retry
+  // reloaded the chat just before its answer streamed in.
+  if (
+    rule?.emptyResultsRetry &&
+    target != null &&
+    isInSearchParamsScope(rule.strategy, new URL(location.href))
+  ) {
     maybeScheduleEmptyResultsRetry(rule.emptyResultsRetry, target, {
       ...emptyRetryDeps,
       // Staleness for the async confirm: any settings change, restoreAll, or

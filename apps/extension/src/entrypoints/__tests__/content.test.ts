@@ -257,6 +257,49 @@ describe('empty-SERP retry wiring', () => {
       sessionStorage.clear();
     }
   });
+
+  // Reported bug: Google AI Mode (udm=50) blinked and lost its answer right
+  // after "thinking". The DNR layer adds `lr` to any /search URL (udm-blind,
+  // see lib/dnr.ts), and AI Mode renders `#search` with no `#rso` cards — the
+  // exact empty-SERP shape (confirmed live) — so the retry fired a
+  // location.replace mid-chat. It must share the rewrite's udm scope.
+  it('never retries on Google AI Mode, even with lr present and no organic cards', async () => {
+    sessionStorage.clear();
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div id="search"><div class="ai-chat"></div></div>';
+    const fakeLocation = {
+      href: 'https://www.google.com/search?q=test&udm=50&hl=uk&lr=lang_uk',
+      hostname: 'www.google.com',
+      protocol: 'https:',
+      pathname: '/search',
+      replace: vi.fn((next: string) => {
+        fakeLocation.href = next;
+      }),
+      reload: vi.fn(),
+    };
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: fakeLocation });
+    try {
+      const settings = {
+        ...defaultSettings,
+        priority: ['uk' as const],
+        contentModification: false,
+      };
+      expect(await runtime.applyOnce(settings)).toBe(false);
+      globalThis.window.dispatchEvent(new Event('load'));
+      await vi.advanceTimersByTimeAsync(RETRY_SETTLE_DELAY_MS);
+
+      expect(fakeLocation.replace).not.toHaveBeenCalled();
+      expect(getAttemptedUrls()).toEqual([]);
+    } finally {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+      vi.useRealTimers();
+      sessionStorage.clear();
+    }
+  });
 });
 
 describe('picker choice capture', () => {

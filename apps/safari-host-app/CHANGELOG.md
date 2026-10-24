@@ -1,5 +1,18 @@
 # @movar/safari-host-app
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [9922003]
+  - @movar/lang-detect@0.0.2
+  - @movar/audit@0.2.2
+  - @movar/audit-engine@0.1.3
+  - @movar/i18n@0.0.4
+  - @movar/options-ui@0.0.5
+  - @movar/settings@0.0.3
+  - @movar/app-shell@0.0.5
+
 ## 0.1.3
 
 ### Patch Changes

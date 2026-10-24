@@ -83,6 +83,57 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.9.2
+
+<!-- Distil the user-facing highlights below into both locales, then delete
+     this comment. User's voice: what changed for them, not for the code.
+     `pnpm check:release-notes` fails while either fenced block is empty.
+
+     Shape of a block — a title line, then category headings owning the
+     bullets beneath them (see "The shape of a block" in RELEASE-NOTES.md):
+
+       Що нового у версії 1.9.2
+
+       Виправлено
+       • …
+
+     Categories: Нове / Виправлено / Покращено / Безпека (uk),
+                 New / Fixed / Improved / Security (en).
+
+     From CHANGELOG.md:
+
+  ### Patch Changes
+  - 63f4c3c: Stop reloading Google AI Mode just before its answer appears, and leave Google News search alone.
+    - The empty-results retry (retry a Google results page once without `lr` when it shows zero results) now only runs on the pages the Google rewrite covers: plain results with no `udm`, `udm=14` or `udm=web`. AI Mode (`udm=50`) still picks up `lr` from the network-layer redirect, and its page has a `#search` container with no organic result cards. The retry read that as an empty results page and reloaded the chat while the answer was loading, which left the answer blank until a manual refresh.
+    - The Google rule now only applies on `google.<tld>` and `www.google.<tld>`, both in the content script and in the network-layer redirect. It used to match every Google subdomain, and `news.google.com` has its own `/search?q=`: when the URL names a different edition (`ceid=US:en`), its server sends a rewritten `hl=uk` straight back to the edition's language, so Movar and Google News fought over the URL.
+  - 9922003: Judge each script of a mixed-script result on its own evidence (langtell `isolateScripts`).
+    - A Russian clause next to a longer Latin product name is now read as Russian. «Самые дешевые в Украине | Victron Multiplus II 48V 6k5va» used to be decided by the lone Latin candidate (`en`) because 22 Latin letters outvoted 20 Cyrillic, and was kept.
+    - franc reads only the Cyrillic words of a mixed title, and its 24-character floor is measured on them. «Interview with Володимир Зеленський on CNN» was hidden as `ru` because the English lifted a 20-character Ukrainian name over that floor. It is now kept.
+    Applied once in `@movar/lang-detect` (`MOVAR_CLASSIFY_OPTIONS`), so the extension, Movar Audit, the diagnostics panel and the Safari host app all classify the same way. Measured over 629 strings, no Ukrainian or English title is concealed (one was before). See docs/mixed-script-snippets.md.
+  - Updated dependencies [9922003]
+    - @movar/lang-detect@0.0.2
+    - @movar/events@0.0.2
+    - @movar/i18n@0.0.4
+    - @movar/lang-pickers@0.0.5
+    - @movar/options-ui@0.0.5
+    - @movar/page-content@0.1.2
+    - @movar/page-language@0.0.5
+    - @movar/settings@0.0.3
+    - @movar/app-shell@0.0.5
+-->
+
+### Українська (uk)
+
+```
+
+```
+
+### English (en)
+
+```
+
+```
+
 ## 1.9.1
 
 This is a small performance release. The change is in language switchers: the

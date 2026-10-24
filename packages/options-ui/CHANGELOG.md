@@ -1,5 +1,14 @@
 # @movar/options-ui
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [9922003]
+  - @movar/lang-detect@0.0.2
+  - @movar/i18n@0.0.4
+  - @movar/settings@0.0.3
+
 ## 0.0.4
 
 ### Patch Changes

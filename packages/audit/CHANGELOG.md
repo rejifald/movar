@@ -1,5 +1,13 @@
 # @movar/audit
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [9922003]
+  - @movar/lang-detect@0.0.2
+  - @movar/lang-pickers@0.0.5
+
 ## 0.2.1
 
 ### Patch Changes

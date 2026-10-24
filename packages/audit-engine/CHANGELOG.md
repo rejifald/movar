@@ -1,5 +1,14 @@
 # @movar/audit-engine
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [9922003]
+  - @movar/lang-detect@0.0.2
+  - @movar/audit@0.2.2
+  - @movar/settings@0.0.3
+
 ## 0.1.2
 
 ### Patch Changes

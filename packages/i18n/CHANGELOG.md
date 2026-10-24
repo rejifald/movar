@@ -1,5 +1,14 @@
 # @movar/i18n
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [9922003]
+  - @movar/lang-detect@0.0.2
+  - @movar/events@0.0.2
+  - @movar/settings@0.0.3
+
 ## 0.0.3
 
 ### Patch Changes

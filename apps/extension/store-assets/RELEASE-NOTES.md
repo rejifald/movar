@@ -83,6 +83,40 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.9.2
+
+Two Google fixes and one detection fix. AI Mode leads: a blank answer is the
+failure a user actually saw. The Google News bullet names the address loop
+rather than the host-scoping rule behind it. The mixed-script item is framed as
+how Movar reads a title, not as hiding, because content hiding is off by default
+and the classifier change applies on every surface that runs it.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.9.2
+
+Виправлено
+• AI Mode у пошуку Google більше не перезавантажується саме тоді, коли зʼявляється відповідь. Раніше відповідь лишалася порожньою, доки сторінку не оновити вручну.
+• Мовар більше не змінює адреси пошуку в Google News. Коли адреса вела на видання іншою мовою, Google News повертав її до мови цього видання, і Мовар з Google News по черзі переписували адресу.
+
+Покращено
+• Мовар тепер оцінює заголовки, де кирилиця стоїть поруч із латиницею, окремо за кожним письмом. Російська фраза поруч із довгою англійською назвою товару більше не проходить як англійська, а англійський заголовок з українським імʼям не вважається російським.
+```
+
+### English (en)
+
+```
+What's new in 1.9.2
+
+Fixed
+• AI Mode in Google Search no longer reloads just as its answer appears. Before, the answer stayed blank until the page was refreshed by hand.
+• Movar no longer changes Google News search addresses. When an address pointed to an edition in another language, Google News sent it back to that edition's language, and Movar and Google News kept rewriting it in turn.
+
+Improved
+• Movar now judges each script separately in titles that mix Cyrillic and Latin. A Russian phrase next to a long English product name no longer passes as English, and an English title with a Ukrainian name in it is no longer taken for Russian.
+```
+
 ## 1.9.1
 
 This is a small performance release. The change is in language switchers: the

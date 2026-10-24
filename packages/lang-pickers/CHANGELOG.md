@@ -1,5 +1,12 @@
 # @movar/lang-pickers
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [9922003]
+  - @movar/lang-detect@0.0.2
+
 ## 0.0.4
 
 ### Patch Changes

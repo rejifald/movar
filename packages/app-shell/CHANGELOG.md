@@ -1,5 +1,11 @@
 # @movar/app-shell
 
+## 0.0.5
+
+### Patch Changes
+
+- @movar/i18n@0.0.4
+
 ## 0.0.4
 
 ### Patch Changes

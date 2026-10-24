@@ -1,5 +1,17 @@
 # @movar/diagnostics
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [9922003]
+  - @movar/lang-detect@0.0.2
+  - @movar/lang-pickers@0.0.5
+  - @movar/page-content@0.1.2
+  - @movar/page-language@0.0.5
+  - @movar/settings@0.0.3
+  - @movar/app-shell@0.0.5
+
 ## 0.0.7
 
 ### Patch Changes

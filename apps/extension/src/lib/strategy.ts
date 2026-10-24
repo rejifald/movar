@@ -376,6 +376,19 @@ function passesSearchParamsGates(strategy: LeafOf<'searchParams'>, url: URL): bo
   return true;
 }
 
+/** True when `url` is a surface `strategy`'s `searchParams` rewrite is scoped
+ *  to — i.e. at least one `searchParams` step clears its gates. A strategy
+ *  with no `searchParams` step has no URL scoping and always passes. Lets
+ *  rule-level machinery that follows the rewrite (the empty-results retry)
+ *  share its scope instead of re-deriving it: Google AI Mode (`udm=50`) has a
+ *  `#search` container and zero organic hits by design, so an unscoped retry
+ *  read it as an empty SERP and reloaded the chat mid-answer. */
+export function isInSearchParamsScope(strategy: LangStrategy, url: URL): boolean {
+  const { navigates } = partition([strategy]);
+  const scoped = navigates.filter((s): s is LeafOf<'searchParams'> => s.type === 'searchParams');
+  return scoped.length === 0 || scoped.some((s) => passesSearchParamsGates(s, url));
+}
+
 /** The literal `{name, value}` pairs a `searchParams` rewrite writes.
  *  `joinPreferences: true` joins every preference with `|` (Google's `lr`
  *  accepts `lang_uk|lang_en`) — single-preference callers get the same value

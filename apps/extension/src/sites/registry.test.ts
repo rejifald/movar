@@ -178,8 +178,8 @@ describe('getRuleForHost — Google ccTLDs resolve to one predicate rule', () =>
 });
 
 describe('getRuleForHost — Google predicate coverage', () => {
-  it.each(['google.es', 'google.co.jp', 'google.com.br', 'news.google.de'])(
-    'matches an unlisted Google ccTLD/subdomain (%s)',
+  it.each(['google.es', 'google.co.jp', 'google.com.br', 'www.google.de'])(
+    'matches an unlisted Google ccTLD (%s)',
     (host) => {
       const rule = getRuleForHost(host);
       expect(rule).toBeDefined();
@@ -239,22 +239,29 @@ describe('resolveModelChunk', () => {
     expect(resolveModelChunk('m.youtube.com')).toBe('models/youtube.js');
   });
 
-  // Model scope ≠ redirect scope (#372): these are genuine Google/YouTube hosts
-  // — the path-gated redirect rules still match them harmlessly — but they are
-  // sibling frontends the extractors cannot parse (music. is 100% ytmusic-*
-  // components; news./scholar./translate. have no #rso), so provisioning the
-  // model chunk there is a wasted download that can never conceal anything.
-  it.each([
-    'music.youtube.com',
-    'studio.youtube.com',
-    'kids.youtube.com',
-    'news.google.com',
-    'scholar.google.com',
-    'translate.google.com',
-  ])('provisions no model chunk on unparseable sibling frontend %s', (host) => {
-    expect(getRuleForHost(host)).toBeDefined(); // redirect layer stays broad
-    expect(resolveModelChunk(host)).toBeNull(); // model layer does not
-  });
+  // Model scope ≠ redirect scope (#372): genuine YouTube hosts — the
+  // path-gated redirect rule still matches them harmlessly — but sibling
+  // frontends the extractor cannot parse (music. is 100% ytmusic-* components),
+  // so provisioning the model chunk there is a wasted download.
+  it.each(['music.youtube.com', 'studio.youtube.com', 'kids.youtube.com'])(
+    'provisions no model chunk on unparseable sibling frontend %s',
+    (host) => {
+      expect(getRuleForHost(host)).toBeDefined(); // redirect layer stays broad
+      expect(resolveModelChunk(host)).toBeNull(); // model layer does not
+    },
+  );
+
+  // Google's sibling products get neither layer. news.google.com serves its own
+  // `/search?q=` and 302s a rewritten `hl=uk` back to the edition's `hl` when
+  // the URL carries a conflicting `ceid` (observed live), so a path/param-gated
+  // redirect rule is not harmless there.
+  it.each(['news.google.com', 'news.google.de', 'scholar.google.com', 'translate.google.com'])(
+    'matches no rule and provisions no model on Google sibling product %s',
+    (host) => {
+      expect(getRuleForHost(host)).toBeUndefined();
+      expect(resolveModelChunk(host)).toBeNull();
+    },
+  );
 
   it('returns null for rule-only sites and unknown hosts', () => {
     expect(resolveModelChunk('www.bing.com')).toBeNull();

@@ -31,6 +31,11 @@ import type { LangStrategy, SiteModel, SiteRule } from '../types';
 // live-test method: docs/google-search-url-params.md.
 // One rule covers every google.* ccTLD via the shared predicate — the SERP
 // rewrite is identical across ccTLDs — so `match` is only a label here.
+// Web-search hosts only (`google.<tld>` / `www.google.<tld>`), never sibling
+// products: news.google.com also serves `/search?q=`, and its server 302s a
+// rewritten `hl=uk` straight back to the edition's `hl` when the URL carries a
+// conflicting `ceid` (observed live) — so a path/param-gated rule is NOT
+// harmless on subdomains, whatever their path shape.
 
 /** Known members of the `gs_*` scrub family, enumerated by exact name for the
  *  DNR pre-request layer: `queryTransform.removeParams` (lib/dnr.ts) matches
@@ -125,7 +130,7 @@ export function isGoogleSorryUrl(url: string): boolean {
 
 export const googleRule: SiteRule = {
   match: 'google',
-  matchHost: isGoogleHost,
+  matchHost: isGoogleSerpHost,
   enforce: true,
   strategy: googleSearchStrategy,
   // A solved captcha returns the user to the pre-captcha SERP URL, which the
@@ -163,7 +168,6 @@ export const googleRule: SiteRule = {
   },
 };
 
-// Model scope ≠ redirect scope (#372): googleRule keeps the broad isGoogleHost
-// (path/param-gated, harmless on news./scholar./translate.), but the SERP model
-// chunk is provisioned only where an #rso exists for it to parse.
+// Same host scope as googleRule: the SERP model chunk is provisioned only where
+// an #rso exists for it to parse (#372).
 export const googleModel: SiteModel = { chunk: 'models/google.js', matches: isGoogleSerpHost };

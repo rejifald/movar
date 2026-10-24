@@ -187,7 +187,8 @@ function escapeRegexLiteral(literal: string): string {
  * applies — so these fields cannot drift between the two layers:
  *   - condition: `onlyOnPath` ('/search' path prefix) + `onlyWhenParam`
  *     (`q` present), host-gated to every google.* ccTLD via
- *     {@link GOOGLE_REQUEST_DOMAINS}. `/maps` and other non-/search paths
+ *     {@link GOOGLE_REQUEST_DOMAINS} and to the bare / `www.` host by the
+ *     regex (no news./support./… subdomains). `/maps` and other non-/search paths
  *     never match; a q-less homepage never matches.
  *   - action: `queryTransform` with `addOrReplaceParams` for the language
  *     params (`hl`, pipe-joined `lr` via {@link searchParamValue}) and
@@ -249,7 +250,11 @@ export function buildGoogleSearchRedirectRule(
       // (udm) scoping (see this function's doc comment). RE2-compatible (no
       // lookaround): `q` must directly follow the `?` or a `&`, so
       // `oq=`/`aqs=` can't satisfy the gate.
-      regexFilter: String.raw`^https?://[^/?]+${escapeRegexLiteral(onlyOnPath)}[^?#]*\?(?:[^#]*&)?${escapeRegexLiteral(onlyWhenParam)}=`,
+      // Host anchored to the web-search hosts (`google.<tld>`, `www.google.<tld>`)
+      // the content-script rule matches (`isGoogleSerpHost`): `requestDomains`
+      // alone also matches every subdomain, and news.google.com's own
+      // `/search?q=` 302s a rewritten `hl` back when `ceid` disagrees.
+      regexFilter: String.raw`^https?://(?:www\.)?google\.[^/?]+${escapeRegexLiteral(onlyOnPath)}[^?#]*\?(?:[^#]*&)?${escapeRegexLiteral(onlyWhenParam)}=`,
       requestDomains: [...GOOGLE_REQUEST_DOMAINS],
       // main_frame only: the content-script rewrite acts on top-level
       // documents, and a framed google.* /search embed is not a surface the

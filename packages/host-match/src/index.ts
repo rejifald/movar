@@ -132,10 +132,10 @@ export function isYouTubeContentHost(host: string): boolean {
  * `#rso` results area for the model to read (issue #372). Spoof hosts are
  * rejected the same way {@link isGoogleHost} rejects them — the trailing labels
  * must be a curated {@link GOOGLE_PUBLIC_SUFFIXES} entry, so `google.evil.com`
- * / `a.google.b` fail. Same intentional asymmetry as
- * {@link isYouTubeContentHost}: the redirect rule (`matchHost`) and the
- * extractor's in-chunk guard keep the broad {@link isGoogleHost}; only chunk
- * provisioning is scoped here.
+ * / `a.google.b` fail. Unlike {@link isYouTubeContentHost}, the Google redirect
+ * rule (`matchHost`) uses this narrow predicate too: news.google.com serves its
+ * own `/search?q=` and 302s a rewritten `hl` back, so a path-gated rule is not
+ * harmless there. Only the extractor's in-chunk guard keeps {@link isGoogleHost}.
  */
 export function isGoogleSerpHost(host: string): boolean {
   const h = stripTrailingDot(host).replace(/^www\./, '');

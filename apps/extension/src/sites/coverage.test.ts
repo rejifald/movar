@@ -50,11 +50,11 @@ const COVERED_HOSTS: readonly string[] = [
   // electricaRule (match: 'electrica-shop.com.ua')
   'electrica-shop.com.ua',
   'www.electrica-shop.com.ua',
-  // googleRule (matchHost: isGoogleHost) — multiple ccTLDs + subdomains.
+  // googleRule (matchHost: isGoogleSerpHost) — multiple ccTLDs, bare + www.
   'google.com',
   'www.google.com',
   'google.com.ua',
-  'news.google.co.uk',
+  'www.google.co.uk',
   // bingRule (match: 'bing.com')
   'www.bing.com',
   // duckduckgoRule (match: 'duckduckgo.com')
@@ -63,10 +63,9 @@ const COVERED_HOSTS: readonly string[] = [
   'youtube.com',
   'www.youtube.com',
   'm.youtube.com',
-  // Sibling frontends (#372): redirect-COVERED on purpose — the rules stay
-  // broad because they're path/param-gated — while model-chunk provisioning
-  // excludes them (asserted in registry.test.ts resolveModelChunk).
-  'news.google.com',
+  // Sibling frontend (#372): redirect-COVERED on purpose — the rule stays broad
+  // because it's path/param-gated — while model-chunk provisioning excludes it
+  // (asserted in registry.test.ts resolveModelChunk).
   'music.youtube.com',
 ];
 
@@ -77,6 +76,10 @@ const CLEAN_HOSTS: readonly string[] = [
   'fake-electrica-shop.com.ua',
   'notgoogle.com',
   'google.com.evil.com',
+  // Google sibling products: real Google hosts, deliberately rule-less — News
+  // serves its own `/search?q=` and 302s a rewritten `hl` back.
+  'news.google.com',
+  'news.google.co.uk',
 ];
 
 describe('registry rule coverage (dead-rule guard)', () => {
@@ -142,10 +145,15 @@ describe('Google DNR redirect rule / registry host parity', () => {
     expect(strays).toEqual([]);
   });
 
-  it('every covered Google fixture host is inside the rule condition (DNR subdomain semantics)', () => {
+  it('every covered Google fixture host is inside the rule condition (requestDomains + regexFilter)', () => {
     const domains = ruleDomains();
+    const { regexFilter } = buildGoogleSearchRedirectRule(['uk']).condition;
+    const hostRegex = new RegExp(regexFilter ?? '');
+    // Both halves of the condition must hold: requestDomains (DNR subdomain
+    // semantics) AND the regex's host anchor, probed with a SERP-shaped URL.
     const coveredByCondition = (host: string): boolean =>
-      domains.some((d) => host === d || host.endsWith(`.${d}`));
+      domains.some((d) => host === d || host.endsWith(`.${d}`)) &&
+      hostRegex.test(`https://${host}/search?q=x`);
     const missed = COVERED_HOSTS.filter(isGoogleHost).filter((h) => !coveredByCondition(h));
     expect(missed).toEqual([]);
     // And the clean hosts stay outside it — the condition must not out-reach

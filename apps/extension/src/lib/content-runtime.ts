@@ -6,7 +6,7 @@ import type { HiddenSummary, MovarMessage } from './messaging';
 import { chromeAiEngine, detectLanguageFromTextWith } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import { backgroundFrancEngine, warmBackgroundFranc } from './lang-detect-bridge';
-import { getRuleForHost } from '../sites/registry';
+import { getLocaleParamForHost, getRuleForHost } from '../sites/registry';
 import { logCorrection, logCorrections } from './events';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { buildPickerModel } from '@movar/lang-pickers/build-model';
@@ -50,7 +50,7 @@ import type { StrategyContext } from './strategy';
 import { hostMatchesAllowlist } from './host-match';
 import { pickerChoiceForTarget } from './picker-click';
 import { buildHiddenSummary } from './hidden-summary';
-import { attemptLanguageSwitch } from './language-switch';
+import { attemptLanguageSwitch, tryBlockedLocaleParam } from './language-switch';
 import type { LanguageSwitchDeps } from './language-switch';
 import { trySatisfyLanguageGate } from './language-gate';
 import type { LanguageGateDeps } from './language-gate';
@@ -769,6 +769,12 @@ async function applyOnceInner(settings: MovarSettings, generation: number): Prom
       pickers,
     )
   )
+    return true;
+
+  // An explicit blocked locale in the URL (`classroom.google.com/…?hl=ru`, a
+  // link Google's own index serves). After the ladder so a rule, hreflang or
+  // picker switch always wins; only a URL nothing else corrected reaches here.
+  if (await tryBlockedLocaleParam(switchDeps, settings, getLocaleParamForHost(location.hostname)))
     return true;
 
   // A blocking language gate («Оберіть мову / Выберите язык» over an already-

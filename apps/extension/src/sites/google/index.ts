@@ -1,5 +1,5 @@
 import { isGoogleHost, isGoogleSerpHost } from '@movar/host-match';
-import type { LangStrategy, SiteModel, SiteRule } from '../types';
+import type { LangStrategy, LocaleParamRule, SiteModel, SiteRule } from '../types';
 
 // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which
 // is identical in UA & RU) routinely surfaces Russian-language results
@@ -166,6 +166,24 @@ export const googleRule: SiteRule = {
     containerSelector: '#search',
     resultsSelector: '#rso [data-hveid]',
   },
+};
+
+/** news.google.<tld> pins its edition with `ceid` and 302s a rewritten `hl`
+ *  straight back to the edition's own (observed live, see the header comment)
+ *  — rewriting `hl` there only costs a wasted load. */
+function isGoogleNewsHost(host: string): boolean {
+  return host.replace(/\.$/, '').startsWith('news.');
+}
+
+// Every Google host except News. Reported live (2026-11-12): searching
+// «Класрум» led to `classroom.google.com/u/1/h?hl=ru`, which opened in Russian
+// every time; the same indexed `hl=ru` shows up on Play Store results. Gated on
+// the param's VALUE (blocked languages only), so a host-wide match is safe:
+// a URL with no `hl`, or with `hl=uk`/`hl=en`, is left untouched.
+export const googleLocaleParamRule: LocaleParamRule = {
+  match: 'google',
+  matchHost: (host) => isGoogleHost(host) && !isGoogleNewsHost(host),
+  param: 'hl',
 };
 
 // Same host scope as googleRule: the SERP model chunk is provisioned only where

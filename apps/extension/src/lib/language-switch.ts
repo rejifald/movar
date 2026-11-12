@@ -1,4 +1,5 @@
 import type { CorrectionEvent } from '@movar/events';
+import { normalizeBCP47 } from '@movar/lang-detect';
 import type { LanguageCode } from '@movar/lang-detect';
 import type { MovarSettings } from '@movar/settings';
 import type { SiteRule } from '../sites/types';
@@ -99,6 +100,41 @@ export async function tryHreflangRedirect(
     }
   }
   return false;
+}
+
+/** The language an explicit locale param asks for (`ru`, `ru-RU`, `ru_RU`), or
+ *  null when absent / unrecognised. Underscore forms are folded to BCP47. */
+function requestedLocale(url: URL, param: string): LanguageCode | null {
+  const raw = url.searchParams.get(param);
+  return raw == null ? null : normalizeBCP47(raw.replaceAll('_', '-'));
+}
+
+/** URL-borne locale override: when `param` (Google's `hl`) explicitly requests
+ *  a BLOCKED language, navigate to the same URL with it set to the top
+ *  preference. Driven by the URL alone — no page-language detection, no host
+ *  list beyond the caller's {@link LocaleParamRule} — and self-limiting: the
+ *  rewritten URL no longer names a blocked language, and a server that bounces
+ *  back to it lands on a target already recorded (`hasAttemptedNavTo`), so it
+ *  costs at most one wasted load. Content-script only on purpose: a network
+ *  (DNR) rewrite could ping-pong with that server forever (docs/pitfalls.md #9). */
+export async function tryBlockedLocaleParam(
+  deps: LanguageSwitchDeps,
+  settings: MovarSettings,
+  param: string | null,
+): Promise<boolean> {
+  const target = settings.priority[0];
+  if (param == null || target == null) return false;
+  const url = new URL(deps.location.href);
+  const requested = requestedLocale(url, param);
+  if (requested == null || !settings.blocked.includes(requested)) return false;
+  url.searchParams.set(param, target);
+  const next = url.toString();
+  if (deps.hasAttemptedNavTo(next)) return false;
+  deps.markAttempt();
+  deps.markAttempt(next);
+  await deps.record('redirect', requested, target);
+  deps.location.replace(next);
+  return true;
 }
 
 /** Picker-link fallback when no rule and no hreflang got us there. Handles both

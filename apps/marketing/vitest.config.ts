@@ -30,8 +30,16 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    globals: false,
-    include: ['src/lib/**/*.test.ts'],
+    /*
+     * Two projects. `lib` is the plain-Node suite described above. `components`
+     * (`vitest.components.config.ts`) renders `.astro` components through
+     * Astro's container API, which needs Astro's own Vite config to compile
+     * them — kept apart so the fast suite never pays for that.
+     */
+    projects: [
+      { test: { name: 'lib', globals: false, include: ['src/lib/**/*.test.ts'] } },
+      './vitest.components.config.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

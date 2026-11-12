@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { encodedValue } from './types';
-import { getRuleForHost, resolveModelChunk, rules } from './registry';
+import { getLocaleParamForHost, getRuleForHost, resolveModelChunk, rules } from './registry';
 
 describe('getRuleForHost', () => {
   it('matches an exact domain', () => {
@@ -281,5 +281,33 @@ describe('encodedValue', () => {
 
   it('falls back to the canonical code when no values map at all', () => {
     expect(encodedValue(undefined, 'en')).toBe('en');
+  });
+});
+
+describe('getLocaleParamForHost — explicit locale params', () => {
+  it.each([
+    'classroom.google.com',
+    'docs.google.com',
+    'play.google.com',
+    'support.google.com',
+    'www.google.com',
+    'google.com.ua',
+    'classroom.google.com.',
+    'www.youtube.com',
+    'm.youtube.com',
+  ])('reads hl on Google/YouTube host %s', (host) => {
+    expect(getLocaleParamForHost(host)).toBe('hl');
+  });
+
+  it.each([
+    // News 302s a rewritten hl back to its edition's (ceid) — excluded.
+    'news.google.com',
+    'news.google.com.ua',
+    'example.com',
+    'google.evil.com',
+    'notgoogle.com',
+    'notyoutube.com',
+  ])('has no locale param on %s', (host) => {
+    expect(getLocaleParamForHost(host)).toBeNull();
   });
 });

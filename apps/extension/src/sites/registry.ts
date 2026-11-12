@@ -12,12 +12,12 @@
  * the wiring steps (adapter → this `rules` array → a sample host in
  * ./registry.invariants.test.ts → a behavioural test).
  */
-import type { ModelChunk, SiteModel, SiteRule } from './types';
+import type { LocaleParamRule, ModelChunk, SiteModel, SiteRule } from './types';
 import { electricaRule } from './electrica-shop';
-import { googleModel, googleRule } from './google';
+import { googleLocaleParamRule, googleModel, googleRule } from './google';
 import { bingRule } from './bing';
 import { duckduckgoRule } from './duckduckgo';
-import { youtubeModel, youtubeRule } from './youtube';
+import { youtubeLocaleParamRule, youtubeModel, youtubeRule } from './youtube';
 
 // Order preserved from the original rules database; getRuleForHost sorts by
 // match length, so this only fixes the stable order among equal-length matches.
@@ -41,6 +41,17 @@ export function getRuleForHost(host: string): SiteRule | undefined {
       r.matchHost ? r.matchHost(host) : host === r.match || host.endsWith(`.${r.match}`),
     )
     .toSorted((a, b) => b.match.length - a.match.length)[0];
+}
+
+const localeParamRules: readonly LocaleParamRule[] = [
+  googleLocaleParamRule,
+  youtubeLocaleParamRule,
+];
+
+/** The query param that carries an explicit locale request on `host` (`hl` on
+ *  Google products and YouTube), or null. See {@link LocaleParamRule}. */
+export function getLocaleParamForHost(host: string): string | null {
+  return localeParamRules.find((r) => r.matchHost(host))?.param ?? null;
 }
 
 /** The lazy page-content model chunk this host needs, or null when no site

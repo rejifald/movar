@@ -14,13 +14,20 @@
  * so, because any other order would be this directory grading the projects it
  * exists to promote. The board shape leans on that too — every card is the same
  * size and carries the same fields, so there is no cell for a favourite to grow
- * into. Do not give a card a logo, a metric or a highlight state.
+ * into. Do not give a card a metric, a highlight state, or a logo anywhere but
+ * the one place below.
+ *
+ * The one exception (decided 2026-11-12): a project's own mark may sit in the
+ * address line, no larger than that line, in its ink, in a slot every card has
+ * — cards without a mark show a globe. Nothing else may be added. Design and
+ * rationale: `docs/design/for-ukrainian/anatomy.md`.
  */
 import { getCollection } from 'astro:content';
-import { Info, Search } from 'lucide-astro';
+import { Globe, Info, Search } from 'lucide-astro';
 import { SOURCE_URL, FEEDBACK_URL } from '@movar/brand';
+import { iconSize } from '@movar/theme';
 
-import { SPHERES, sortEntriesByName } from '../lib/for-ukrainian';
+import { SPHERES, markShape, sortEntriesByName } from '../lib/for-ukrainian';
 import { strings, type Locale } from '../i18n';
 
 interface Props {
@@ -72,8 +79,15 @@ const issueHref = `${SOURCE_URL}/issues/new`;
  *  empty string, which an attribute round-trip can turn into `undefined`. */
 const ALL = 'all';
 
-const fundingTag =
-  'inline-flex items-center rounded-md border border-border bg-surface-2 px-2 py-0.5 font-mono text-ui-xs font-semibold uppercase tracking-label text-ink-medium';
+/** The project's mark as a single-ink mask (`.byline-mark` in
+ *  `styles/global.css`). A symbol takes the globe's 14×14 box; a wordmark
+ *  keeps the line's height (`h-4`) and its own ratio, capped by `max-w-12`. */
+const markStyle = (mark: { src: string; width: number; height: number }): string => {
+  const url = `--byline-mark: url("${mark.src}")`;
+  return markShape(mark) === 'wordmark'
+    ? `${url}; aspect-ratio: ${mark.width} / ${mark.height}`
+    : `${url}; width: ${iconSize.sm}px; height: ${iconSize.sm}px`;
+};
 ---
 
 <main class="flex-1">
@@ -217,14 +231,41 @@ const fundingTag =
                         {entry.data.name}
                       </a>
                     </h3>
-                    <p class="truncate font-mono text-xs text-ink-faint">
-                      {hostOf(entry.data.url)}
+                    {/*
+                     * The leading slot is on every card, so a mark never makes
+                     * one card different in kind from its neighbours: the
+                     * project's mark in this line's ink, or the globe. A
+                     * wordmark gets a `·` so its letters don't run into the
+                     * host. Only the host shrinks; the line stays 16px tall
+                     * whatever the slot holds.
+                     */}
+                    <p class="flex h-4 items-center gap-1.5 font-mono text-xs whitespace-nowrap text-ink-faint">
+                      {entry.data.mark ? (
+                        <span
+                          role="img"
+                          aria-label={entry.data.name}
+                          class:list={[
+                            'byline-mark shrink-0',
+                            markShape(entry.data.mark) === 'wordmark' && 'h-4 max-w-12',
+                          ]}
+                          style={markStyle(entry.data.mark)}
+                        />
+                      ) : (
+                        <Globe size={iconSize.sm} aria-hidden="true" class="shrink-0" />
+                      )}
+                      {entry.data.mark && markShape(entry.data.mark) === 'wordmark' && (
+                        <span aria-hidden="true" class="shrink-0">
+                          ·
+                        </span>
+                      )}
+                      <span class="min-w-0 truncate">{hostOf(entry.data.url)}</span>
                     </p>
                   </div>
                   <p class="flex-1 text-sm text-ink-soft">{entry.data.summary[lang]}</p>
-                  <div class="pt-1">
-                    <span class={fundingTag}>{t.funding[entry.data.funding]}</span>
-                  </div>
+                  {/* Plain text, not a chip: the information stays, the box goes. */}
+                  <p class="pt-1 font-mono text-ui-xs font-semibold tracking-label text-ink-faint uppercase">
+                    {t.funding[entry.data.funding]}
+                  </p>
                   {entry.data.activeAt && (
                     <p class="text-xs text-ink-faint">
                       {t.activeAtLabel}{' '}

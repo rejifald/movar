@@ -7,6 +7,7 @@ import type { SiteRule } from '../sites/types';
 import type { Picker } from '@movar/lang-pickers/types';
 import {
   attemptLanguageSwitch,
+  tryBlockedLocaleParam,
   tryHreflangRedirect,
   tryPickerRedirect,
   tryStrategySwitch,
@@ -428,5 +429,74 @@ describe('attemptLanguageSwitch — already-at-target interlock', () => {
     const deps = makeDeps({ ...declaresUk, applyStrategy: applier(NAVIGATED) });
     expect(await attemptLanguageSwitch(deps, settings(), enforce, 'uk', 'uk', [])).toBe(true);
     expect(deps.applyStrategy).toHaveBeenCalled();
+  });
+});
+
+/** Deps whose `location` sits at `href`. */
+function at(href: string, over: Partial<MockedDeps> = {}): MockedDeps {
+  return makeDeps({
+    location: { href, replace: vi.fn(), reload: vi.fn() },
+    ...over,
+  });
+}
+
+describe('tryBlockedLocaleParam — an explicit blocked locale in the URL', () => {
+  // The reported link: Google's index serves this Classroom URL with hl=ru.
+  const REPORTED = 'https://classroom.google.com/u/1/h?hl=ru';
+
+  it('swaps a blocked hl for the top preference, keeping path and other params', async () => {
+    const deps = at('https://classroom.google.com/u/1/h?hl=ru&authuser=1#x');
+    expect(await tryBlockedLocaleParam(deps, settings(), 'hl')).toBe(true);
+    expect(deps.location.replace).toHaveBeenCalledWith(
+      'https://classroom.google.com/u/1/h?hl=uk&authuser=1#x',
+    );
+    expect(deps.record).toHaveBeenCalledWith('redirect', 'ru', 'uk');
+  });
+
+  it.each(['ru', 'ru-RU', 'ru_RU', 'RU', 'ru-ru'])('recognises hl=%s as Russian', async (hl) => {
+    const deps = at(`https://play.google.com/store/apps/details?id=x&hl=${hl}`);
+    expect(await tryBlockedLocaleParam(deps, settings(), 'hl')).toBe(true);
+    expect(deps.location.replace).toHaveBeenCalledWith(
+      'https://play.google.com/store/apps/details?id=x&hl=uk',
+    );
+  });
+
+  it.each([
+    ['no hl at all', 'https://classroom.google.com/u/1/h'],
+    ['an allowed hl', 'https://classroom.google.com/u/1/h?hl=en'],
+    ['the target hl', 'https://classroom.google.com/u/1/h?hl=uk'],
+    ['an unrecognised hl', 'https://classroom.google.com/u/1/h?hl=xx'],
+    ['a blocked value in ANOTHER param', 'https://classroom.google.com/u/1/h?q=ru'],
+  ])('leaves %s alone', async (_label, href) => {
+    const deps = at(href);
+    expect(await tryBlockedLocaleParam(deps, settings(), 'hl')).toBe(false);
+    expect(deps.location.replace).not.toHaveBeenCalled();
+    expect(deps.markAttempt).not.toHaveBeenCalled();
+  });
+
+  it('is inert on hosts with no locale param rule (param null)', async () => {
+    const deps = at(REPORTED);
+    expect(await tryBlockedLocaleParam(deps, settings(), null)).toBe(false);
+    expect(deps.location.replace).not.toHaveBeenCalled();
+  });
+
+  it('follows the user-blocked list, not a hard-coded Russian check', async () => {
+    const deps = at('https://classroom.google.com/?hl=be');
+    const blockBe = settings({ blocked: [...defaultSettings.blocked, 'be'] });
+    expect(await tryBlockedLocaleParam(deps, blockBe, 'hl')).toBe(true);
+    expect(deps.location.replace).toHaveBeenCalledWith('https://classroom.google.com/?hl=uk');
+  });
+
+  it('arms the loop guard on both the source and the target URL', async () => {
+    const deps = at(REPORTED);
+    await tryBlockedLocaleParam(deps, settings(), 'hl');
+    expect(deps.markAttempt).toHaveBeenCalledWith();
+    expect(deps.markAttempt).toHaveBeenCalledWith('https://classroom.google.com/u/1/h?hl=uk');
+  });
+
+  it('stands down when a server bounced the rewrite back (target already tried)', async () => {
+    const deps = at(REPORTED, { hasAttemptedNavTo: vi.fn(() => true) });
+    expect(await tryBlockedLocaleParam(deps, settings(), 'hl')).toBe(false);
+    expect(deps.location.replace).not.toHaveBeenCalled();
   });
 });

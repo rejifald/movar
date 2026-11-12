@@ -60,6 +60,7 @@ export const googleSearchStrategy: Extract<LangStrategy, { type: 'searchParams' 
   onlyOnPath: string;
   onlyWhenParam: string;
   onlyWhenParamValueIn: { name: string; values: readonly string[] };
+  deferWhenParamIncludes: { name: string; value: string };
   stripParams: readonly string[];
   scrubParams: readonly string[];
 } = {
@@ -80,6 +81,13 @@ export const googleSearchStrategy: Extract<LangStrategy, { type: 'searchParams' 
   // before this gate exempted the surface entirely (see
   // docs/google-search-url-params.md, "AI Mode chat").
   onlyWhenParamValueIn: { name: 'udm', values: ['14', 'web'] },
+  // An `lr` that already EXCLUDES Russian (`lr=(-lang_ru)`, Google's negation
+  // syntax) is someone else's filter doing Movar's job — a custom search-engine
+  // template or another extension. Reported live: a second extension's DNR rule
+  // forcing `lr=(-lang_ru)` and ours forcing `lang_uk|lang_en` redirected each
+  // other until Chrome gave up with ERR_TOO_MANY_REDIRECTS. Stand down instead
+  // (the DNR layer derives a matching `allow` rule from this, lib/dnr.ts).
+  deferWhenParamIncludes: { name: 'lr', value: '-lang_ru' },
   // `lr` pipe-joins every preferred language (`lang_uk|lang_en`) so a
   // user with `[uk, en]` priority sees results in either language —
   // English speakers with Ukrainian #1 otherwise lose every English

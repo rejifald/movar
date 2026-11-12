@@ -141,6 +141,39 @@ describe('applyStrategy — searchParams', () => {
     expect(navigate).toHaveBeenCalledTimes(1);
   });
 
+  describe('deferWhenParamIncludes', () => {
+    // Reported live: another writer (a second extension's DNR rule) forcing
+    // `lr=(-lang_ru)` while Movar forced `lang_uk|lang_en` → the two redirected
+    // each other into ERR_TOO_MANY_REDIRECTS. A filter that already does the
+    // rewrite's job is deferred to, not overwritten.
+    const deferring = {
+      type: 'searchParams' as const,
+      params: [{ name: 'hl' }, { name: 'lr', prefix: 'lang_', joinPreferences: true }],
+      deferWhenParamIncludes: { name: 'lr', value: '-lang_ru' },
+    };
+
+    it.each([
+      'https://www.google.com/search?q=a&hl=uk&lr=(-lang_ru)',
+      'https://www.google.com/search?q=a&lr=%28-lang_ru%29',
+      'https://www.google.com/search?q=a&lr=-lang_ru',
+    ])('is a no-op when the param already carries the value: %s', (href) => {
+      const { ctx, navigate } = makeContext(href);
+      const out = applyStrategy(deferring, 'uk', ctx);
+      expect(navigate).not.toHaveBeenCalled();
+      expect(out.appliedSteps).toBe(0);
+    });
+
+    it.each([
+      'https://www.google.com/search?q=a',
+      'https://www.google.com/search?q=a&lr=lang_ru',
+      'https://www.google.com/search?q=-lang_ru',
+    ])('still rewrites when the param is absent or lacks the value: %s', (href) => {
+      const { ctx, navigate } = makeContext(href);
+      applyStrategy(deferring, 'uk', ctx);
+      expect(navigate).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('onlyWhenParamValueIn', () => {
     // Google's `/search` also serves Images (udm=2), Videos (udm=7), AI Mode
     // (udm=50), and other verticals — this gate scopes a rule to the ONE

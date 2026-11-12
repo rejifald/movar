@@ -10,6 +10,7 @@ import { buildAcceptLanguage } from './accept-language';
 import { applyStrategy } from './strategy';
 import { googleRule } from '../sites/google';
 import {
+  buildGoogleSearchDeferRule,
   buildGoogleSearchRedirectRule,
   clearGoogleRedirectSuspension,
   suspendGoogleSearchRedirectRule,
@@ -395,8 +396,74 @@ describe('buildGoogleSearchRedirectRule', () => {
   });
 });
 
+/** The defer rule's regexFilter as a JS RegExp — case-insensitive, like
+ *  Chrome's default `isUrlFilterCaseSensitive: false`. */
+function deferRegex(): RegExp {
+  return new RegExp(buildGoogleSearchDeferRule().condition.regexFilter ?? '', 'i');
+}
+
+describe('buildGoogleSearchDeferRule', () => {
+  // Reported live: another extension forcing `lr=(-lang_ru)` and rule 2
+  // forcing `lr=lang_uk|lang_en` redirected each other until Chrome failed
+  // with ERR_TOO_MANY_REDIRECTS. Rule 3 stands rule 2 down on such URLs.
+  it('is an allow rule that outranks the redirect (id 3, higher priority, same hosts)', () => {
+    const rule = buildGoogleSearchDeferRule();
+    const redirect = buildGoogleSearchRedirectRule(PRIORITY);
+    expect(rule.id).toBe(3);
+    expect(rule.action).toEqual({ type: 'allow' });
+    expect(rule.priority).toBeGreaterThan(redirect.priority ?? 1);
+    expect(rule.condition.resourceTypes).toEqual(redirect.condition.resourceTypes);
+    expect(rule.condition.requestDomains).toEqual(redirect.condition.requestDomains);
+  });
+
+  it.each([
+    // The reported URL verbatim (Chrome custom search engine / other extension).
+    'https://www.google.com/search?q=%D0%BF%D0%BE%D0%B3%D0%BE%D0%B4%D0%B0+%D0%BA%D0%B8%D1%97%D0%B2&oq=&sourceid=chrome&source=chrome.rb&ie=UTF-8&hl=uk&lr=(-lang_ru)',
+    'https://www.google.com/search?lr=%28-lang_ru%29&q=x',
+    'https://google.com.ua/search?q=x&lr=-lang_ru',
+    'https://www.google.com/search?q=x&lr=lang_uk%7C(-lang_ru)',
+    'https://www.google.com/search?q=x&lr=%2Dlang_ru',
+  ])('defers on %s', (url) => {
+    expect(deferRegex().test(url)).toBe(true);
+  });
+
+  it.each([
+    // Entry URLs and Movar's own output must keep rule 2 in charge.
+    OMNIBOX_URL,
+    'https://www.google.com/search?q=x&hl=uk&lr=lang_uk%7Clang_en',
+    // A POSITIVE Russian filter is exactly what Movar exists to override.
+    'https://www.google.com/search?q=x&lr=lang_ru',
+    // `-lang_ru` outside `lr` (the query text) is not a filter.
+    'https://www.google.com/search?q=-lang_ru&lr=lang_uk',
+    'https://news.google.com/search?q=x&lr=(-lang_ru)',
+  ])('does not defer on %s', (url) => {
+    expect(deferRegex().test(url)).toBe(false);
+  });
+
+  it('defers exactly where the content-script fallback stands down (layer parity)', () => {
+    for (const url of [
+      'https://www.google.com/search?q=x&hl=uk&lr=(-lang_ru)',
+      'https://www.google.com/search?q=x&lr=lang_ru',
+      OMNIBOX_URL,
+    ]) {
+      let navigated = false;
+      applyStrategy(googleRule.strategy, PRIORITY, {
+        getUrl: () => new URL(url),
+        navigate: () => {
+          navigated = true;
+        },
+      });
+      // Content script stands down ⇔ the DNR allow rule matches.
+      expect(deferRegex().test(url)).toBe(!navigated);
+    }
+  });
+});
+
 describe('syncGoogleSearchRedirectRule', () => {
   const GOOGLE_RULE_ID = 2;
+  const DEFER_RULE_ID = 3;
+  /** Rules 2 and 3 are always written and removed together. */
+  const GOOGLE_RULE_IDS = [GOOGLE_RULE_ID, DEFER_RULE_ID];
 
   beforeEach(() => {
     fakeBrowser.reset();
@@ -415,9 +482,12 @@ describe('syncGoogleSearchRedirectRule', () => {
     const arg = update.mock.calls[0]![0] as Parameters<
       typeof browser.declarativeNetRequest.updateDynamicRules
     >[0];
-    expect(arg.removeRuleIds).toEqual([GOOGLE_RULE_ID]);
-    // The installed rule is exactly the builder's output for these settings.
-    expect(arg.addRules).toEqual([buildGoogleSearchRedirectRule(['uk', 'en'])]);
+    expect(arg.removeRuleIds).toEqual(GOOGLE_RULE_IDS);
+    // The installed rules are exactly the builders' output for these settings.
+    expect(arg.addRules).toEqual([
+      buildGoogleSearchRedirectRule(['uk', 'en']),
+      buildGoogleSearchDeferRule(),
+    ]);
   });
 
   it('excludes allowlisted + snoozed hosts, deduped', async () => {
@@ -439,7 +509,7 @@ describe('syncGoogleSearchRedirectRule', () => {
     const update = spyUpdate();
     await syncGoogleSearchRedirectRule(settings, active);
     const arg = update.mock.calls[0]![0];
-    expect(arg.removeRuleIds).toEqual([GOOGLE_RULE_ID]);
+    expect(arg.removeRuleIds).toEqual(GOOGLE_RULE_IDS);
     expect('addRules' in arg).toBe(false);
   });
 
@@ -448,7 +518,7 @@ describe('syncGoogleSearchRedirectRule', () => {
     const update = spyUpdate();
     await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: ['uk'] }, true);
     const arg = update.mock.calls[0]![0];
-    expect(arg.removeRuleIds).toEqual([GOOGLE_RULE_ID]);
+    expect(arg.removeRuleIds).toEqual(GOOGLE_RULE_IDS);
     expect('addRules' in arg).toBe(false);
   });
 
@@ -463,7 +533,7 @@ describe('syncGoogleSearchRedirectRule', () => {
     ).resolves.toBeUndefined();
     // First call carried the rejected install; the follow-up sweeps rule 2.
     expect(update).toHaveBeenCalledTimes(2);
-    expect(update.mock.calls[1]![0]).toEqual({ removeRuleIds: [GOOGLE_RULE_ID] });
+    expect(update.mock.calls[1]![0]).toEqual({ removeRuleIds: GOOGLE_RULE_IDS });
   });
 
   it('does not throw even when the cleanup removal is rejected too', async () => {
@@ -475,12 +545,12 @@ describe('syncGoogleSearchRedirectRule', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('coexists with the Accept-Language rule — two rules, distinct ids, no clash', async () => {
+  it('coexists with the Accept-Language rule — distinct ids, no clash', async () => {
     const update = spyUpdate();
     await syncAcceptLanguageRule({ ...defaultSettings, priority: ['uk'] }, true);
     await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: ['uk'] }, true);
     const rules = rulesAfter(update) as { id: number }[];
-    expect(rules.map((r) => r.id).toSorted((a, b) => a - b)).toEqual([1, GOOGLE_RULE_ID]);
+    expect(rules.map((r) => r.id).toSorted((a, b) => a - b)).toEqual([1, ...GOOGLE_RULE_IDS]);
   });
 
   it('does not re-install rule 2 while an empty-SERP retry suspension is active (#301)', async () => {
@@ -500,7 +570,7 @@ describe('syncGoogleSearchRedirectRule', () => {
     // assertion fails against the unfixed code.)
     expect(update).toHaveBeenCalledTimes(1);
     const arg = update.mock.calls[0]![0];
-    expect(arg.removeRuleIds).toEqual([GOOGLE_RULE_ID]);
+    expect(arg.removeRuleIds).toEqual(GOOGLE_RULE_IDS);
     expect('addRules' in arg).toBe(false);
   });
 
@@ -516,6 +586,7 @@ describe('syncGoogleSearchRedirectRule', () => {
     expect(update).toHaveBeenCalledTimes(1);
     expect(update.mock.calls[0]![0].addRules).toEqual([
       buildGoogleSearchRedirectRule(['uk', 'en']),
+      buildGoogleSearchDeferRule(),
     ]);
   });
 
@@ -531,6 +602,7 @@ describe('syncGoogleSearchRedirectRule', () => {
 
     expect(update.mock.calls[0]![0].addRules).toEqual([
       buildGoogleSearchRedirectRule(['uk', 'en']),
+      buildGoogleSearchDeferRule(),
     ]);
   });
 });
@@ -656,6 +728,7 @@ describe('redundant-write skip (idempotent resync)', () => {
       const update = spyUpdate();
       spyGetDynamicRules().mockResolvedValue([
         structuredClone(buildGoogleSearchRedirectRule(PRIORITY)),
+        structuredClone(buildGoogleSearchDeferRule()),
       ]);
       await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: [...PRIORITY] }, true);
       expect(update).not.toHaveBeenCalled();
@@ -683,10 +756,21 @@ describe('redundant-write skip (idempotent resync)', () => {
       const update = spyUpdate();
       spyGetDynamicRules().mockResolvedValue([
         buildGoogleSearchRedirectRule(PRIORITY, ['google.de']),
+        buildGoogleSearchDeferRule(),
       ]);
       await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: [...PRIORITY] }, true);
       expect(update).toHaveBeenCalledTimes(1);
-      expect(update.mock.calls[0]![0].addRules).toEqual([buildGoogleSearchRedirectRule(PRIORITY)]);
+      expect(update.mock.calls[0]![0].addRules).toEqual([
+        buildGoogleSearchRedirectRule(PRIORITY),
+        buildGoogleSearchDeferRule(),
+      ]);
+    });
+
+    it('still writes when only the defer rule is missing (an install from an older build)', async () => {
+      const update = spyUpdate();
+      spyGetDynamicRules().mockResolvedValue([buildGoogleSearchRedirectRule(PRIORITY)]);
+      await syncGoogleSearchRedirectRule({ ...defaultSettings, priority: [...PRIORITY] }, true);
+      expect(update).toHaveBeenCalledTimes(1);
     });
   });
 });

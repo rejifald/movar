@@ -42,6 +42,9 @@ import { expect, test } from '../fixtures/extension';
  *  in russian-browser-lang.spec.ts: the e2e package consumes the built
  *  extension, not its sources, and the id is a persisted DNR contract. */
 const GOOGLE_SEARCH_RULE_ID = 2;
+/** The `allow` rule that stands rule 2 down on an `lr` already excluding
+ *  Russian (`buildGoogleSearchDeferRule`, lib/dnr.ts). */
+const GOOGLE_SEARCH_DEFER_RULE_ID = 3;
 
 /** A realistic omnibox entry URL: `gs_lcrp`/`aqs`/`sourceid`/`ie`/`oq` are
  *  minted by Chrome before any extension code runs; no entry surface emits
@@ -142,6 +145,34 @@ test.describe('Google /search DNR pre-request rewrite', () => {
     expect(await matchedRuleIds(serviceWorker, 'https://example.com/search?q=test')).not.toContain(
       GOOGLE_SEARCH_RULE_ID,
     );
+  });
+
+  // Reported live: another writer forcing `lr=(-lang_ru)` and rule 2 forcing
+  // `lang_uk|lang_en` redirected each other into ERR_TOO_MANY_REDIRECTS. On a
+  // URL whose `lr` already excludes Russian, Chrome's own matcher must pick
+  // the defer `allow` rule (3) over the redirect — and the request must leave
+  // the browser untouched, exactly once.
+  test('an lr that already excludes Russian is deferred to: the allow rule wins, no redirect', async ({
+    movarContext,
+    movarPage,
+    serviceWorker,
+  }) => {
+    const reported =
+      'https://www.google.com/search?q=%D0%BF%D0%BE%D0%B3%D0%BE%D0%B4%D0%B0+%D0%BA%D0%B8%D1%97%D0%B2&oq=&sourceid=chrome&ie=UTF-8&hl=uk&lr=(-lang_ru)';
+    await expect(async () => {
+      expect(await matchedRuleIds(serviceWorker, reported)).toEqual([GOOGLE_SEARCH_DEFER_RULE_ID]);
+    }).toPass({ timeout: 10_000 });
+    // Movar's own output and a positive Russian filter stay with rule 2.
+    expect(await matchedRuleIds(serviceWorker, OMNIBOX_URL)).not.toContain(
+      GOOGLE_SEARCH_DEFER_RULE_ID,
+    );
+    expect(
+      await matchedRuleIds(serviceWorker, 'https://www.google.com/search?q=x&lr=lang_ru'),
+    ).not.toContain(GOOGLE_SEARCH_DEFER_RULE_ID);
+
+    const requestedUrls = await mockGoogle(movarContext);
+    await movarPage.goto(reported, { waitUntil: 'domcontentloaded' });
+    expect(requestedUrls).toEqual([reported]);
   });
 
   test('a raw omnibox entry request is rewritten BEFORE it leaves the browser — one request, already clean', async ({

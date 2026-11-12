@@ -1,5 +1,5 @@
 import { isGoogleHost, isGoogleSerpHost } from '@movar/host-match';
-import type { LangStrategy, SiteModel, SiteRule } from '../types';
+import type { LangStrategy, LocaleParamRule, SiteModel, SiteRule } from '../types';
 
 // Google SERP: a Cyrillic query like `яблуко` (or even `картина`, which
 // is identical in UA & RU) routinely surfaces Russian-language results
@@ -60,6 +60,7 @@ export const googleSearchStrategy: Extract<LangStrategy, { type: 'searchParams' 
   onlyOnPath: string;
   onlyWhenParam: string;
   onlyWhenParamValueIn: { name: string; values: readonly string[] };
+  deferWhenParamIncludes: { name: string; value: string };
   stripParams: readonly string[];
   scrubParams: readonly string[];
 } = {
@@ -80,6 +81,13 @@ export const googleSearchStrategy: Extract<LangStrategy, { type: 'searchParams' 
   // before this gate exempted the surface entirely (see
   // docs/google-search-url-params.md, "AI Mode chat").
   onlyWhenParamValueIn: { name: 'udm', values: ['14', 'web'] },
+  // An `lr` that already EXCLUDES Russian (`lr=(-lang_ru)`, Google's negation
+  // syntax) is someone else's filter doing Movar's job — a custom search-engine
+  // template or another extension. Reported live: a second extension's DNR rule
+  // forcing `lr=(-lang_ru)` and ours forcing `lang_uk|lang_en` redirected each
+  // other until Chrome gave up with ERR_TOO_MANY_REDIRECTS. Stand down instead
+  // (the DNR layer derives a matching `allow` rule from this, lib/dnr.ts).
+  deferWhenParamIncludes: { name: 'lr', value: '-lang_ru' },
   // `lr` pipe-joins every preferred language (`lang_uk|lang_en`) so a
   // user with `[uk, en]` priority sees results in either language —
   // English speakers with Ukrainian #1 otherwise lose every English
@@ -166,6 +174,24 @@ export const googleRule: SiteRule = {
     containerSelector: '#search',
     resultsSelector: '#rso [data-hveid]',
   },
+};
+
+/** news.google.<tld> pins its edition with `ceid` and 302s a rewritten `hl`
+ *  straight back to the edition's own (observed live, see the header comment)
+ *  — rewriting `hl` there only costs a wasted load. */
+function isGoogleNewsHost(host: string): boolean {
+  return host.replace(/\.$/, '').startsWith('news.');
+}
+
+// Every Google host except News. Reported live (2026-11-12): searching
+// «Класрум» led to `classroom.google.com/u/1/h?hl=ru`, which opened in Russian
+// every time; the same indexed `hl=ru` shows up on Play Store results. Gated on
+// the param's VALUE (blocked languages only), so a host-wide match is safe:
+// a URL with no `hl`, or with `hl=uk`/`hl=en`, is left untouched.
+export const googleLocaleParamRule: LocaleParamRule = {
+  match: 'google',
+  matchHost: (host) => isGoogleHost(host) && !isGoogleNewsHost(host),
+  param: 'hl',
 };
 
 // Same host scope as googleRule: the SERP model chunk is provisioned only where

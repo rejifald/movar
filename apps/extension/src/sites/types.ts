@@ -73,13 +73,21 @@ export type LangStrategy =
    *  plain results, Images, Videos, AI Mode, … all keyed by `udm`) can
    *  restrict the rewrite to the ONE surface it's been vetted for without
    *  hard-coding every OTHER surface to exclude — a new one Google ships
-   *  tomorrow is out of scope by default instead of silently in scope. */
+   *  tomorrow is out of scope by default instead of silently in scope.
+   *
+   *  `deferWhenParamIncludes` stands the rewrite down when `name` is PRESENT
+   *  and its decoded value contains `value`: something else (the user's
+   *  search-engine template, another extension) already applies the filter
+   *  this rewrite exists for. Overwriting it would ping-pong with that writer
+   *  — two DNR redirects undoing each other end in ERR_TOO_MANY_REDIRECTS
+   *  (Google `lr=(-lang_ru)`, see docs/pitfalls.md). */
   | {
       type: 'searchParams';
       params: { name: string; values?: LangValues; joinPreferences?: boolean; prefix?: string }[];
       onlyWhenParam?: string;
       onlyOnPath?: string;
       onlyWhenParamValueIn?: { name: string; values: readonly string[] };
+      deferWhenParamIncludes?: { name: string; value: string };
       stripParams?: readonly string[];
       scrubParams?: readonly string[];
       scrubPrefixes?: readonly string[];
@@ -145,6 +153,26 @@ export interface SiteRule {
    *  re-applies. Matched against a full URL string; must be false for the empty
    *  string (an absent referrer). */
   interstitialMatch?: (url: string) => boolean;
+}
+
+/** A host family whose URLs can carry an explicit locale request in one query
+ *  param — Google's `?hl=ru`. Google indexes such variants of its own product
+ *  pages and search links straight to them (`classroom.google.com/u/1/h?hl=ru`),
+ *  so the page opens in Russian whatever the account or Accept-Language says.
+ *  When that param names a BLOCKED language, the runtime swaps it for the top
+ *  preference (`lib/language-switch.ts`, `tryBlockedLocaleParam`); any other
+ *  value, or no param, is left alone.
+ *
+ *  Deliberately not a {@link SiteRule}: a matched rule replaces the generic
+ *  hreflang/picker fallbacks on its host, and several Google subdomains (Play,
+ *  Workspace, Developers) rely on hreflang today. This runs only after that
+ *  ladder declined to navigate. */
+export interface LocaleParamRule {
+  /** Label only (no suffix matching): `matchHost` decides. */
+  match: string;
+  matchHost: (host: string) => boolean;
+  /** The query param that carries the locale (`hl`). */
+  param: string;
 }
 
 /** A site that ships a lazy page-content extractor chunk, plus the host

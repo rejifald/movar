@@ -373,7 +373,16 @@ function passesSearchParamsGates(strategy: LeafOf<'searchParams'>, url: URL): bo
     const paramValue = url.searchParams.get(name);
     if (paramValue !== null && !values.includes(paramValue)) return false;
   }
-  return true;
+  return !defersToOtherWriter(strategy, url);
+}
+
+/** True when `url` already carries a filter another writer applies (e.g.
+ *  Google `lr=(-lang_ru)` from a search-engine template or another
+ *  extension): rewriting over it ping-pongs with that writer. */
+function defersToOtherWriter(strategy: LeafOf<'searchParams'>, url: URL): boolean {
+  if (strategy.deferWhenParamIncludes == null) return false;
+  const { name, value } = strategy.deferWhenParamIncludes;
+  return url.searchParams.get(name)?.includes(value) === true;
 }
 
 /** True when `url` is a surface `strategy`'s `searchParams` rewrite is scoped

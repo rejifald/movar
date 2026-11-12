@@ -1,5 +1,5 @@
-import { isYouTubeContentHost } from '@movar/host-match';
-import type { LangValues, SiteModel, SiteRule } from '../types';
+import { isYouTubeContentHost, isYouTubeHost } from '@movar/host-match';
+import type { LangValues, LocaleParamRule, SiteModel, SiteRule } from '../types';
 
 /** ISO 3166-1 country code per language for YouTube's `gl` param. A best-guess
  *  pairing — YouTube uses it as a recommendation/region hint, not a strict
@@ -40,4 +40,14 @@ export const youtubeRule: SiteRule = {
 export const youtubeModel: SiteModel = {
   chunk: 'models/youtube.js',
   matches: isYouTubeContentHost,
+};
+
+// Indexed `/watch?v=…&hl=ru` links open the interface in Russian, and the rule
+// above is scoped to /results so it never sees them. Same value-gated `hl` swap
+// as Google's (types.ts, LocaleParamRule): only a blocked `hl` is touched, and
+// if the polymer router later strips the rewritten `hl`, a bare URL is a no-op.
+export const youtubeLocaleParamRule: LocaleParamRule = {
+  match: 'youtube.com',
+  matchHost: isYouTubeHost,
+  param: 'hl',
 };

@@ -83,6 +83,33 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.9.3
+
+Two Google fixes, both from links and URLs that something other than the reader
+put Russian into. The `hl` swap leads: a Google Classroom page opening in
+Russian from a search result is the failure a user actually saw. The redirect
+loop is framed by its symptom, not by the `lr=(-lang_ru)` value behind it.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.9.3
+
+Виправлено
+• Сервіси Google і YouTube більше не відкриваються російською з посилання, яке вказує російську мову. Такі посилання трапляються, наприклад, у пошуку Google на сторінки Google Classroom. Тепер Мовар замінює російську в адресі на вашу мову, а посилання без мови або з дозволеною мовою лишає як є.
+• Пошук Google більше не зациклюється на переспрямуваннях, коли інше розширення чи проксі вже прибирає російські результати. Раніше Мовар і це розширення по черзі переписували адресу, доки браузер не здавався.
+```
+
+### English (en)
+
+```
+What's new in 1.9.3
+
+Fixed
+• Google services and YouTube no longer open in Russian from a link that names Russian. Such links turn up, for example, in Google Search results pointing to Google Classroom. Movar now swaps Russian in the address for your language, and leaves links with no language, or an allowed one, as they are.
+• Google Search no longer gets stuck in a redirect loop when another extension or a proxy already removes Russian results. Movar and that extension used to rewrite the address back and forth until the browser gave up.
+```
+
 ## 1.9.2
 
 Two Google fixes and one detection fix. AI Mode leads: a blank answer is the

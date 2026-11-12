@@ -918,3 +918,19 @@ body {
   outline-offset: 3px;
   border-radius: 2px;
 }
+
+/*
+ * A project's mark on a «Для української» directory card (`ForUkrainian.astro`).
+ *
+ * The SVG is a mask over a `currentColor` fill, so it is drawn in the address
+ * line's own ink (`text-ink-faint`) in both themes whatever colours the file
+ * carries — a full-colour logo cannot out-shout its neighbours, which is what
+ * keeps the mark a byline rather than a promotion. The component sets only
+ * `--byline-mark` (the file's URL) and the box; contain + left keeps a
+ * wordmark's letters at its true ratio when the 48px cap narrows the box.
+ */
+.byline-mark {
+  background-color: currentColor;
+  -webkit-mask: var(--byline-mark) left center / contain no-repeat;
+  mask: var(--byline-mark) left center / contain no-repeat;
+}

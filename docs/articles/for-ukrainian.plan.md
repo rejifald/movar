@@ -287,9 +287,13 @@ change should not quietly undo them:
 - **Every card is the same size and carries the same fields.** That is what
   keeps the board unranked once entries stop being uniform rows. There is no
   cell for a favourite to grow into, and the moment a card grows a logo, a
-  metric or a highlight state, the directory has started grading. Do not add
-  one. (This is the interface half of "nothing is graded" above, which until
-  now only constrained the data.)
+  metric or a highlight state, the directory has started grading. **The one
+  exception, decided 2026-11-12:** a project's own mark may sit in the address
+  line, no larger than that line, in its ink, in a slot every card has (cards
+  without a mark show a globe). Nothing else may be added. (This is the
+  interface half of "nothing is graded" above, which until now only
+  constrained the data. Design, rationale and rejected options:
+  [`docs/design/for-ukrainian/anatomy.md`](../design/for-ukrainian/anatomy.md).)
 - **The filter is an enhancement, never the page.** The server renders all
   twenty entries grouped; the script only sets `hidden`. So the search box and
   chips stay invisible until the script reveals them — a reader without

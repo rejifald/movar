@@ -55,3 +55,18 @@ export function sortEntriesByName<T extends { data: { name: string } }>(
   const collator = new Intl.Collator(lang === 'uk' ? 'uk' : 'en');
   return entries.toSorted((a, b) => collator.compare(a.data.name, b.data.name));
 }
+
+/**
+ * Above this width-to-height ratio a project mark is a wordmark, not a
+ * symbol. A symbol sits in the same 14×14 box as the globe a card without a
+ * mark shows; a wordmark keeps the address line's 16px height, runs up to
+ * 48px wide, and is followed by a `·` so its letters never read as the start
+ * of the host. Design: `docs/design/for-ukrainian/anatomy.md`.
+ */
+const WORDMARK_MIN_RATIO = 1.5;
+
+export type MarkShape = 'square' | 'wordmark';
+
+export function markShape(mark: { width: number; height: number }): MarkShape {
+  return mark.width / mark.height > WORDMARK_MIN_RATIO ? 'wordmark' : 'square';
+}

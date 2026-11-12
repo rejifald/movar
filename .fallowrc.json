@@ -30,6 +30,9 @@
     // the playwright configs above.
     "apps/diagnostics/e2e-harness/**",
     "apps/diagnostics/vite.harness.config.ts",
+    // Marketing's `components` vitest project: `vitest.config.ts` lists it in
+    // `test.projects` by path, so there is no import edge to trace.
+    "apps/marketing/vitest.components.config.ts",
     "apps/extension/safari/**/Resources/**",
     "scripts/**",
     "apps/extension/src/test/**"

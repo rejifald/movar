@@ -272,6 +272,19 @@ render per search, and the poisoned request never reaches Google.
   URL (Firefox documents this verbatim; for Chrome it is pinned empirically
   by the e2e suite). An already-clean SERP-internal navigation (pagination,
   refinement) is a matched-but-skipped no-op.
+- **Deferring to another writer** — redirects from different extensions
+  are each re-evaluated against the other's output, and the same-URL skip
+  above only stops layer 0 looping on **itself**. A second writer that
+  forces its own `lr` (reported live: another extension forcing
+  `lr=(-lang_ru)`) and layer 0 forcing `lang_uk|lang_en` redirect each
+  other until Chrome fails with `ERR_TOO_MANY_REDIRECTS` before any
+  request reaches Google. So an `lr` that already excludes Russian
+  (`googleSearchStrategy.deferWhenParamIncludes`) stands both layers down:
+  the content-script gate skips the rewrite, and a priority-2 `allow`
+  rule (`buildGoogleSearchDeferRule`, id 3, installed and removed with
+  rule 2) beats the redirect in DNR. The parity test in `dnr.test.ts`
+  pins the two layers to the same URLs. A positive `lr=lang_ru` is still
+  overridden; that is Movar's job.
 - **Platforms** — Chrome and Firefox. Safari is compile-time excluded: its
   DNR nominally accepts `transform` but has verified-open `queryTransform`
   bugs, and a wrong network-side rewrite is worse than the fallback. The

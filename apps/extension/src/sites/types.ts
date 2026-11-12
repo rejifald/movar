@@ -73,13 +73,21 @@ export type LangStrategy =
    *  plain results, Images, Videos, AI Mode, … all keyed by `udm`) can
    *  restrict the rewrite to the ONE surface it's been vetted for without
    *  hard-coding every OTHER surface to exclude — a new one Google ships
-   *  tomorrow is out of scope by default instead of silently in scope. */
+   *  tomorrow is out of scope by default instead of silently in scope.
+   *
+   *  `deferWhenParamIncludes` stands the rewrite down when `name` is PRESENT
+   *  and its decoded value contains `value`: something else (the user's
+   *  search-engine template, another extension) already applies the filter
+   *  this rewrite exists for. Overwriting it would ping-pong with that writer
+   *  — two DNR redirects undoing each other end in ERR_TOO_MANY_REDIRECTS
+   *  (Google `lr=(-lang_ru)`, see docs/pitfalls.md). */
   | {
       type: 'searchParams';
       params: { name: string; values?: LangValues; joinPreferences?: boolean; prefix?: string }[];
       onlyWhenParam?: string;
       onlyOnPath?: string;
       onlyWhenParamValueIn?: { name: string; values: readonly string[] };
+      deferWhenParamIncludes?: { name: string; value: string };
       stripParams?: readonly string[];
       scrubParams?: readonly string[];
       scrubPrefixes?: readonly string[];

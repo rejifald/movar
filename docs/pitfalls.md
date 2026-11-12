@@ -730,3 +730,68 @@ never tested on, and nothing stopped them from running there.
   downstream treat that layer's additions (e.g. `lr`) as evidence?
 - Is there a test on the sibling surface's real DOM/URL shape asserting that no navigation
   happens?
+
+---
+
+## 9. Two writers force the same param to different values ("redirect ping-pong")
+
+> _Tags: dnr, redirects, search-params, google, extension-conflicts_
+
+**Signature.** A search (or any page Movar rewrites) fails outright with Chrome's
+**ERR_TOO_MANY_REDIRECTS** ("redirected you too many times"). Snoozing Movar on the site fixes
+it at once, and the page works with Movar alone in a clean profile. The URL on the error page
+carries a value for one of Movar's params that **Movar never writes** (Google
+`lr=(-lang_ru)` instead of `lang_uk|lang_en`). The server log or a network capture shows
+**zero** requests: the loop never leaves the browser.
+
+**Blast radius.** Any network-layer rewrite Movar installs that **sets** a value rather than
+just adding a missing one: today only the Google `/search` DNR redirect
+(`buildGoogleSearchRedirectRule`, `lib/dnr.ts`). Content-script navigations
+(`location.replace` from a `searchParams`/`query` strategy) can ping-pong too, but the
+URL-keyed loop guard (`lib/loop-guard.ts`) bounds them to one wasted reload instead of a hard
+failure.
+
+**Root cause.** Another writer forces the same parameter to a different value: another
+extension's DNR redirect, or a proxy. (A Chrome custom search-engine template only sets the
+value once on the first request, so it does not loop by itself.) Chrome applies one
+extension's redirect per request and then evaluates the **redirected** request again,
+against every extension. Writer A rewrites `lr=X → Y`, writer B rewrites `Y → X`, and so
+on. Movar's same-URL skip ("the transform is a fixed point, so a redirect to the identical URL
+is skipped") only stops Movar looping on its own output. It cannot see a second writer.
+
+**Guard.**
+
+1. **Defer to a value that already does Movar's job.** Declare it on the strategy
+   (`deferWhenParamIncludes: { name: 'lr', value: '-lang_ru' }`). The content-script gate
+   (`passesSearchParamsGates`) skips the rewrite, and the DNR layer derives a
+   higher-priority `allow` rule from the same declaration (`buildGoogleSearchDeferRule`). An
+   `allow` rule only affects its own extension's rules, so it can stand Movar's redirect down
+   without touching the other writer's.
+2. **Keep the two layers in step.** Any URL where the content script stands down must also
+   stand the DNR rule down, or the network layer keeps fighting. Pin this with a parity test
+   that runs the same URLs through `applyStrategy` and the allow rule's regex.
+3. **Never defer to a value that defeats the purpose.** A positive `lr=lang_ru` is exactly
+   what Movar overrides. Defer only to values that already exclude the blocked language.
+4. **Reproduce with a two-extension probe.** Load the `build:e2e` Movar build plus a stub
+   MV3 extension whose static DNR rule forces the foreign value, and route `google.com` to a
+   stub page. Before the fix `page.goto` throws `ERR_TOO_MANY_REDIRECTS` with zero routed
+   requests; after the fix exactly one request arrives, carrying the foreign value.
+
+**Instances.**
+
+- **Google `lr=(-lang_ru)` (2026-11-12).** A user's Google searches failed with
+  ERR_TOO_MANY_REDIRECTS on `…/search?q=…&hl=uk&lr=(-lang_ru)` and worked again after
+  snoozing Movar on the site. Movar alone handled that exact URL fine, and adding a stub
+  extension that forces `lr=(-lang_ru)` reproduced the loop. Fixed by
+  `googleSearchStrategy.deferWhenParamIncludes` plus DNR rule 3. Tests: in `dnr.test.ts`
+  (`buildGoogleSearchDeferRule`, including the layer-parity case) and in
+  `strategy.searchParams.test.ts` (`deferWhenParamIncludes`).
+
+**Review checklist.**
+
+- Does this rule **set** a param (or header or cookie) that the user's own setup, or another
+  extension, might also set? What happens when the two values disagree?
+- Is there a value that already satisfies Movar's goal, and does the rule defer to it in
+  **every** layer (content script and DNR)?
+- Could the redirect target be re-matched by somebody else's rule? The same-URL skip only
+  protects against our own rule.

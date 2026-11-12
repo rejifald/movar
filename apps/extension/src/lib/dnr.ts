@@ -35,6 +35,11 @@ const ACCEPT_LANGUAGE_RULE_ID = 1;
 /** Stable id for the Google /search pre-request language-rewrite rule. */
 const GOOGLE_SEARCH_RULE_ID = 2;
 
+/** Stable id for the `allow` rule that stands rule 2 down where the URL
+ *  already carries a filter another writer applies (see
+ *  {@link buildGoogleSearchDeferRule}). Installed and removed with rule 2. */
+const GOOGLE_SEARCH_DEFER_RULE_ID = 3;
+
 /** Session-scoped flag set while the empty-SERP retry has suspended rule 2.
  *  Deliberately `storage.session`, not `storage.local`: it must survive the
  *  service-worker restart the retry can trigger (an MV3 SW is ephemeral, so an
@@ -96,13 +101,23 @@ function deepEquals(a: unknown, b: unknown): boolean {
  * module always performed. Only a provably redundant write is skipped.
  */
 async function ruleAlreadySynced(id: number, desired: DnrRule | null): Promise<boolean> {
+  return rulesAlreadySynced([[id, desired]]);
+}
+
+/** {@link ruleAlreadySynced} for a set of rules that are written together:
+ *  true only when EVERY id already matches its desired state. */
+async function rulesAlreadySynced(
+  expected: readonly (readonly [number, DnrRule | null])[],
+): Promise<boolean> {
   try {
     // Unfiltered read + local find: the `filter` argument is newer than the
     // API itself and strict-schema platforms reject unknown arguments, while
-    // this extension only ever installs two dynamic rules — there is nothing
-    // for the filter to save.
+    // this extension only ever installs a handful of dynamic rules — there is
+    // nothing for the filter to save.
     const rules = await browser.declarativeNetRequest.getDynamicRules();
-    return deepEquals(rules.find((rule) => rule.id === id) ?? null, desired);
+    return expected.every(([id, desired]) =>
+      deepEquals(rules.find((rule) => rule.id === id) ?? null, desired),
+    );
   } catch {
     return false;
   }
@@ -169,6 +184,54 @@ function escapeRegexLiteral(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
+/** The RE2 prefix both Google rules share: the web-search host (`google.<tld>`
+ *  / `www.google.<tld>`) and the `onlyOnPath` path, up to the query's `?`. */
+function googleSerpUrlPrefix(): string {
+  return String.raw`^https?://(?:www\.)?google\.[^/?]+${escapeRegexLiteral(googleSearchStrategy.onlyOnPath)}[^?#]*\?`;
+}
+
+/** RE2 for a literal query VALUE as it may appear on the wire: every
+ *  non-alphanumeric character also matches its percent-encoded form, so
+ *  `(-lang_ru)` and `%28-lang_ru%29` both match. Hex case is covered by
+ *  regexFilter being case-insensitive by default (`isUrlFilterCaseSensitive`). */
+function encodedValuePattern(value: string): string {
+  const HEX_RADIX = 16;
+  return value.replaceAll(/[^A-Za-z0-9]/g, (c) => {
+    const hex = (c.codePointAt(0) ?? 0).toString(HEX_RADIX).toUpperCase().padStart(2, '0');
+    return `(?:${escapeRegexLiteral(c)}|%${hex})`;
+  });
+}
+
+/**
+ * Build the `allow` rule that stands the /search redirect (rule 2) down where
+ * the URL already carries `googleSearchStrategy.deferWhenParamIncludes` —
+ * Google's `lr=(-lang_ru)`, a filter that already excludes Russian, written by
+ * the user's search-engine template or another extension.
+ *
+ * Why it exists: DNR redirects from different extensions are each re-evaluated
+ * against the other's output. A second extension that forces
+ * `lr=(-lang_ru)` and rule 2 forcing `lang_uk|lang_en` redirect each other
+ * until Chrome fails the navigation with ERR_TOO_MANY_REDIRECTS (reported
+ * live; reproduced with a two-extension Chromium probe). Rule 2's same-URL
+ * no-op only stops OUR rule looping on itself. Within one extension a matching
+ * higher-priority `allow` beats a `redirect`, so this rule wins exactly where
+ * the content-script gate (`passesSearchParamsGates`) also stands down — the
+ * two layers stay in step.
+ */
+export function buildGoogleSearchDeferRule(): DnrRule {
+  const { name, value } = googleSearchStrategy.deferWhenParamIncludes;
+  return {
+    id: GOOGLE_SEARCH_DEFER_RULE_ID,
+    priority: 2,
+    action: { type: 'allow' },
+    condition: {
+      regexFilter: `${googleSerpUrlPrefix()}(?:[^#]*&)?${escapeRegexLiteral(name)}=[^&#]*${encodedValuePattern(value)}`,
+      requestDomains: [...GOOGLE_REQUEST_DOMAINS],
+      resourceTypes: ['main_frame'],
+    },
+  };
+}
+
 /**
  * Build the Google /search redirect rule for `priority`.
  *
@@ -225,7 +288,7 @@ export function buildGoogleSearchRedirectRule(
   priority: NonEmptyTargets,
   excludedDomains: readonly string[] = [],
 ): DnrRule {
-  const { onlyOnPath, onlyWhenParam, stripParams, scrubParams } = googleSearchStrategy;
+  const { onlyWhenParam, stripParams, scrubParams } = googleSearchStrategy;
   const removeParams = [...new Set([...stripParams, ...scrubParams, ...GS_FAMILY_PARAMS])];
   return {
     id: GOOGLE_SEARCH_RULE_ID,
@@ -254,7 +317,7 @@ export function buildGoogleSearchRedirectRule(
       // the content-script rule matches (`isGoogleSerpHost`): `requestDomains`
       // alone also matches every subdomain, and news.google.com's own
       // `/search?q=` 302s a rewritten `hl` back when `ceid` disagrees.
-      regexFilter: String.raw`^https?://(?:www\.)?google\.[^/?]+${escapeRegexLiteral(onlyOnPath)}[^?#]*\?(?:[^#]*&)?${escapeRegexLiteral(onlyWhenParam)}=`,
+      regexFilter: `${googleSerpUrlPrefix()}(?:[^#]*&)?${escapeRegexLiteral(onlyWhenParam)}=`,
       requestDomains: [...GOOGLE_REQUEST_DOMAINS],
       // main_frame only: the content-script rewrite acts on top-level
       // documents, and a framed google.* /search embed is not a surface the
@@ -317,7 +380,9 @@ export async function syncGoogleSearchRedirectRule(
    *  merges both sources — this function doesn't care which. */
   temporarilyExcludedHosts: readonly string[] = [],
 ): Promise<void> {
-  const removeRuleIds = [GOOGLE_SEARCH_RULE_ID];
+  // Rule 3 (the defer `allow`) only ever exists alongside rule 2, so both
+  // are written — and removed — together.
+  const removeRuleIds = [GOOGLE_SEARCH_RULE_ID, GOOGLE_SEARCH_DEFER_RULE_ID];
 
   // Safari is compile-time excluded: its DNR nominally accepts `transform`
   // from 17 but queryTransform handling has verified open bugs, and a rule
@@ -344,17 +409,29 @@ export async function syncGoogleSearchRedirectRule(
     top == null ||
     (await isGoogleRedirectSuspended());
   if (noOpStates) {
-    if (await ruleAlreadySynced(GOOGLE_SEARCH_RULE_ID, null)) return;
+    const absent = removeRuleIds.map((id) => [id, null] as const);
+    if (await rulesAlreadySynced(absent)) return;
     await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds });
     return;
   }
 
   const excluded = [...new Set([...settings.allowlist, ...temporarilyExcludedHosts])];
   const rule = buildGoogleSearchRedirectRule([top, ...restPriority], excluded);
+  const deferRule = buildGoogleSearchDeferRule();
 
-  if (await ruleAlreadySynced(GOOGLE_SEARCH_RULE_ID, rule)) return;
+  if (
+    await rulesAlreadySynced([
+      [GOOGLE_SEARCH_RULE_ID, rule],
+      [GOOGLE_SEARCH_DEFER_RULE_ID, deferRule],
+    ])
+  ) {
+    return;
+  }
   try {
-    await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: [rule] });
+    await browser.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds,
+      addRules: [rule, deferRule],
+    });
   } catch {
     // DNR redirect/queryTransform support varies by browser (Safari lags
     // Chrome/Firefox). A platform that rejects the rule shape keeps the

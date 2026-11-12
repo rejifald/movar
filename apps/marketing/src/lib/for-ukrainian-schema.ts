@@ -16,7 +16,7 @@ import { z } from 'astro/zod';
 import { SPHERES } from './for-ukrainian';
 
 /** One line, not a paragraph: the card shows a summary, not a description. */
-export const SUMMARY_MAX = 200;
+const SUMMARY_MAX = 200;
 
 /** The mark is drawn in the address line's ink as a mask, so only a vector
  *  file can take that ink at 14–16px without blurring. Checked on the path,

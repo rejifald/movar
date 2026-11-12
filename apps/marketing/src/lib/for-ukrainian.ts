@@ -63,7 +63,7 @@ export function sortEntriesByName<T extends { data: { name: string } }>(
  * 48px wide, and is followed by a `·` so its letters never read as the start
  * of the host. Design: `docs/design/for-ukrainian/anatomy.md`.
  */
-export const WORDMARK_MIN_RATIO = 1.5;
+const WORDMARK_MIN_RATIO = 1.5;
 
 export type MarkShape = 'square' | 'wordmark';
 

@@ -4,7 +4,7 @@
 // submitting for review is irreversible and the whole design of
 // `resumeDecision` is that it would rather do nothing than do the wrong thing.
 import { strictEqual as eq, deepStrictEqual as deep } from 'node:assert';
-import { resumeDecision, stagedVersionIds } from './review-resume.mjs';
+import { openSubmissionDecision, resumeDecision, stagedVersionIds } from './review-resume.mjs';
 
 let passed = 0;
 function it(name, fn) {
@@ -164,6 +164,68 @@ it('never submits on an empty submission', () => {
   });
   eq(d.action, 'refuse');
   eq(/stages nothing/.test(d.reason), true);
+});
+
+console.log('==> openSubmissionDecision');
+
+it('no open submission → create one', () => {
+  deep(openSubmissionDecision({ submissions: [], stagedBySubmission: new Map() }), {
+    action: 'create',
+  });
+});
+
+it('the v1.9.3 leftover — one empty READY_FOR_REVIEW submission → reuse it', () => {
+  deep(
+    openSubmissionDecision({
+      submissions: [{ id: 's1', state: 'READY_FOR_REVIEW' }],
+      stagedBySubmission: new Map([['s1', []]]),
+    }),
+    { action: 'reuse', submissionId: 's1' },
+  );
+});
+
+it('refuses (never skips) when a submission is already with Apple', () => {
+  const d = openSubmissionDecision({
+    submissions: [{ id: 's1', state: 'UNRESOLVED_ISSUES' }],
+    stagedBySubmission: new Map(),
+  });
+  eq(d.action, 'refuse');
+  eq(/UNRESOLVED_ISSUES/.test(d.reason), true);
+});
+
+it('refuses a staged, non-empty submission and points at resume', () => {
+  const d = openSubmissionDecision({
+    submissions: [{ id: 's1', state: 'READY_FOR_REVIEW' }],
+    stagedBySubmission: new Map([['s1', ['v1']]]),
+  });
+  eq(d.action, 'refuse');
+  eq(/mode=resume/.test(d.reason), true);
+});
+
+it('refuses when what the submission stages cannot be read', () => {
+  eq(
+    openSubmissionDecision({
+      submissions: [{ id: 's1', state: 'READY_FOR_REVIEW' }],
+      stagedBySubmission: new Map([['s1', null]]),
+    }).action,
+    'refuse',
+  );
+});
+
+it('refuses to pick between two unsubmitted submissions', () => {
+  eq(
+    openSubmissionDecision({
+      submissions: [
+        { id: 's1', state: 'READY_FOR_REVIEW' },
+        { id: 's2', state: 'READY_FOR_REVIEW' },
+      ],
+      stagedBySubmission: new Map([
+        ['s1', []],
+        ['s2', []],
+      ]),
+    }).action,
+    'refuse',
+  );
 });
 
 console.log(`\n✓ review-resume: ${passed} assertions passed`);

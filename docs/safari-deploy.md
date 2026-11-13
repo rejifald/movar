@@ -653,6 +653,22 @@ that talks to Apple must be judged on what it reported, not on whether the
 process ended cleanly — and any `run:` step containing a pipe must declare
 `shell: bash`.
 
+### `409 ENTITY_STATE_INVALID` when adding the version to the submission
+
+`POST /v1/reviewSubmissionItems → 409 — STATE_ERROR.ENTITY_STATE_INVALID: This
+resource cannot be reviewed, please check associated errors` means a metadata
+gap on the app or version, not a pipeline bug. Apple adds required listing
+fields from time to time, and the API reports them only here, at submission.
+v1.9.3 (2026-11-12) hit this because of the **new age-rating questions**: the
+fix was to answer them in App Store Connect (App Information → Age Rating) and
+submit.
+
+`apple-submit` prints Apple's `associatedErrors` next to the 409, so the log
+names the missing field. The failed run leaves an empty `READY_FOR_REVIEW`
+submission behind. After you fill the gap, a `mode=submit` rerun reuses that
+submission instead of stopping on it, or you can submit by hand in App Store
+Connect.
+
 ### Build hangs forever ("endlessly building")
 
 **Symptom.** Xcode sits on _Build_ / _Preparing_ indefinitely — no progress bar

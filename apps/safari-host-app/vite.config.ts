@@ -19,7 +19,7 @@ const EXTENSION_VERSION = (
 ).version;
 
 /**
- * Vite build for the Safari wrapper app's unified host screen (Detector /
+ * Vite build for the Safari wrapper app's unified host screen (Audit /
  * Settings / About tabs).
  *
  * Goal: emit exactly ONE JavaScript file and ONE CSS file, fully self-

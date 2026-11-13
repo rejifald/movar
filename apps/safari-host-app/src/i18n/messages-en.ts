@@ -3,7 +3,7 @@
  * strings the shared `@movar/i18n` catalogue does not carry.
  *
  * Scope, and why it's separate from `@movar/i18n`:
- *   - The bottom tab-bar labels (Detector / Settings / About) are host chrome
+ *   - The bottom tab-bar labels (Audit / Settings / About) are host chrome
  *     with no equivalent in the extension UI, so they live here.
  *   - The About tab's enablement copy (brand subtitle, the iOS/macOS setup
  *     banners, the Safari → Settings → Extensions chip path, the macOS CTA,
@@ -15,19 +15,13 @@
  * so the host and the extension can never drift. It used to carry two host-only
  * exceptions under `settings.*` — the "Movar enabled" master switch's label and
  * help — and they went with the switch itself; Safari's own extension settings
- * are the system-provided version of that control. The Detector tab's strings
- * (card copy + verdicts) are host-only and live under `detector.*`.
+ * are the system-provided version of that control.
  *
  * This English catalogue is the canonical shape — the Ukrainian one
  * (`messages-uk.ts`) is typed against `HostMessages` so a missing key fails the
  * build. Strings mirror, 1:1, the copy that previously shipped in the native
  * `Base.lproj/Main.html`, so the migration is a pure re-platforming.
  */
-/** The classifier rungs, as `SnippetVerdict.rung` reports them (coerced to
- *  strings): rung 1 distinctive letters → 2a function words → 2b frequent words
- *  → 3 franc letter-patterns. Keys the `matched` / `clueLabels` maps. */
-export type RungKey = '1' | '2a' | '2b' | '3';
-
 // Typed against the kernel's own union so a capability added to `@movar/audit`
 // fails this catalogue's build rather than rendering as a blank why-line.
 import type { Capability } from '@movar/audit';
@@ -35,63 +29,9 @@ import type { Capability } from '@movar/audit';
 export interface HostMessages {
   /** Bottom tab-bar labels. Host-only — no equivalent in `@movar/i18n`. */
   tabs: {
-    detector: string;
     audit: string;
     settings: string;
     about: string;
-  };
-
-  /** Detector tab — host-only on-device Cyrillic-language checker copy. Mirrors
-   *  the native `Script.js`/`Main.html` detector 1:1: the section heading/intro,
-   *  the textarea placeholder + Detect label, the three verdict strings
-   *  (`notDetected` / `ambiguous` / `unavailable`), the evidence-report labels
-   *  (`evidence` eyebrow, `nativeName`, `matchedBy`, the rung-keyed `matched`
-   *  layer names + `clueLabels` row labels, the `closestMatch` franc verdict),
-   *  and the "How it works" + "Limitations" explainers. The detected-language
-   *  *name* itself comes from `makeLanguageDisplay` (the shared endonym
-   *  resolver), not from here. */
-  detector: {
-    title: string;
-    intro: string;
-    placeholder: string;
-    detect: string;
-    /** No Cyrillic language found and no evidence for any candidate. */
-    notDetected: string;
-    /** Evidence exists but no candidate cleared the lead. */
-    ambiguous: string;
-    /** The detector itself failed to run. */
-    unavailable: string;
-    /** "Evidence" eyebrow over the per-language clue report. */
-    evidence: string;
-    /** The franc (letter-patterns) clue value — a verdict, not a token. */
-    closestMatch: string;
-    /** Label for the detected language's own-language name. */
-    nativeName: string;
-    /** "Matched by" prefix for the deciding-rung line. */
-    matchedBy: string;
-    /** Rung → layer name, used in "Matched by <layer>". */
-    matched: Record<RungKey, string>;
-    /** Rung → nominative clue-row label in the evidence report. */
-    clueLabels: Record<RungKey, string>;
-    /** "How it works" explainer — the rung ladder in plain language. */
-    howItWorks: {
-      title: string;
-      intro: string;
-      layer1Title: string;
-      /** Lead-in before the distinctive-letter samples (`і ї є ґ` … rendered
-       *  inline, locale-independent, by the component). */
-      layer1Lead: string;
-      layer2Title: string;
-      layer2Detail: string;
-      layer3Title: string;
-      layer3Detail: string;
-      foot: string;
-    };
-    /** "Limitations" — what the detector is and isn't. */
-    limitations: {
-      title: string;
-      items: readonly string[];
-    };
   };
 
   /** Audit tab — Movar Audit's app surface (`docs/movar-audit.md`).
@@ -495,58 +435,9 @@ export interface HostMessages {
 
 export const messagesEn: HostMessages = {
   tabs: {
-    detector: 'Detector',
     audit: 'Audit',
     settings: 'Settings',
     about: 'About',
-  },
-  detector: {
-    title: 'Which language is this?',
-    intro:
-      'Paste any text — Movar works out the language on your device, with nothing sent anywhere.',
-    placeholder: 'Paste text here…',
-    detect: 'Detect',
-    notDetected: 'No Cyrillic language found here',
-    ambiguous: 'Mixed signals — no clear language',
-    unavailable: 'Language detection is unavailable.',
-    evidence: 'What gave it away',
-    closestMatch: 'closest match',
-    nativeName: 'Native name',
-    matchedBy: 'Recognised by',
-    matched: {
-      '1': 'distinctive letters',
-      '2a': 'small everyday words',
-      '2b': 'common words',
-      '3': 'letter patterns',
-    },
-    clueLabels: {
-      '1': 'Distinctive letters',
-      '2a': 'Small everyday words',
-      '2b': 'Common words',
-      '3': 'Letter patterns',
-    },
-    howItWorks: {
-      title: 'How it works',
-      intro:
-        'Movar reads the text on your device and tries one clue at a time, until one of them is sure enough — the result shows which clue decided.',
-      layer1Title: 'Distinctive letters',
-      layer1Lead: "Letters one language has and the others don't —",
-      layer2Title: 'Small and common words',
-      layer2Detail: 'The short words each language leans on, then the words it uses most.',
-      layer3Title: 'Letter patterns',
-      layer3Detail:
-        'The combinations of letters each language tends to use, for the hardest snippets.',
-      foot: 'Latin and other alphabets come back undetected. Nothing is sent anywhere.',
-    },
-    limitations: {
-      title: 'What it cannot do',
-      items: [
-        'It isn\'t AI — a fixed set of checks, not a model that "understands" text.',
-        "No server and no full dictionary — it doesn't look words up, and nothing is sent anywhere.",
-        'It goes only on what is in the text: distinctive letters, common words, and letter patterns.',
-        'Short, mixed, or romanized text can come back undetected.',
-      ],
-    },
   },
   audit: {
     title: 'Audit a site',

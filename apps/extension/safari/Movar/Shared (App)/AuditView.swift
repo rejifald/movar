@@ -2,8 +2,9 @@
 //  AuditView.swift
 //  Shared (App)
 //
-//  The Audit tab's first screen: what to audit, what came of the last few, and
-//  what Movar Audit is.
+//  Movar Audit's model (session-only runs, activity, the acknowledgement) and the
+//  acknowledgement sheet. The screens built on it live in `AuditHomeSection.swift`
+//  and `AuditProgressView.swift`; the root screen hosts them.
 //
 
 import Combine
@@ -59,13 +60,42 @@ final class AuditModel: ObservableObject {
     /// `HostActions`, as every other URL in this target is.
     static var defaultTarget: String { HostActions.siteURLString }
 
-    @Published var url: String = AuditModel.defaultTarget
+    /// Empty, so the field shows its placeholder; `defaultTarget` is what the
+    /// empty-state action fills in (see `runDefault()`).
+    @Published var url: String = ""
     @Published var applyUaPack = false
     @Published var activity: AuditActivity = .idle
     @Published private(set) var runs: [AuditRun] = []
 
-    /// The run being read, by id, or `nil` for the composer.
+    /// The destination selection: a run's id (or the in-flight run's id), and
+    /// on macOS `newAuditTag` for the composer pane. `nil` on iOS is the home
+    /// list itself; on macOS the shell treats `nil` as "nothing chosen yet".
+    ///
+    /// Both the iOS rows and the macOS sidebar rows bind their
+    /// `NavigationLink(tag:selection:)` to THIS, so completing a run opens its
+    /// report on either platform.
     @Published var openedRunID: String?
+
+    /// The `openedRunID` value that selects the macOS «Новий аудит» pane.
+    static let newAuditTag = "audit.new"
+
+    /// What `openedRunID` returns to when a run fails or the open run is removed.
+    static var homeSelection: String? {
+#if os(macOS)
+        newAuditTag
+#else
+        nil
+#endif
+    }
+
+    /// The run in flight: its pre-allocated id (the id its report will carry, so
+    /// the row and the pushed screen keep one identity from "running" to
+    /// "finished") and the target being probed. `nil` when idle or failed.
+    struct PendingRun: Equatable {
+        let id: String
+        let target: String
+    }
+    @Published private(set) var pendingRun: PendingRun?
 
     /// The target waiting on the outbound-request acknowledgement.
     ///
@@ -84,7 +114,7 @@ final class AuditModel: ObservableObject {
     /// dialog reflex, and it costs one press.
     private var acknowledged = false
 
-    /// The SHARED engine — the same `EngineHost` the Detector tab uses. One
+    /// The SHARED engine — the app's one `EngineHost`. One
     /// bundle parsed once, and one request budget against a third party's server.
     private let engine: EngineHost
 
@@ -102,6 +132,13 @@ final class AuditModel: ObservableObject {
     }
 
     var openedRun: AuditRun? { runs.first { $0.id == openedRunID } }
+
+    /// The empty-state action: audit Movar's own site through the normal flow
+    /// (normalize, acknowledgement once per session, run).
+    func runDefault() {
+        url = Self.defaultTarget
+        runTyped()
+    }
 
     var isRunning: Bool {
         if case .running = activity { return true }
@@ -143,6 +180,10 @@ final class AuditModel: ObservableObject {
     /// in the composer behind it.
     func run(target: String) {
         activity = .running(done: 0, total: 0)
+        let pending = PendingRun(id: "\(target) \(Date().timeIntervalSince1970)", target: target)
+        pendingRun = pending
+        // The progress screen is the selection while the run is in flight.
+        openedRunID = pending.id
         engine.runAudit(
             url: target,
             uaPack: applyUaPack,
@@ -156,7 +197,7 @@ final class AuditModel: ObservableObject {
                 guard let self = self else { return }
                 switch result {
                 case .success(let outcome):
-                    self.remember(target: target, outcome: outcome)
+                    self.remember(id: pending.id, target: target, outcome: outcome)
                 case .failure(let failure):
                     // The bridge being absent is a fact about the app, not about
                     // the site — it gets its own message so nobody reads it as
@@ -167,16 +208,21 @@ final class AuditModel: ObservableObject {
                     // A failed re-run returns to the composer, where the error
                     // belongs: leaving the previous report on screen under a
                     // failed re-run would make a stale document look fresh.
-                    self.openedRunID = nil
+                    // Only when the failed run is what is open: on macOS the
+                    // selection is shared with the sidebar's settings rows, and
+                    // a failure must not yank the reader off one of those.
+                    self.pendingRun = nil
+                    if self.openedRunID == pending.id {
+                        self.openedRunID = Self.homeSelection
+                    }
                 }
             })
     }
 
-    private func remember(target: String, outcome: AuditOutcome) {
-        let run = AuditRun(
-            id: "\(target) \(Date().timeIntervalSince1970)",
-            target: target, ranAt: Date(), outcome: outcome)
+    private func remember(id: String, target: String, outcome: AuditOutcome) {
+        let run = AuditRun(id: id, target: target, ranAt: Date(), outcome: outcome)
         runs = Array(([run] + runs).prefix(Self.maxRememberedRuns))
+        pendingRun = nil
         activity = .idle
         // Straight to the report: the person pressed the button to read it.
         openedRunID = run.id
@@ -193,12 +239,12 @@ final class AuditModel: ObservableObject {
     /// where a system control replaces a hand-rolled one.
     func remove(atOffsets offsets: IndexSet) {
         let doomed = offsets.map { runs[$0].id }
-        if let opened = openedRunID, doomed.contains(opened) { openedRunID = nil }
+        if let opened = openedRunID, doomed.contains(opened) { openedRunID = Self.homeSelection }
         runs.remove(atOffsets: offsets)
     }
 
     func remove(id: String) {
-        if openedRunID == id { openedRunID = nil }
+        if openedRunID == id { openedRunID = Self.homeSelection }
         runs.removeAll { $0.id == id }
     }
 
@@ -266,494 +312,6 @@ final class AuditModel: ObservableObject {
         let fragment = url.fragment.map { "#\($0)" } ?? ""
         let shown = "\(host)\(url.path)\(query)\(fragment)"
         return shown.hasSuffix("/") ? String(shown.dropLast()) : shown
-    }
-}
-
-// MARK: - The composer
-
-/// Movar Audit's app surface: point it at a site, read what it found.
-///
-/// TWO SCREENS, NOT ONE PANEL — the shape the React tab arrived at and the one
-/// the platform draws for free. The composer takes a URL, says what Movar Audit
-/// is, and lists the audits already run; opening one PUSHES the report. A
-/// language conformance report is a document read top to bottom, and rendering
-/// it inline under the form made it read as the form's output while burying the
-/// previous run the moment a new one started.
-///
-/// APPEARANCE IS STOCK, as `AboutView` and `SettingsView` are: `List` +
-/// `Section` + `TextField` + `Toggle` + `DisclosureGroup`, the platform type
-/// ramp and palettes, SF Symbols, and one brand customisation (the accent,
-/// applied once in `MovarRootView`). The web original hand-rolled a progress
-/// bar out of two divs, a history row out of two nested buttons under one
-/// bordered `<li>`, and a confirmation out of a full-page div — each of which
-/// has an exact stock counterpart that brings Dynamic Type, VoiceOver, Full
-/// Keyboard Access and swipe-to-delete with it.
-///
-/// THREE THINGS THIS SCREEN DELIBERATELY DOES NOT DO, unchanged by going native:
-///
-/// - **It does not judge.** Every verdict comes from `evaluate()`, the pure
-///   kernel the CLI runs, inside `EngineHost`. This file renders a `Report`; it
-///   never decides what is in one.
-/// - **It does not fetch.** Every request goes through `AuditProber`. The
-///   engine's document declares `default-src 'none'`, so that is structural
-///   rather than a matter of discipline.
-/// - **It does not apply a jurisdiction pack unless asked.** The Ukrainian
-///   statute rules are a legal claim about a specific country's law, so they are
-///   composed in by an explicit choice and off by default. Applying Law
-///   2704-VIII to a German site would be a false accusation with the product's
-///   name on it.
-struct AuditView: View {
-
-    @ObservedObject var model: AuditModel
-
-    /// macOS only — see {@link explainerSection} for why one platform pushes and
-    /// the other presents.
-    @State private var showingAbout = false
-
-    var body: some View {
-#if os(macOS)
-        macBody
-#else
-        composer
-#endif
-    }
-
-#if os(macOS)
-
-    // MARK: - The Mac layout
-
-    /// macOS: compose on the left, results on the right.
-    ///
-    /// This replaces a swap. macOS has no navigation stack to push onto, so the
-    /// report used to REPLACE the composer and draw its own way back — a phone's
-    /// answer to a phone's constraint, reproduced in a window that never had the
-    /// constraint. The cost was that the thing you audited and the verdict on it
-    /// could not be seen at once: to re-read the URL you had just typed, or to
-    /// audit a second site after reading the first, you had to dismiss the
-    /// answer.
-    ///
-    /// The split is the other way round from the Detector's, and deliberately.
-    /// There the input is the big surface and the verdict is a line; here the
-    /// composer is a URL, a switch and a button, while the report is a document
-    /// with a matrix and its findings. The pane that needs the room gets it.
-    ///
-    /// `previousSection` moves into the right pane with the report it links to —
-    /// past audits and the open one are the same subject, and the left pane is
-    /// then only ever the question.
-    private var macBody: some View {
-        HSplitView {
-            composerPane
-                // A CEILING is what stops the drift. `HSplitView` re-negotiated
-                // this split every time the pane beside it changed identity —
-                // twice in a normal reading, composer to report and report back
-                // to the list — and each pass moved the divider RIGHT: 403 ->
-                // 470 -> 540pt, until the report was standing on its 400pt floor
-                // and a URL, a switch and a button had the wider half. An
-                // `idealWidth` does not prevent that (`HSplitView` ignores it);
-                // a `maxWidth` does, and 420 is about as wide as this pane's
-                // longest row — "Набір правил українського закону" and its
-                // switch — has any use for.
-                .frame(minWidth: 300, maxWidth: 420)
-            resultsPane
-                // Uncapped on purpose: whatever the composer does not take is
-                // the document's, which is the sentence above made structural.
-                .frame(minWidth: 400, maxWidth: .infinity)
-        }
-        // The platform's own size class, as on the Detector; see `movarFormMeasure`.
-        .movarActionSize()
-        .sheet(isPresented: confirmPresented) {
-            if let target = model.confirming {
-                AuditConfirmSheet(
-                    target: target,
-                    onCancel: { model.confirming = nil },
-                    onProceed: { model.confirmRun(target) })
-                    // Handed the accent again across the presentation; see
-                    // `movarDetailSheet`.
-                    .movarTint()
-            }
-        }
-        .movarDetailSheet(
-            isPresented: $showingAbout,
-            title: HostStrings.auditAboutTitle,
-            measure: .explainer
-        ) {
-            AuditAboutView()
-        }
-    }
-
-    /// The left pane: what to audit, under which rules, and the button that starts it.
-    ///
-    /// The run button sits on its own line at the foot of the pane rather than in
-    /// a bar across the whole window. The reasoning `composer` records still
-    /// holds — a filled button inside a grouped row draws its own fill over the
-    /// row's — but a pane has a foot of its own, so the button can be the pane's
-    /// action without spanning a window it does not own.
-    private var composerPane: some View {
-        VStack(spacing: 0) {
-            List {
-                targetSection
-                activitySection
-                packSection
-                explainerSection
-            }
-            .movarListStyle()
-            // Same reason as the Detector's rail: `InsetListStyle` reserves ~20pt
-            // above its first header, which reads as a band under the tab strip
-            // rather than as breathing room.
-            //
-            // Less of a pull than the rail takes, though. The rail is a pane of
-            // the split and clips against the window; this list is inside a
-            // `VStack` with the action bar below it, and at the rail's -14 its
-            // first header lost its top half off the pane's own edge.
-            .padding(.top, -6)
-            Divider()
-            HStack(spacing: 12) {
-                Spacer(minLength: 0)
-                Button(model.isRunning ? HostStrings.auditRunning : HostStrings.auditRun) {
-                    model.runTyped()
-                }
-                // `.borderedProminent` is what the root `.tint` reaches; a plain
-                // default button takes AppKit's system accent instead. Same trap
-                // the Detector's pane hit.
-                .movarProminentButtonStyle()
-                .keyboardShortcut(.defaultAction)
-                .disabled(model.isRunning)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-    }
-
-    /// The right pane: the report that is open, or the audits already run.
-    ///
-    /// Empty before the first audit, and that is the honest state — the same
-    /// argument `previousSection` already makes for having no empty-state row.
-    private var resultsPane: some View {
-        Group {
-            if let run = model.openedRun {
-                AuditReportView(run: run, model: model, onBack: { model.openedRunID = nil })
-            } else {
-                List {
-                    previousSection
-                }
-                .movarListStyle()
-                // The same pull the composer takes (`composerPane`), for the
-                // same reason and by the same amount. Without it `InsetListStyle`
-                // reserved its ~20pt here and not there, so "Аудит сайту" and
-                // "Попередні аудити" — the first thing in each pane, either side
-                // of one divider — sat 7pt out of step.
-                .padding(.top, -6)
-            }
-        }
-    }
-
-#endif
-
-    private var composer: some View {
-        List {
-            targetSection
-            activitySection
-            packSection
-            previousSection
-            explainerSection
-        }
-        .movarListStyle()
-        // Measured on iPad for the same reason the Detector's column is, and
-        // with more at stake: this list is short, so a stretched one was mostly
-        // a URL field the width of the screen. See `movarColumnMeasure`.
-        .movarColumnMeasure()
-        // The run button is PINNED BELOW THE LIST rather than sitting in the
-        // target section. A `.borderedProminent` button inside a grouped row
-        // supplies its own fill, corner radius and inset on top of the ones the
-        // row already draws, so it reads as a control floating in the card
-        // instead of as the section's action — and it was the only place in the
-        // app that put a filled button in a list row, against the tinted rows
-        // `SettingsView` uses everywhere else. The same bar the confirmation and
-        // allowlist sheets already use puts a primary action where it belongs on
-        // both platforms, and keeps it reachable once the list scrolls.
-        .movarActionBar {
-            MovarCallToAction(
-                model.isRunning ? HostStrings.auditRunning : HostStrings.auditRun,
-                action: model.runTyped
-            )
-            .disabled(model.isRunning)
-        }
-        .movarNavigationContainer(HostStrings.tabAudit)
-        .sheet(isPresented: confirmPresented) {
-            if let target = model.confirming {
-                AuditConfirmSheet(
-                    target: target,
-                    onCancel: { model.confirming = nil },
-                    onProceed: { model.confirmRun(target) })
-                    // Handed the accent again across the presentation; see
-                    // `movarDetailSheet`.
-                    .movarTint()
-            }
-        }
-        .movarDetailSheet(
-            isPresented: $showingAbout,
-            title: HostStrings.auditAboutTitle,
-            measure: .explainer
-        ) {
-            AuditAboutView()
-        }
-    }
-
-    // MARK: - Target
-
-    /// The URL box, under one heading.
-    ///
-    /// The intro is the section FOOTER — it says what an audit reports, which is
-    /// what someone weighing the button below wants, and a grouped list has a
-    /// real place for exactly that sentence. A `Section` header is set in small
-    /// caps and would have made a sentence shout.
-    ///
-    /// The run button is deliberately NOT a second row here — see `composer`.
-    private var targetSection: some View {
-        Section {
-            TextField(HostStrings.auditPlaceholder, text: $model.url, onCommit: model.runTyped)
-                .movarURLField()
-                .disabled(model.isRunning)
-        } header: {
-            Text(HostStrings.auditTitle)
-        } footer: {
-            movarUnhyphenated(HostStrings.auditIntro)
-                .movarWrapping()
-        }
-    }
-
-    /// Progress, or the last error. Absent when there is neither.
-    ///
-    /// A DETERMINATE bar, because the total genuinely is known: the matrix is a
-    /// fixed number of legs. An indeterminate spinner would say only "something
-    /// is happening" for what can be a two-minute wait against a slow site. The
-    /// total is `0` for the beat before the engine reports one, which
-    /// `ProgressView` renders as an empty bar rather than as a division by zero.
-    @ViewBuilder
-    private var activitySection: some View {
-        switch model.activity {
-        case .idle:
-            EmptyView()
-        case .running(let done, let total):
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    ProgressView(value: Double(done), total: Double(max(total, 1)))
-                    Text(HostStrings.auditProgress(done, max(total, 1)))
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-            } footer: {
-                Text(HostStrings.auditRunningNote)
-                    .movarWrapping()
-            }
-        case .failed(let message):
-            Section {
-                Label {
-                    Text(message)
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle")
-                }
-            }
-        }
-    }
-
-    // MARK: - Jurisdiction pack
-
-    /// The `ua` pack opt-in, off by default on every platform.
-    ///
-    /// The label NAMES the pack; it does not describe an act. The footer still
-    /// carries the weight — who it applies to, and that switching it on is the
-    /// operator's call.
-    ///
-    /// **The row is assembled by hand rather than left to `Toggle`'s own label,
-    /// and the citation moved into it.** Ukrainian spends 31 characters on a name
-    /// English says in 23, so `audit.uaPack` wraps to two lines on a phone — and a
-    /// stock `Toggle` centres its switch against the label as a whole, which
-    /// leaves it hanging between the two lines with nothing to align to. Read that
-    /// way the wrap looks like a defect rather than a decision. Splitting
-    /// `audit.uaPackLaw` out of the hint gives the second line a job — it is the
-    /// description the title always implied — and `.top` alignment pins the switch
-    /// to the title's line, where the eye looks for the control that answers it.
-    ///
-    /// The switch is still the platform's. `labelsHidden()` drops the label
-    /// visually and keeps it as the accessible name, so nothing here restyles a
-    /// control (`docs/native-shells.md`); the two texts combine into one element
-    /// so VoiceOver reads the pack and its statute as a single statement instead
-    /// of two loose strings next to a switch.
-    private var packSection: some View {
-        Section {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(HostStrings.auditUaPack)
-                    movarUnhyphenated(HostStrings.auditUaPackLaw)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-
-                Spacer(minLength: 0)
-
-                Toggle(HostStrings.auditUaPack, isOn: $model.applyUaPack)
-                    .labelsHidden()
-                    .disabled(model.isRunning)
-            }
-        } footer: {
-            movarUnhyphenated(HostStrings.auditUaPackHint)
-                .movarWrapping()
-        }
-    }
-
-    // MARK: - Previous audits
-
-    /// The audits already run this session.
-    ///
-    /// Absent, not empty, before the first one: an empty-state row explaining
-    /// that no audits have been run yet says nothing the absent section does not.
-    @ViewBuilder
-    private var previousSection: some View {
-        if !model.runs.isEmpty {
-            Section {
-                ForEach(model.runs) { run in
-                    reportLink(for: run)
-                        .contextMenu {
-                            // The macOS path to the same act — that platform's
-                            // `List` has no swipe-to-delete — and on iOS a second
-                            // route for anyone who does not swipe.
-                            Button(HostStrings.settingsRemove) { model.remove(id: run.id) }
-                        }
-                }
-                .onDelete(perform: model.remove(atOffsets:))
-            } header: {
-                Text(HostStrings.auditPrevious)
-            } footer: {
-                // Stated once, next to the thing it is about. A reader building a
-                // case against a company needs to know this BEFORE they close the
-                // app, not after.
-                Text(HostStrings.auditNotStored)
-                    .movarWrapping()
-            }
-        }
-    }
-
-    /// One previous audit, and the way into it.
-    ///
-    /// iOS gets a real `NavigationLink` — the push, the back button reading
-    /// "‹ Audit", and the chevron all come with it. macOS has no stack, so the
-    /// row is a button that swaps the tab's content and the report draws its own
-    /// way back.
-    @ViewBuilder
-    private func reportLink(for run: AuditRun) -> some View {
-#if os(iOS)
-        NavigationLink(
-            destination: AuditReportView(run: run, model: model, onBack: nil),
-            tag: run.id,
-            selection: $model.openedRunID
-        ) {
-            AuditRunRow(run: run)
-        }
-#else
-        Button {
-            model.openedRunID = run.id
-        } label: {
-            HStack {
-                AuditRunRow(run: run)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .contentShape(Rectangle())
-        }
-        .movarRowButtonStyle()
-#endif
-    }
-
-    // MARK: - Explainers
-
-    /// The way to "What Movar Audit is" — a row, not two sections of prose.
-    ///
-    /// The composer used to carry the whole explainer inline: what the tool is,
-    /// three claims about what it refuses to do, and three guarantees about what
-    /// it does to somebody else's server. Six paragraphs, under a form, read once
-    /// by anyone and never again. `AuditAboutView` has the argument for why that
-    /// moved; what stays here is the one line that answers "what will this tell
-    /// me" — the `audit.intro` footer under the URL box — which is what someone
-    /// weighing the button actually needs.
-    ///
-    /// LAST, and shaped exactly like Settings' About row, down to the glyph:
-    /// these are the same thing (a once-ever destination hanging off a screen
-    /// people return to) and an app that draws them differently is telling the
-    /// reader they are not.
-    ///
-    /// iOS PUSHES and macOS PRESENTS, for the reason `SettingsView` records:
-    /// `NavigationView` on macOS is a split view, so there is no stack to push
-    /// onto and {@link movarDetailSheet} is the honest equivalent there.
-    private var explainerSection: some View {
-        Section {
-#if os(iOS)
-            NavigationLink(destination: AuditAboutView()) {
-                Label(HostStrings.auditAboutTitle, systemImage: "info.circle")
-            }
-#else
-            Button {
-                showingAbout = true
-            } label: {
-                Label(HostStrings.auditAboutTitle, systemImage: "info.circle")
-                    .contentShape(Rectangle())
-            }
-            .movarRowButtonStyle()
-#endif
-        }
-    }
-
-    // MARK: - Bindings
-
-    /// `confirming` is a target, not a flag, so the sheet's `isPresented` is
-    /// derived from it — one source of truth for "which host are we asking
-    /// about", rather than a boolean that could disagree with it.
-    private var confirmPresented: Binding<Bool> {
-        Binding(
-            get: { model.confirming != nil },
-            set: { shown in if !shown { model.confirming = nil } })
-    }
-}
-
-// MARK: - One previous audit
-
-/// A row in the history list.
-///
-/// Leads with the HEADLINE it produced, because that is what makes a list of past
-/// runs worth having — a row that only said "movar.fyi, 13:57" would make you
-/// open every one to find the one that failed.
-struct AuditRunRow: View {
-
-    let run: AuditRun
-
-    var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(AuditModel.prettyTarget(run.target))
-                    .foregroundColor(.primary)
-                Text(AuditVerdictStyle.headline(for: run.outcome.report) + " · " + Self.stamp(run.ranAt))
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-        } icon: {
-            Image(systemName: AuditVerdictStyle.headlineSymbol(for: run.outcome.report))
-                .foregroundColor(AuditVerdictStyle.headlineTint(for: run.outcome.report))
-        }
-        // One element, one sentence. Read as three, VoiceOver announces a
-        // hostname, a count and a time with nothing joining them.
-        .accessibilityElement(children: .combine)
-    }
-
-    /// When an audit ran, in the reader's own locale and format.
-    private static func stamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
     }
 }
 

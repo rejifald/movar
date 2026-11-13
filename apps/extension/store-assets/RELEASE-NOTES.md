@@ -83,6 +83,46 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.10.0
+
+<!-- Distil the user-facing highlights below into both locales, then delete
+     this comment. User's voice: what changed for them, not for the code.
+     `pnpm check:release-notes` fails while either fenced block is empty.
+
+     Shape of a block — a title line, then category headings owning the
+     bullets beneath them (see "The shape of a block" in RELEASE-NOTES.md):
+
+       Що нового у версії 1.10.0
+
+       Виправлено
+       • …
+
+     Categories: Нове / Виправлено / Покращено / Безпека (uk),
+                 New / Fixed / Improved / Security (en).
+
+     From CHANGELOG.md:
+
+  ### Minor Changes
+  - a04a49b: The Safari app becomes one list instead of three tabs. On iPhone it opens on «Мовар»:
+    the Safari setup card until you confirm it, then Movar Audit with this session's audits,
+    then your language settings, each opening its own screen. On Mac the same list is the
+    window's sidebar, and its status row shows whether the extension is on, with a button
+    that opens Safari's settings. The language Detector is removed from the app, and the
+    engine drops its `detect.*` messages.
+-->
+
+### Українська (uk)
+
+```
+
+```
+
+### English (en)
+
+```
+
+```
+
 ## 1.9.3
 
 Two Google fixes, both from links and URLs that something other than the reader

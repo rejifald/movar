@@ -101,7 +101,7 @@ export type HostShow =
   | { platform: 'mac'; enabled: boolean; useSettings: boolean };
 
 /** Which tab the snapshot captures. */
-export type HostTab = 'detector' | 'audit' | 'settings' | 'about';
+export type HostTab = 'audit' | 'settings' | 'about';
 
 /**
  * How the viewport is sized before the snapshot:
@@ -111,7 +111,7 @@ export type HostTab = 'detector' | 'audit' | 'settings' | 'about';
  *     content height with the `min-height: 100dvh` floor neutralized, then the
  *     viewport is resized to exactly that so the fixed tab bar lands directly
  *     under the content. This is the appearance-parity mode the main visual
- *     suite uses — a short state (Detector/About) no longer shows a gap above
+ *     suite uses — a short state (Audit/About) no longer shows a gap above
  *     the tab bar.
  *   - `'viewport'` — keep the fixed {@link HOST_VIEWPORT} size as-is (no
  *     measure/resize). This is the behaviour-proof mode the sticky-nav suite
@@ -308,8 +308,8 @@ export async function openHostApp(
   // height so the fixed tab bar lands directly under the content instead of
   // at the bottom of a fixed, generously-tall viewport. Must run AFTER the
   // tab/state selection above — the natural height is state-dependent (the
-  // Settings tab's 3-language priority list is taller than the idle Detector
-  // card) — and BEFORE the motion-kill/fonts-ready tail, since neither of
+  // Settings tab's 3-language priority list is taller than the idle Audit
+  // composer) — and BEFORE the motion-kill/fonts-ready tail, since neither of
   // those affects layout height.
   if ((options.fit ?? 'content') === 'content') {
     const naturalHeight = await measureNaturalBodyHeight(page);

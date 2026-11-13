@@ -196,6 +196,17 @@ mail, source and site URLs, changelog paths) and stays that way; a third
 brand-shaped package would leave three plausible homes for a colour and no rule
 for picking one.
 
+### One list instead of tabs (2026-11)
+
+The tab bar (iOS) and segmented strip (macOS) are gone. iOS is one navigation stack
+titled «Мовар»: setup card until confirmed → Audit → language settings → more. macOS
+renders the same list as a `NavigationView` sidebar with a detail column, which
+retires the `HSplitView` workbenches described below; the sidebar's status row is
+real on macOS (`SFSafariExtensionManager`). Every screen is assembled from
+`Shared (App)/MovarKit/`, and `pnpm check:swift-tokens` keeps raw sizes and colours
+out of the screens. Spec, decisions and rejected options:
+`docs/design/host-app/anatomy.md`.
+
 ### What canonical macOS actually cost — the window, not the widgets
 
 **The first macOS pass was stock iOS, and "stock" was the trap.** Every control
@@ -430,10 +441,12 @@ remote one would not be.
 
 **Minimum functionality stays the live risk, and the migration reduces it.**
 Apple's rule against apps that are "a repackaged website" (historically 4.2) is the
-one this app has to keep clearing. A native app carrying an audit tool, a detector
-and settings sits further from that line than React in a `WKWebView` does. What has
+one this app has to keep clearing. A native app carrying an audit tool and
+settings sits further from that line than React in a `WKWebView` does. What has
 to be protected is that the container keeps doing real work rather than decaying
-into "here is how to enable the extension in Safari."
+into "here is how to enable the extension in Safari." Since the 2026-11 redesign
+Audit is the only feature that works with the extension off (the Detector was
+removed), which is why it is the first section of the main screen.
 
 **Accessibility is an upside, not just compliance.** The current tab bar is a
 `<div role="tablist">` with hand-rolled arrow-key handling. Stock `TabView` /
@@ -523,7 +536,13 @@ because that is what the `readSettings` / `writeSettings` bridge answers to, and
 nothing displays it. Deleting that WebView — now that `EngineHost` is the engine
 host — is the step this ADR already names as the last one.
 
-### Detector — done; the closed set is visible and configurable
+### Detector — removed 2026-11-13
+
+**Removed from the app with the one-list redesign** (`docs/design/host-app/anatomy.md`).
+The owner's call, made knowing it was one of the two features App Review was told
+keep the app above guideline 4.2; Movar Audit now carries that case alone (see
+`store-assets/apple/REVIEW-NOTES.md`), and the engine's `detect.*` messages went with
+it. The text below is the record of what shipped before.
 
 **Shipped as the second native slice, and the one that put the engine in the
 app.** `Shared (App)/DetectorView.swift` renders it; the verdict comes from

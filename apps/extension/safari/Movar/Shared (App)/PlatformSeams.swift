@@ -153,7 +153,7 @@ extension View {
     /// says "Movar". That is also why `SettingsView` presents About in a sheet on
     /// macOS — with no stack, there is nothing to push.
     @ViewBuilder
-    func movarNavigationContainer(_ title: String) -> some View {
+    func movarNavigationContainer(_ title: String, largeTitle: Bool = false) -> some View {
 #if os(iOS)
         // `NavigationStack` is the iOS 16 replacement; the app's floor is 15.4,
         // so the deprecated `NavigationView` still has to be here for one more
@@ -163,13 +163,13 @@ extension View {
             NavigationStack {
                 self
                     .navigationTitle(title)
-                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationBarTitleDisplayMode(largeTitle ? .large : .inline)
             }
         } else {
             NavigationView {
                 self
                     .navigationTitle(title)
-                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationBarTitleDisplayMode(largeTitle ? .large : .inline)
             }
             .navigationViewStyle(StackNavigationViewStyle())
         }
@@ -185,11 +185,11 @@ extension View {
     /// it is pushed into already exists. On macOS it does nothing — About is a
     /// sheet there, and the sheet's own header carries the title.
     @ViewBuilder
-    func movarPushedTitle(_ title: String) -> some View {
+    func movarPushedTitle(_ title: String, large: Bool = false) -> some View {
 #if os(iOS)
         self
             .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(large ? .large : .inline)
 #else
         self
 #endif
@@ -486,7 +486,72 @@ struct MovarSecondaryAction: View {
     }
 }
 
+/// A secondary call to action in the brand's light tint: `brandTint` fill,
+/// `brandText` label. `.full` fills the width it is given; `.compact` is the
+/// small control that sits beside a field.
+struct MovarTintedAction: View {
+
+    enum Size { case full, compact }
+
+    let title: String
+    let size: Size
+    let action: () -> Void
+
+    init(_ title: String, size: Size = .full, action: @escaping () -> Void) {
+        self.title = title
+        self.size = size
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Text(title).lineLimit(1)
+        }
+        .buttonStyle(MovarTintedButtonStyle(size: size))
+    }
+}
+
+private struct MovarTintedButtonStyle: ButtonStyle {
+
+    let size: MovarTintedAction.Size
+
+    func makeBody(configuration: Configuration) -> some View {
+        TintedLabel(size: size, configuration: configuration)
+    }
+
+    private struct TintedLabel: View {
+        let size: MovarTintedAction.Size
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .font(Font.body.weight(.semibold))
+                .foregroundColor(MovarPalette.brandText)
+                .padding(.horizontal, MovarMetrics.Space.md)
+                .frame(
+                    maxWidth: size == .full ? .infinity : nil,
+                    minHeight: size == .full ? MovarMetrics.Control.regular : MovarMetrics.Control.compact
+                )
+                .background(Capsule().fill(MovarPalette.brandTint))
+                .contentShape(Capsule())
+                .opacity(isEnabled ? (configuration.isPressed ? 0.6 : 1) : 0.4)
+        }
+    }
+}
+
 extension View {
+
+    /// Hide a row's own separator where the OS allows it (iOS 15 / macOS 13).
+    /// Elsewhere it is left alone.
+    @ViewBuilder
+    func movarHiddenSeparator() -> some View {
+        if #available(iOS 15.0, macOS 13.0, *) {
+            self.listRowSeparator(.hidden)
+        } else {
+            self
+        }
+    }
 
     /// Pin a sheet's actions to the bottom, above the content rather than inside
     /// it.

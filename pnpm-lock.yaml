@@ -439,9 +439,6 @@ importers:
       '@movar/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@movar/lang-detect':
-        specifier: workspace:*
-        version: link:../../packages/lang-detect
       '@movar/options-ui':
         specifier: workspace:*
         version: link:../../packages/options-ui

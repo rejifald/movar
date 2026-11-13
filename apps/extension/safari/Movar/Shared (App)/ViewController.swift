@@ -87,37 +87,25 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// Movar's JavaScript half, in a WebView that never renders.
     ///
     /// Created eagerly: it has a bundle to parse before it can answer, and doing
-    /// that at launch means the Detector tab is live by the time anyone has
-    /// finished pasting into it. Requests that arrive first are queued, so the
-    /// eagerness is an optimisation rather than a correctness requirement.
+    /// that at launch means Audit is live by the time anyone has typed a site.
+    /// Requests that arrive first are queued, so the eagerness is an
+    /// optimisation rather than a correctness requirement.
     private lazy var engine = EngineHost(prober: self.prober)
 
-    /// The settings the native Settings tab reads and writes.
+    /// The settings the native settings screens read and write.
     ///
-    /// Owned here rather than by the view, so it outlives any SwiftUI rebuild and
+    /// Owned here rather than by a view, so it outlives any SwiftUI rebuild and
     /// so {@link refreshOnForeground} has something to re-read.
-    ///
-    /// Declared ahead of the models that read it because `detectorModel` seeds
-    /// its comparison set from these very languages.
     private let settingsStore = SettingsStore()
 
-    /// The Detector tab's state, over that engine and those settings.
-    private lazy var detectorModel = DetectorModel(
-        engine: self.engine, settings: self.settingsStore)
-
-    /// The Audit tab's state, over the same engine.
+    /// Movar Audit's state, over the engine.
     ///
-    /// Owned here for the same reason `settingsStore` and `detectorModel` are: a
-    /// `TabView` rebuilds its content freely, and a model rebuilt with it would
-    /// drop a running audit's callbacks on every tab switch — while the session's
-    /// list of finished runs would quietly depend on which tab you were standing
-    /// in.
+    /// Owned here for the same reason `settingsStore` is: a model rebuilt with
+    /// its view would drop a running audit's callbacks, and the session's list
+    /// of finished runs would be lost with it.
     ///
-    /// ONE engine for both tabs, not one each. The request budget
-    /// `AuditProbeLimits` enforces is per audit against a third party's server,
-    /// and two engines would be two budgets — the ceiling would stop meaning what
-    /// it says. Detector's own requests are pure and local, so they cost the
-    /// shared host nothing.
+    /// One engine, so the request budget `AuditProbeLimits` enforces stays per
+    /// audit against a third party's server.
     private lazy var auditModel = AuditModel(engine: self.engine)
 
     override func viewDidLoad() {
@@ -192,7 +180,6 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         let shell = PlatformHostingController(
             rootView: MovarRootView(
                 host: hostModel,
-                detector: detectorModel,
                 audit: auditModel,
                 settings: settingsStore))
         addChild(shell)
@@ -270,10 +257,6 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     /// an answer to give, and only there.
     @objc private func refreshOnForeground() {
         settingsStore.reload()
-        // AFTER the reload, so it re-derives from what just arrived rather than
-        // from the record this app read at launch. Safari's popup writes the
-        // same settings the Detector's comparison set is seeded from.
-        detectorModel.refreshDerivedRoster()
 #if os(macOS)
         refreshExtensionState()
 #endif
@@ -282,14 +265,13 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
 #if os(macOS)
     override func viewWillAppear() {
         super.viewWillAppear()
-        // The Detector is an `HSplitView` — the box you type into beside the
-        // verdict it produces — and its two panes carry their own minima (340pt
-        // and 300pt). The window is resizable (see Main.storyboard); pin a floor
-        // with room for both plus the divider, so a resize cannot squeeze the
-        // rail out and leave the answer unreadable. The default size lives in the
-        // storyboard's contentRect, and this has to agree with the
-        // `contentMinSize` declared there — set in code as well because the
-        // storyboard's value is applied before the shell is installed.
+        // The sidebar shell is two columns — a sidebar (200 pt minimum) and a
+        // detail pane that must stay readable — so the window gets a floor with
+        // room for both plus the divider. The window is resizable (see
+        // Main.storyboard); the default size lives in the storyboard's
+        // contentRect, and this has to agree with the `contentMinSize` declared
+        // there — set in code as well because the storyboard's value is applied
+        // before the shell is installed.
         self.view.window?.contentMinSize = NSSize(width: 720, height: 480)
     }
 #endif

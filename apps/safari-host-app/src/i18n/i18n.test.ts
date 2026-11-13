@@ -10,7 +10,7 @@ describe('messagesFor', () => {
   });
 });
 
-/** Flatten an object's leaves to dotted paths ("tabs.detector", …). */
+/** Flatten an object's leaves to dotted paths ("tabs.audit", …). */
 function leafPaths(obj: object, prefix = ''): string[] {
   return Object.entries(obj).flatMap(([key, value]) =>
     typeof value === 'object' && value !== null

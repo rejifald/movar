@@ -83,7 +83,7 @@ struct AboutView: View {
             legalSection
         }
         .movarListStyle()
-        .movarPushedTitle(HostStrings.tabAbout)
+        .movarPushedTitle(HostStrings.settingsAbout)
     }
 
     // MARK: - Identity

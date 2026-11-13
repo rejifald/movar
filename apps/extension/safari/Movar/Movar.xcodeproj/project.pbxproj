@@ -42,12 +42,6 @@
 		3B701D030000000000000025 /* MovarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000005 /* MovarRootView.swift */; };
 		3B701D030000000000000016 /* EngineHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000006 /* EngineHost.swift */; };
 		3B701D030000000000000026 /* EngineHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000006 /* EngineHost.swift */; };
-		3B701D030000000000000017 /* DetectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000007 /* DetectorModel.swift */; };
-		3B701D030000000000000027 /* DetectorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000007 /* DetectorModel.swift */; };
-		3B701D030000000000000018 /* DetectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000008 /* DetectorView.swift */; };
-		3B701D030000000000000028 /* DetectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D030000000000000008 /* DetectorView.swift */; };
-		3B701D03000000000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000006 /* SettingsView.swift */; };
-		3B701D03000000000000000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000006 /* SettingsView.swift */; };
 		3B701D03000000000000000017 /* HostSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000007 /* HostSettings.swift */; };
 		3B701D03000000000000000027 /* HostSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000007 /* HostSettings.swift */; };
 		3B701D03000000000000000018 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D03000000000000000008 /* SettingsStore.swift */; };
@@ -94,6 +88,48 @@
 		3B701D0200000000000000B1 /* features in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D0200000000000000F1 /* features */; };
 		3B701D0200000000000000A2 /* models in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D0200000000000000F2 /* models */; };
 		3B701D0200000000000000B2 /* models in Resources */ = {isa = PBXBuildFile; fileRef = 3B701D0200000000000000F2 /* models */; };
+		3B701D070000000000000101 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000001 /* HomeView.swift */; };
+		3B701D070000000000000102 /* MacSidebarShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000002 /* MacSidebarShell.swift */; };
+		3B701D070000000000000103 /* AuditHomeSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000003 /* AuditHomeSection.swift */; };
+		3B701D070000000000000104 /* AuditProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000004 /* AuditProgressView.swift */; };
+		3B701D070000000000000105 /* LanguagePriorityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000005 /* LanguagePriorityView.swift */; };
+		3B701D070000000000000106 /* SkippedSitesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000006 /* SkippedSitesView.swift */; };
+		3B701D070000000000000107 /* HideContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000007 /* HideContentView.swift */; };
+		3B701D070000000000000108 /* SafariHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000008 /* SafariHelpView.swift */; };
+		3B701D070000000000000109 /* HostStrings+Report.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000009 /* HostStrings+Report.swift */; };
+		3B701D070000000000000110 /* HostStrings+AuditHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000010 /* HostStrings+AuditHome.swift */; };
+		3B701D070000000000000111 /* HostStrings+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000011 /* HostStrings+Settings.swift */; };
+		3B701D070000000000000112 /* HostStrings+Home.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000012 /* HostStrings+Home.swift */; };
+		3B701D070000000000000113 /* HostStrings+MovarKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000013 /* HostStrings+MovarKit.swift */; };
+		3B701D070000000000000114 /* MovarEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000014 /* MovarEmptyState.swift */; };
+		3B701D070000000000000115 /* MovarMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000015 /* MovarMetrics.swift */; };
+		3B701D070000000000000116 /* MovarPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000016 /* MovarPalette.swift */; };
+		3B701D070000000000000117 /* MovarRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000017 /* MovarRow.swift */; };
+		3B701D070000000000000118 /* MovarSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000018 /* MovarSection.swift */; };
+		3B701D070000000000000119 /* MovarStatusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000019 /* MovarStatusCard.swift */; };
+		3B701D070000000000000120 /* MovarStepList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000020 /* MovarStepList.swift */; };
+		3B701D070000000000000121 /* MovarVerdictBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000021 /* MovarVerdictBadge.swift */; };
+		3B701D070000000000000201 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000001 /* HomeView.swift */; };
+		3B701D070000000000000202 /* MacSidebarShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000002 /* MacSidebarShell.swift */; };
+		3B701D070000000000000203 /* AuditHomeSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000003 /* AuditHomeSection.swift */; };
+		3B701D070000000000000204 /* AuditProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000004 /* AuditProgressView.swift */; };
+		3B701D070000000000000205 /* LanguagePriorityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000005 /* LanguagePriorityView.swift */; };
+		3B701D070000000000000206 /* SkippedSitesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000006 /* SkippedSitesView.swift */; };
+		3B701D070000000000000207 /* HideContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000007 /* HideContentView.swift */; };
+		3B701D070000000000000208 /* SafariHelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000008 /* SafariHelpView.swift */; };
+		3B701D070000000000000209 /* HostStrings+Report.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000009 /* HostStrings+Report.swift */; };
+		3B701D070000000000000210 /* HostStrings+AuditHome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000010 /* HostStrings+AuditHome.swift */; };
+		3B701D070000000000000211 /* HostStrings+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000011 /* HostStrings+Settings.swift */; };
+		3B701D070000000000000212 /* HostStrings+Home.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000012 /* HostStrings+Home.swift */; };
+		3B701D070000000000000213 /* HostStrings+MovarKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000013 /* HostStrings+MovarKit.swift */; };
+		3B701D070000000000000214 /* MovarEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000014 /* MovarEmptyState.swift */; };
+		3B701D070000000000000215 /* MovarMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000015 /* MovarMetrics.swift */; };
+		3B701D070000000000000216 /* MovarPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000016 /* MovarPalette.swift */; };
+		3B701D070000000000000217 /* MovarRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000017 /* MovarRow.swift */; };
+		3B701D070000000000000218 /* MovarSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000018 /* MovarSection.swift */; };
+		3B701D070000000000000219 /* MovarStatusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000019 /* MovarStatusCard.swift */; };
+		3B701D070000000000000220 /* MovarStepList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000020 /* MovarStepList.swift */; };
+		3B701D070000000000000221 /* MovarVerdictBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B701D070000000000000021 /* MovarVerdictBadge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -161,9 +197,6 @@
 		3B701D030000000000000004 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		3B701D030000000000000005 /* MovarRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MovarRootView.swift; sourceTree = "<group>"; };
 		3B701D030000000000000006 /* EngineHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineHost.swift; sourceTree = "<group>"; };
-		3B701D030000000000000007 /* DetectorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorModel.swift; sourceTree = "<group>"; };
-		3B701D030000000000000008 /* DetectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorView.swift; sourceTree = "<group>"; };
-		3B701D03000000000000000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3B701D03000000000000000007 /* HostSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostSettings.swift; sourceTree = "<group>"; };
 		3B701D03000000000000000008 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		3B701D03000000000000000009 /* SetupBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupBanner.swift; sourceTree = "<group>"; };
@@ -204,6 +237,27 @@
 		3B701CA72FCE1FC300E8A5FF /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = Resources/assets; sourceTree = "<group>"; };
 		3B701D0200000000000000F1 /* features */ = {isa = PBXFileReference; lastKnownFileType = folder; name = features; path = Resources/features; sourceTree = "<group>"; };
 		3B701D0200000000000000F2 /* models */ = {isa = PBXFileReference; lastKnownFileType = folder; name = models; path = Resources/models; sourceTree = "<group>"; };
+		3B701D070000000000000001 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeView.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000002 /* MacSidebarShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacSidebarShell.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000003 /* AuditHomeSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuditHomeSection.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000004 /* AuditProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuditProgressView.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000005 /* LanguagePriorityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LanguagePriorityView.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000006 /* SkippedSitesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SkippedSitesView.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000007 /* HideContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HideContentView.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000008 /* SafariHelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SafariHelpView.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000009 /* HostStrings+Report.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostStrings+Report.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000010 /* HostStrings+AuditHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostStrings+AuditHome.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000011 /* HostStrings+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostStrings+Settings.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000012 /* HostStrings+Home.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostStrings+Home.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000013 /* HostStrings+MovarKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HostStrings+MovarKit.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000014 /* MovarEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarEmptyState.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000015 /* MovarMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarMetrics.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000016 /* MovarPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarPalette.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000017 /* MovarRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarRow.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000018 /* MovarSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarSection.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000019 /* MovarStatusCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarStatusCard.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000020 /* MovarStepList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarStepList.swift"; sourceTree = "<group>"; };
+		3B701D070000000000000021 /* MovarVerdictBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MovarVerdictBadge.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -273,7 +327,6 @@
 				3B701C492FCE1FC100E8A5FF /* ViewController.swift */,
 				3B701D010000000000000043 /* AuditProbe.swift */,
 				3B701D030000000000000005 /* MovarRootView.swift */,
-				3B701D03000000000000000006 /* SettingsView.swift */,
 				3B701D03000000000000000007 /* HostSettings.swift */,
 				3B701D03000000000000000008 /* SettingsStore.swift */,
 				3B701D03000000000000000009 /* SetupBanner.swift */,
@@ -283,12 +336,23 @@
 				3B701D050000000000000004 /* AuditReportView.swift */,
 				3B701D050000000000000005 /* AuditAboutView.swift */,
 				3B701D030000000000000004 /* AboutView.swift */,
-				3B701D030000000000000008 /* DetectorView.swift */,
-				3B701D030000000000000007 /* DetectorModel.swift */,
 				3B701D030000000000000006 /* EngineHost.swift */,
 				3B701D030000000000000002 /* HostState.swift */,
 				3B701D030000000000000003 /* HostActions.swift */,
 				3B701D030000000000000001 /* HostStrings.swift */,
+				3B701D070000000000000001 /* HomeView.swift */,
+				3B701D070000000000000002 /* MacSidebarShell.swift */,
+				3B701D070000000000000003 /* AuditHomeSection.swift */,
+				3B701D070000000000000004 /* AuditProgressView.swift */,
+				3B701D070000000000000005 /* LanguagePriorityView.swift */,
+				3B701D070000000000000006 /* SkippedSitesView.swift */,
+				3B701D070000000000000007 /* HideContentView.swift */,
+				3B701D070000000000000008 /* SafariHelpView.swift */,
+				3B701D070000000000000009 /* HostStrings+Report.swift */,
+				3B701D070000000000000010 /* HostStrings+AuditHome.swift */,
+				3B701D070000000000000011 /* HostStrings+Settings.swift */,
+				3B701D070000000000000012 /* HostStrings+Home.swift */,
+				3B701D070000000000000900 /* MovarKit */,
 				3B701C4A2FCE1FC200E8A5FF /* Assets.xcassets */,
 				3B701C432FCE1FC100E8A5FF /* Resources */,
 			);
@@ -386,6 +450,22 @@
 			name = Resources;
 			path = "Shared (Extension)";
 			sourceTree = SOURCE_ROOT;
+		};
+		3B701D070000000000000900 /* MovarKit */ = {
+			isa = PBXGroup;
+			children = (
+				3B701D070000000000000013 /* HostStrings+MovarKit.swift */,
+				3B701D070000000000000014 /* MovarEmptyState.swift */,
+				3B701D070000000000000015 /* MovarMetrics.swift */,
+				3B701D070000000000000016 /* MovarPalette.swift */,
+				3B701D070000000000000017 /* MovarRow.swift */,
+				3B701D070000000000000018 /* MovarSection.swift */,
+				3B701D070000000000000019 /* MovarStatusCard.swift */,
+				3B701D070000000000000020 /* MovarStepList.swift */,
+				3B701D070000000000000021 /* MovarVerdictBadge.swift */,
+			);
+			path = MovarKit;
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -629,7 +709,6 @@
 				3B701C872FCE1FC200E8A5FF /* ViewController.swift in Sources */,
 				3B701D010000000000000041 /* AuditProbe.swift in Sources */,
 				3B701D030000000000000015 /* MovarRootView.swift in Sources */,
-				3B701D03000000000000000016 /* SettingsView.swift in Sources */,
 				3B701D03000000000000000017 /* HostSettings.swift in Sources */,
 				3B701D03000000000000000018 /* SettingsStore.swift in Sources */,
 				3B701D03000000000000000019 /* SetupBanner.swift in Sources */,
@@ -639,12 +718,31 @@
 				3B701D050000000000000014 /* AuditReportView.swift in Sources */,
 				3B701D050000000000000015 /* AuditAboutView.swift in Sources */,
 				3B701D030000000000000014 /* AboutView.swift in Sources */,
-				3B701D030000000000000018 /* DetectorView.swift in Sources */,
-				3B701D030000000000000017 /* DetectorModel.swift in Sources */,
 				3B701D030000000000000016 /* EngineHost.swift in Sources */,
 				3B701D030000000000000012 /* HostState.swift in Sources */,
 				3B701D030000000000000013 /* HostActions.swift in Sources */,
 				3B701D030000000000000011 /* HostStrings.swift in Sources */,
+				3B701D070000000000000101 /* HomeView.swift in Sources */,
+				3B701D070000000000000102 /* MacSidebarShell.swift in Sources */,
+				3B701D070000000000000103 /* AuditHomeSection.swift in Sources */,
+				3B701D070000000000000104 /* AuditProgressView.swift in Sources */,
+				3B701D070000000000000105 /* LanguagePriorityView.swift in Sources */,
+				3B701D070000000000000106 /* SkippedSitesView.swift in Sources */,
+				3B701D070000000000000107 /* HideContentView.swift in Sources */,
+				3B701D070000000000000108 /* SafariHelpView.swift in Sources */,
+				3B701D070000000000000109 /* HostStrings+Report.swift in Sources */,
+				3B701D070000000000000110 /* HostStrings+AuditHome.swift in Sources */,
+				3B701D070000000000000111 /* HostStrings+Settings.swift in Sources */,
+				3B701D070000000000000112 /* HostStrings+Home.swift in Sources */,
+				3B701D070000000000000113 /* HostStrings+MovarKit.swift in Sources */,
+				3B701D070000000000000114 /* MovarEmptyState.swift in Sources */,
+				3B701D070000000000000115 /* MovarMetrics.swift in Sources */,
+				3B701D070000000000000116 /* MovarPalette.swift in Sources */,
+				3B701D070000000000000117 /* MovarRow.swift in Sources */,
+				3B701D070000000000000118 /* MovarSection.swift in Sources */,
+				3B701D070000000000000119 /* MovarStatusCard.swift in Sources */,
+				3B701D070000000000000120 /* MovarStepList.swift in Sources */,
+				3B701D070000000000000121 /* MovarVerdictBadge.swift in Sources */,
 				3B701C552FCE1FC200E8A5FF /* AppDelegate.swift in Sources */,
 				3B701C572FCE1FC200E8A5FF /* SceneDelegate.swift in Sources */,
 			);
@@ -657,7 +755,6 @@
 				3B701C882FCE1FC200E8A5FF /* ViewController.swift in Sources */,
 				3B701D010000000000000042 /* AuditProbe.swift in Sources */,
 				3B701D030000000000000025 /* MovarRootView.swift in Sources */,
-				3B701D03000000000000000026 /* SettingsView.swift in Sources */,
 				3B701D03000000000000000027 /* HostSettings.swift in Sources */,
 				3B701D03000000000000000028 /* SettingsStore.swift in Sources */,
 				3B701D03000000000000000029 /* SetupBanner.swift in Sources */,
@@ -667,12 +764,31 @@
 				3B701D050000000000000024 /* AuditReportView.swift in Sources */,
 				3B701D050000000000000025 /* AuditAboutView.swift in Sources */,
 				3B701D030000000000000024 /* AboutView.swift in Sources */,
-				3B701D030000000000000028 /* DetectorView.swift in Sources */,
-				3B701D030000000000000027 /* DetectorModel.swift in Sources */,
 				3B701D030000000000000026 /* EngineHost.swift in Sources */,
 				3B701D030000000000000022 /* HostState.swift in Sources */,
 				3B701D030000000000000023 /* HostActions.swift in Sources */,
 				3B701D030000000000000021 /* HostStrings.swift in Sources */,
+				3B701D070000000000000201 /* HomeView.swift in Sources */,
+				3B701D070000000000000202 /* MacSidebarShell.swift in Sources */,
+				3B701D070000000000000203 /* AuditHomeSection.swift in Sources */,
+				3B701D070000000000000204 /* AuditProgressView.swift in Sources */,
+				3B701D070000000000000205 /* LanguagePriorityView.swift in Sources */,
+				3B701D070000000000000206 /* SkippedSitesView.swift in Sources */,
+				3B701D070000000000000207 /* HideContentView.swift in Sources */,
+				3B701D070000000000000208 /* SafariHelpView.swift in Sources */,
+				3B701D070000000000000209 /* HostStrings+Report.swift in Sources */,
+				3B701D070000000000000210 /* HostStrings+AuditHome.swift in Sources */,
+				3B701D070000000000000211 /* HostStrings+Settings.swift in Sources */,
+				3B701D070000000000000212 /* HostStrings+Home.swift in Sources */,
+				3B701D070000000000000213 /* HostStrings+MovarKit.swift in Sources */,
+				3B701D070000000000000214 /* MovarEmptyState.swift in Sources */,
+				3B701D070000000000000215 /* MovarMetrics.swift in Sources */,
+				3B701D070000000000000216 /* MovarPalette.swift in Sources */,
+				3B701D070000000000000217 /* MovarRow.swift in Sources */,
+				3B701D070000000000000218 /* MovarSection.swift in Sources */,
+				3B701D070000000000000219 /* MovarStatusCard.swift in Sources */,
+				3B701D070000000000000220 /* MovarStepList.swift in Sources */,
+				3B701D070000000000000221 /* MovarVerdictBadge.swift in Sources */,
 				3B701C662FCE1FC200E8A5FF /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

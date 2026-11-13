@@ -6,7 +6,7 @@
  * `apps/safari-host-app/dist/`:
  *   - `host-app.js`  — one self-contained IIFE, not ESM (React + @movar/ui +
  *                      @movar/options-ui + @movar/i18n + @movar/settings +
- *                      @movar/lang-detect + this app, brand PNG inlined as a
+ *                      this app, brand PNG inlined as a
  *                      data URI). Classic script, not `type="module"`: WKWebView
  *                      on a real iOS device silently fails to execute a module
  *                      script loaded from `file://` (confirmed on-device —
@@ -123,7 +123,7 @@ function buildShell(): string {
     <title>Movar</title>
 
     <!--
-      Unified host screen (Detector / Settings / About) for the Safari Web
+      Unified host screen (Audit / Settings / About) for the Safari Web
       Extension wrapper app. The static Main.html / Style.css / Script.js this
       replaced are GENERATED from the React app in apps/safari-host-app — edit
       there, not here, then run \`pnpm --filter @movar/safari-host-app build\`.

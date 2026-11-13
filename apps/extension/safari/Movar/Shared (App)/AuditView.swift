@@ -114,7 +114,7 @@ final class AuditModel: ObservableObject {
     /// dialog reflex, and it costs one press.
     private var acknowledged = false
 
-    /// The SHARED engine — the same `EngineHost` the Detector tab uses. One
+    /// The SHARED engine — the app's one `EngineHost`. One
     /// bundle parsed once, and one request budget against a third party's server.
     private let engine: EngineHost
 
@@ -208,8 +208,13 @@ final class AuditModel: ObservableObject {
                     // A failed re-run returns to the composer, where the error
                     // belongs: leaving the previous report on screen under a
                     // failed re-run would make a stale document look fresh.
+                    // Only when the failed run is what is open: on macOS the
+                    // selection is shared with the sidebar's settings rows, and
+                    // a failure must not yank the reader off one of those.
                     self.pendingRun = nil
-                    self.openedRunID = Self.homeSelection
+                    if self.openedRunID == pending.id {
+                        self.openedRunID = Self.homeSelection
+                    }
                 }
             })
     }

@@ -5,15 +5,24 @@ defines the **next version** (scope + Definition of Done) and the **deferred
 lane** that is planned now but built later.
 
 - **GitHub milestones:** [v1.3.0 — Safari + Diagnostics view](https://github.com/rejifald/movar/milestone/1) (shipped) · [vNext (backlog)](https://github.com/rejifald/movar/milestone/2)
-- **Last published:** `@movar/extension` v1.9.2 (tag `extension-v1.9.2`, GitHub Release published 2026-10-24) — submitted from CI to the Chrome Web Store, Firefox AMO, Edge Add-ons, and the App Store (iOS and macOS in review), all from the one release run; see "Where things stand".
+- **Last published:** `@movar/extension` v1.9.3 (tag `extension-v1.9.3`, GitHub Release published 2026-11-12). Its store jobs wait at the `production` approval gate, so the stores carry v1.9.2 until that approval; see "Where things stand".
 - **v1.5.1 was cut but never published.** `apps/extension/package.json` was bumped to `1.5.1` and the `extension-v1.5.1` tag pushed (commit `3575d61`), but no GitHub Release was ever published on that tag — and `.github/workflows/release.yml` triggers on `release: [published]`, not on a tag push, so no store job ran and `1.5.1` never reached a user. Its single fix (YouTube search-result video clicks) folds into v1.5.2.
 - **v1.1.0 was skipped.** `apps/extension/package.json` was bumped to `1.1.0` (commit `ef7121e`) but never tagged or released; that work folded into v1.2.0. The number `1.1.0` was never published to any store and will not be.
 
 ---
 
-## Where things stand (v1.9.2 submitted to every store, 2026-10-24)
+## Where things stand (v1.9.3 published 2026-11-12, store submission pending approval)
 
-- **v1.9.2 is the latest release** (2026-10-24), a patch. The Google empty-results
+- **v1.9.3 is the latest release** (GitHub Release published 2026-11-12), a patch of
+  two Google fixes. A blocked language in `hl` on Google and YouTube links is swapped
+  for the preferred one, so a Google Classroom page opened from a search result no
+  longer loads in Russian ([#622](https://github.com/rejifald/movar/pull/622)); a
+  Google `lr` that already excludes Russian is left alone, ending the redirect loop
+  with other filtering extensions ([#621](https://github.com/rejifald/movar/pull/621)).
+  The release run's store jobs (Chrome, Edge, Firefox, App Store) wait at the
+  `production` approval gate; until it is approved the stores serve v1.9.2. No
+  manifest change since v1.9.2.
+- **v1.9.2** (2026-10-24), a patch. The Google empty-results
   retry no longer reloads AI Mode mid-answer and the Google rule no longer touches
   Google News search ([#612](https://github.com/rejifald/movar/pull/612)); mixed-script
   titles are judged per script ([#611](https://github.com/rejifald/movar/pull/611)).

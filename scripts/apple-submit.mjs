@@ -50,7 +50,7 @@ import { readFileSync } from 'node:fs';
 import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
-import { resumeDecision, stagedVersionIds } from './lib/review-resume.mjs';
+import { openSubmissionDecision, resumeDecision, stagedVersionIds } from './lib/review-resume.mjs';
 import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 import { versionsToAnnounce, composeNote } from './lib/release-span.mjs';
 
@@ -369,24 +369,44 @@ async function submitPlatform(
       limit: '10',
     })}`,
   );
-  if (open.status === 200 && (open.body?.data ?? []).length > 0) {
-    const states = open.body.data.map((s) => s.attributes?.state).join(', ');
-    log(`  a review submission already exists for ${platform} (${states}) — not creating another.`);
-    return { platform, skipped: 'existing submission' };
+  if (open.status < 200 || open.status >= 300) {
+    throw new Error(`could not list review submissions: ${open.status} ${open.detail}`);
   }
+  const openSubs = (open.body?.data ?? []).map((sub) => ({
+    id: sub.id,
+    state: sub.attributes?.state,
+  }));
+  const stagedBySubmission = new Map();
+  for (const sub of openSubs.filter((x) => x.state === 'READY_FOR_REVIEW')) {
+    const items = await request(token, `/v1/reviewSubmissions/${sub.id}/items?limit=50`);
+    stagedBySubmission.set(
+      sub.id,
+      items.status >= 200 && items.status < 300 ? stagedVersionIds(items.body) : null,
+    );
+  }
+  const plan = openSubmissionDecision({ submissions: openSubs, stagedBySubmission });
+  if (plan.action === 'refuse') throw new Error(plan.reason);
 
-  const submission = await write(token, `create review submission`, '/v1/reviewSubmissions', {
-    method: 'POST',
-    body: {
-      data: {
-        type: 'reviewSubmissions',
-        attributes: { platform },
-        relationships: { app: { data: { type: 'apps', id: appId } } },
+  let submissionId;
+  if (plan.action === 'reuse') {
+    // An empty submission a previous run created before its item was rejected.
+    log(`  reusing empty review submission ${plan.submissionId}`);
+    submissionId = plan.submissionId;
+  } else {
+    const submission = await write(token, `create review submission`, '/v1/reviewSubmissions', {
+      method: 'POST',
+      body: {
+        data: {
+          type: 'reviewSubmissions',
+          attributes: { platform },
+          relationships: { app: { data: { type: 'apps', id: appId } } },
+        },
       },
-    },
-  });
-  const submissionId = submission?.data?.id;
-  if (!submissionId) return { platform, skipped: 'dry-run' };
+    });
+    submissionId = submission?.data?.id;
+  }
+  if (DRY_RUN) return { platform, skipped: 'dry-run' };
+  if (!submissionId) throw new Error('App Store Connect returned no review submission id');
 
   await write(token, 'add the version to the submission', '/v1/reviewSubmissionItems', {
     method: 'POST',

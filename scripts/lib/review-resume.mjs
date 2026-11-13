@@ -17,7 +17,8 @@
  * `submitPlatform` dies at the version-state check — and had it gotten one step
  * further, its "a review submission already exists — not creating another"
  * branch would have returned `skipped` and reported a green run that submitted
- * nothing.
+ * nothing. (That branch is now {@link openSubmissionDecision}, which refuses
+ * instead of skipping.)
  *
  * This module is the pure decision half, kept out of `apple-submit.mjs` because
  * that file calls `await main()` at import and so cannot be required by a test.
@@ -139,4 +140,67 @@ export function resumeDecision({ versionState, versionId, submissions, stagedByS
     };
   }
   return { action: 'submit', submissionId: only.id };
+}
+
+/**
+ * What a normal (non-resume) submit run should do about review submissions
+ * that are already open for this platform, before it creates its own.
+ *
+ * The case this exists for, v1.9.3 (2026-11-12): `POST /v1/reviewSubmissions`
+ * succeeded, then `POST /v1/reviewSubmissionItems` was rejected (409, a
+ * metadata gap). That leaves an EMPTY `READY_FOR_REVIEW` submission behind,
+ * and the version stays `PREPARE_FOR_SUBMISSION`. The old rule — "a submission
+ * already exists, not creating another" + `skipped` — made every re-run after
+ * the metadata fix go green while submitting nothing.
+ *
+ * An empty submission is provably ours to fill: it stages nothing, so adding
+ * this version to it cannot ship anything else. Everything else fails loudly —
+ * never `skipped`, because skipped reads as success.
+ *
+ * @param submissions         open reviewSubmissions: [{ id, state }]
+ * @param stagedBySubmission  Map<submissionId, string[] | null> from
+ *                            {@link stagedVersionIds}, for READY_FOR_REVIEW ones
+ * @returns { action: 'create' }
+ *        | { action: 'reuse', submissionId }
+ *        | { action: 'refuse', reason }
+ */
+export function openSubmissionDecision({ submissions, stagedBySubmission }) {
+  const open = submissions ?? [];
+  if (open.length === 0) return { action: 'create' };
+
+  const withApple = open.filter((s) => s.state !== RESUMABLE_SUBMISSION_STATE);
+  if (withApple.length > 0) {
+    return {
+      action: 'refuse',
+      reason: `a review submission is already with Apple (${withApple
+        .map((s) => `${s.id} ${s.state}`)
+        .join(', ')}) — resolve it in App Store Connect first.`,
+    };
+  }
+  if (open.length > 1) {
+    return {
+      action: 'refuse',
+      reason: `${open.length} unsubmitted review submissions exist (${open
+        .map((s) => s.id)
+        .join(', ')}) — refusing to guess which to use.`,
+    };
+  }
+
+  const [only] = open;
+  const ids = stagedBySubmission?.get(only.id) ?? null;
+  if (ids === null) {
+    return {
+      action: 'refuse',
+      reason: `could not read what submission ${only.id} stages — refusing to reuse it blind.`,
+    };
+  }
+  if (ids.length > 0) {
+    return {
+      action: 'refuse',
+      reason:
+        `submission ${only.id} is staged but not submitted (it stages ${ids.join(', ')}) — ` +
+        `run mode=resume if it is this version, otherwise clear it in App Store Connect.`,
+    };
+  }
+  return { action: 'reuse', submissionId: only.id };
 }

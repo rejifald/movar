@@ -99,10 +99,36 @@ export async function request(token, path, { method = 'GET', body } = {}) {
   } catch {
     parsed = {};
   }
-  const detail = (parsed.errors ?? [])
-    .map((e) => [e.code, e.detail || e.title].filter(Boolean).join(': '))
+  return { status: res.status, detail: formatAscErrors(parsed), body: parsed };
+}
+
+/** `code: detail` for one JSON:API error object. */
+const describeError = (e) => [e?.code, e?.detail || e?.title].filter(Boolean).join(': ');
+
+/**
+ * Flatten an App Store Connect error body into one line, INCLUDING
+ * `meta.associatedErrors`.
+ *
+ * A 409 `ENTITY_STATE_INVALID` from `POST /v1/reviewSubmissionItems` says only
+ * "please check associated errors to see why" — the actual blockers (a missing
+ * screenshot, an unanswered age-rating question, …) sit in
+ * `errors[].meta.associatedErrors`, keyed by the resource path they belong to.
+ * Dropping them is what turned the v1.9.3 submission failure (2026-11-12) into
+ * a log with no reason in it.
+ */
+export function formatAscErrors(body) {
+  const errors = Array.isArray(body?.errors) ? body.errors : [];
+  return errors
+    .map((e) => {
+      const head = describeError(e);
+      const associated = e?.meta?.associatedErrors;
+      if (!associated || typeof associated !== 'object') return head;
+      const lines = Object.entries(associated).flatMap(([resource, list]) =>
+        (Array.isArray(list) ? list : []).map((a) => `${resource}: ${describeError(a)}`),
+      );
+      return lines.length > 0 ? `${head} [associated: ${lines.join('; ')}]` : head;
+    })
     .join(' | ');
-  return { status: res.status, detail, body: parsed };
 }
 
 /** Same as `request`, but a non-2xx is a hard error. For write paths. */

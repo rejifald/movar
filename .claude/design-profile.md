@@ -4,11 +4,11 @@ Where each surface keeps its vocabulary, and what a design round may move.
 
 ## Surfaces
 
-| Surface               | Tokens                       | Components                              | Viewports              |
-| --------------------- | ---------------------------- | --------------------------------------- | ---------------------- |
-| Marketing (movar.fyi) | `@movar/theme`               | `apps/marketing/src/components/*.astro` | 1280 / 390             |
-| Extension UI          | `@movar/theme` + `@movar/ui` | `packages/ui/src/*`                     | popup 360, options 720 |
-| Safari host app       | native SwiftUI               | `apps/safari-host-app/src/*`            | macOS 1024, iOS 402    |
+| Surface               | Tokens                             | Components                                            | Viewports                              |
+| --------------------- | ---------------------------------- | ----------------------------------------------------- | -------------------------------------- |
+| Marketing (movar.fyi) | `@movar/theme`                     | `apps/marketing/src/components/*.astro`               | 1280 / 390                             |
+| Extension UI          | `@movar/theme` + `@movar/ui`       | `packages/ui/src/*`                                   | popup 360, options 720                 |
+| Safari host app       | MovarKit (platform roles + accent) | `apps/extension/safari/Movar/Shared (App)/MovarKit/*` | iOS 402, macOS 940×640 (floor 720×480) |
 
 ## Marketing — frozen vs free
 

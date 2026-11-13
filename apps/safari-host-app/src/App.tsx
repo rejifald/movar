@@ -1,4 +1,4 @@
-import { FileSearch, Info, Languages, Settings } from 'lucide-react';
+import { FileSearch, Info, Settings } from 'lucide-react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { hostSettingsSource, useHostState, useNativeTab } from './bridge';
@@ -7,7 +7,6 @@ import { HostLayout, TabPanel } from './HostLayout';
 import type { HostTabDef } from './HostLayout';
 import { AboutTab } from './tabs/AboutTab';
 import { AuditTab } from './tabs/AuditTab';
-import { DetectorTab } from './tabs/DetectorTab';
 import { SettingsTab } from './tabs/SettingsTab';
 import type { HostLocale, HostMessages } from './i18n';
 
@@ -15,16 +14,16 @@ import type { HostLocale, HostMessages } from './i18n';
  * The unified Movar host shell, re-platformed from the static
  * `Base.lproj/Main.html` + `Script.js` to React while reusing the Phase-A
  * shared packages (`@movar/ui`, `@movar/options-ui`, `@movar/i18n`,
- * `@movar/settings`, `@movar/lang-detect`).
+ * `@movar/settings`).
  *
- * The shell owns the three-tab structure (Detector / Settings / About) and the
+ * The shell owns the three-tab structure (Audit / Settings / About) and the
  * platform reveal; the actual chrome — the fixed brand app-bar, the bottom
  * iOS-style tab bar (roving-tabindex + arrow-key nav, ported from `Script.js`
  * `initTabs()`), and the `<main class="app">` content wrapper — is
  * `./HostLayout`'s `HostLayout` component. This file composes `HostLayout`
  * with this app's tab definitions + tab panels and stays thin. Each tab's
  * CONTENT is a separate, clearly-labelled file under `src/tabs/`
- * (`DetectorTab` / `SettingsTab` / `AboutTab`) — those are STUBS that Phase C
+ * (`AuditTab` / `SettingsTab` / `AboutTab`) — those are STUBS that Phase C
  * fills in. The shell wires every seam Phase C needs (the settings port, the
  * resolved messages, the live host state) so the tabs drop in without touching
  * this file.
@@ -44,15 +43,13 @@ import type { HostLocale, HostMessages } from './i18n';
  * (`body:not(.platform-mac,.platform-ios) .status { display: none }`).
  */
 
-/** The three tabs, in bar order. `id` is the stable key + the `data-tab`
+/** The tabs, in bar order. `id` is the stable key + the `data-tab`
  *  identity used by the keyboard nav and the panel wiring. */
-type TabId = 'detector' | 'audit' | 'settings' | 'about';
+type TabId = 'audit' | 'settings' | 'about';
 
-/** Bar order extends the static `Main.html`'s Detector, Settings, About with
- *  Audit, placed beside Detector: both are "point Movar at something and read
- *  what it found", while Settings and About are app chrome. */
+/** Bar order: Audit (point Movar at something and read what it found), then
+ *  Settings and About, which are app chrome. */
 const TABS: readonly HostTabDef<TabId>[] = [
-  { id: 'detector', icon: Languages, label: (m) => m.tabs.detector },
   // A document under inspection, not a bare magnifying glass: this tab PRODUCES
   // something — a language conformance report — and a lone lens said "search",
   // which is also what the URL box beneath it already looks like. Deliberately
@@ -80,7 +77,7 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
   // Live native state feed. `null` until Swift calls `show()`. Drives both the
   // `<body>` platform class and the About tab's banner.
   const state = useHostState();
-  const [webActive, setWebActive] = useState<TabId>('detector');
+  const [webActive, setWebActive] = useState<TabId>('audit');
 
   // The native shell's tab selection, or `null` when nothing native is driving
   // (dev server, preview, tests, or an app build older than the SwiftUI shell).
@@ -103,7 +100,7 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
 
   // The brand app-bar shows on the About tab everywhere EXCEPT macOS, where the
   // native window title bar already says "Movar" (so it'd be redundant in the
-  // WebView). The functional tabs (Detector/Settings) never show it, and reclaim
+  // WebView). The functional tabs (Audit/Settings) never show it, and reclaim
   // the height. Pre-`show()` (platform not yet reported) still shows it — About
   // is the branded "about this app" screen, so it defaults to branded until we
   // learn we're on macOS. iOS About is the App Store `08-host-app-about` capture.
@@ -127,9 +124,6 @@ export function App({ messages, locale }: Readonly<AppProps>): JSX.Element {
       showTabs={!nativeChrome}
     >
       <>
-        <TabPanel id="detector" active={active}>
-          <DetectorTab messages={messages} />
-        </TabPanel>
         <TabPanel id="audit" active={active}>
           <AuditTab messages={messages} locale={locale} />
         </TabPanel>
@@ -170,7 +164,7 @@ function useReflectNativeChrome(native: boolean): void {
  * viewport scroller (the app-bar + tab bar are `position: fixed`; see
  * `styles.css`), and switching tabs only flips `hidden` on the panels — it never
  * touches the scroll offset. So without this, someone who scrolled a tall tab
- * (a long Detector evidence report, or the Settings list on a small screen) and
+ * (a long Audit report, or the Settings list on a small screen) and
  * then picked another tab would open the next one already scrolled down. Native
  * iOS/macOS tab bars always reveal a freshly-selected tab from its top; this
  * restores that.

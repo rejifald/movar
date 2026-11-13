@@ -9,7 +9,7 @@
 > SwiftUI one tab at a time (`docs/native-shells.md`), and the last one — Audit —
 > has gone: `AboutView.swift`, `SettingsView.swift`, `DetectorView.swift` and
 > `AuditView.swift` + `AuditReportView.swift`, the last two over the same
-> `EngineHost.swift` the Detector uses, with About a row at the bottom of Settings
+> `EngineHost.swift`, with About a row at the bottom of Settings
 > rather than a tab of its own. `WebSurface` and `HostWebView` went with the last
 > web tab; nothing displays this bundle any more.
 >
@@ -38,22 +38,14 @@ with **three** tabs, all of them SwiftUI. The tab list below still describes the
 screens, because this package is where their copy and their behaviour were
 designed — but none of them is rendered from here any more:
 
-- **Detector** — **retired from this app.** It renders natively now
-  (`Shared (App)/DetectorView.swift`) over `@movar/audit-engine`'s `detect.run`,
-  and `MovarRootView` no longer routes that tab to the WebView.
-  `src/tabs/DetectorTab.tsx` and the `detector.*` catalogue entries are still
-  here and still build, but nothing reaches them — unlike `AboutTab.tsx`, which
-  is also ported yet stays live because `capture-host-app-screenshots.mts`
-  renders it for the `08-host-app-about` store screenshot. **Wording changes
-  belong in `Shared (App)/Resources/{en,uk}.lproj/Localizable.strings`, not
-  here**; the React copy is the version that shipped before the closed-set
-  rework and states the verdict differently on purpose-defeating terms ("No
-  Cyrillic language found here" is an open-set claim). Deleting the tab is a
-  separate cleanup that also drops `detector.*` from `messages-{en,uk}.ts`.
+- **Detector** — **removed 2026-11-13**, with the app redesign (one list, no tabs). The
+  feature is gone from the product: `src/tabs/DetectorTab.tsx`, the `detector.*`
+  catalogue entries, the `detect.run` / `detect.catalogue` engine requests and the
+  Detector CSS were deleted. Do not reintroduce it here.
 - **Audit** — **retired from this app.** It renders natively now
   (`Shared (App)/AuditView.swift` + `AuditReportView.swift`) over
   `@movar/audit-engine`'s `audit.run`, `audit.artifact` and `catalogue.describe`,
-  in the same `EngineHost` the Detector uses. `src/tabs/AuditTab.tsx`,
+  in the same `EngineHost`. `src/tabs/AuditTab.tsx`,
   `src/tabs/AuditReport.tsx` and the `audit.*` catalogue entries are still here
   and still tested — the catalogue is where a wording change lands first, and
   `gen-audit-strings.mts` carries the two rule/family tables across. The
@@ -282,8 +274,7 @@ the navigation bridge, and the strict CSP are unchanged.
   HIG tap minimum. The popup/options don't set it and take @movar/ui's 2.5rem
   (40px) desktop default — see `packages/ui/AGENTS.md`.
 - **i18n lives in React, and is mirrored back into `.lproj` for the native
-  screens.** Host-shell chrome (tab labels, the detector copy + verdicts, the
-  About copy) is the `en` + `uk` catalogues in `src/i18n/`. The **Settings
+  screens.** Host-shell chrome (tab labels, the About copy) is the `en` + `uk` catalogues in `src/i18n/`. The **Settings
   copy comes from `@movar/i18n`** (so it can never drift from the extension).
   Both are hand-mirrored, key for key, into `Shared (App)/Resources/*.lproj/
 Localizable.strings` for the two native screens — `HostStrings.swift` records
@@ -351,7 +342,7 @@ picker — the locale follows the device), and the About tab has **no brand lock
 - `src/main.tsx` — Vite entry. Resolves locale, mounts `<App>`.
 - `src/App.tsx` — the shell: the three-tab structure + bottom tab bar (roving
   tabindex + arrow-key nav) + the `<body>` platform class.
-- `src/tabs/{DetectorTab,SettingsTab,AboutTab}.tsx` — the tab contents.
+- `src/tabs/{AuditTab,SettingsTab,AboutTab}.tsx` — the tab contents.
 - `src/bridge.ts` — the only `webkit`/global touch point. `useHostState()`,
   `hostSettingsSource` (`SettingsSource`), `openSafariPreferences()`,
   `openFeedback()`, `openSourceCode()`, `openChangelog(locale, version)`.
@@ -546,10 +537,6 @@ pnpm --filter @movar/extension build:safari  # → Shared (Extension)/Resources/
    (not red) under **Shared (App) ▸ Resources**, and that the old `Style.css` /
    `Script.js` are gone.
 2. Build + run **Movar (macOS)**. The shell renders the three tabs.
-   - **Detector**: paste Ukrainian text → the "Ukrainian [uk]" verdict + an
-     Evidence report (distinctive letters / function + common words / letter
-     patterns per matched language); paste Russian → "Russian [ru]"; paste Latin
-     → "No Cyrillic language detected".
    - **Settings** (native): the setup banner is at the top until the extension
      is on; reordering priority (Edit, or a row's context menu), adding a
      language, toggling page-content, picking a conceal mode, and adding an

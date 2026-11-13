@@ -13,17 +13,10 @@
     Settings/Preferences split is an English-only rename; Apple's Ukrainian
     wording did not change with macOS 13. Same for `openPreferences.label`
     and `openPreferences.legacy`.
-  - Apple's app is «Параметри»; Movar's own settings tab stays «Налаштування»
-    (`tabs.settings`). That is our UI, not Apple's, and conflating them would
+  - Apple's app is «Параметри»; Movar's own settings screens stay «Налаштування».
+    That is our UI, not Apple's, and conflating them would
     send the reader to the wrong screen.
 */
-
-/* --- Tab bar ---------------------------------------------------------- */
-
-"tabs.detector" = "Визначник";
-"tabs.audit" = "Аудит";
-"tabs.settings" = "Налаштування";
-"tabs.about" = "Про Мовар";
 
 /* --- About: lede + product summary ------------------------------------ */
 
@@ -77,7 +70,7 @@
 /* Ховає картку налаштування на iOS. Сформульовано як ЗАВЕРШЕННЯ, а не «сховати»:
    iOS не має API, щоб дізнатися, чи ввімкнено розширення, тож знає це лише
    читач — і кнопка має казати саме те, що він нам повідомляє. */
-"about.setupDone" = "Я це зробив";
+"about.setupDone" = "Готово, увімкнено";
 "about.privacy" = "Політика приватності";
 
 /* ВЛАСНА ліцензія Мовара — рядок показує «MIT» праворуч і веде до файлу LICENSE.
@@ -126,66 +119,6 @@
 
 "openPreferences.label" = "Відкрити параметри Safari";
 "openPreferences.legacy" = "Відкрити параметри Safari";
-
-/* --- Визначник -------------------------------------------------------- */
-/*
-  Визначник працює із ЗАКРИТИМ НАБОРОМ: він обирає найближчу з названого
-  переліку кандидатів і не може назвати мову поза ним. Формулювання, які про це
-  забувають, стверджують те, чого інструмент не знає, — попереднє «Кириличної
-  мови тут не знайдено» описувало текст, тоді як насправді описати можна лише
-  те, що три кандидати не розділилися. Усі рядки нижче тримають набір на видноті.
-*/
-
-"detector.title" = "Визначник";
-"detector.intro" = "Вставте будь-який текст. Мовар порівняє його з вашими мовами на цьому пристрої — нічого нікуди не надсилається.";
-"detector.placeholder" = "Вставте текст сюди…";
-"detector.detect" = "Визначити";
-
-"detector.among" = "Визначаємо серед цих мов";
-"detector.amongFooter" = "Мовар називає ту з цих мов, на яку текст схожий найбільше. Він може утриматися від вибору, але ніколи не назве мову, якої немає в цьому переліку. Так і задумано: Мовар працює просто у вашому браузері, на кожній сторінці, тож має бути швидким і майже не витрачати ресурсів. Порівняти кілька мов — дешево; впізнавати будь-яку з тисяч — ні. Плата за це — не стовідсоткова точність.";
-
-/* --- Визначник: редактор переліку -------------------------------------- */
-
-"detector.rosterFooter" = "Перелік починається з ваших мов у Моварі: спершу ті, яким ви надаєте перевагу, далі ті, які Мовар приховує за вас. На ньому ж тримаються й докази: літера чи слово стають підказкою тільки тоді, коли їх має рівно одна мова з переліку. Змініть перелік — зміняться й підказки.";
-"detector.rosterReset" = "Повернути до моїх налаштувань";
-"detector.rosterLabel" = "Усі мови, які Мовар знає";
-"detector.rosterAdd" = "Додати %@ до переліку";
-"detector.rosterRemove" = "Прибрати %@ з переліку";
-"detector.rosterLast" = "Щонайменше одна мова має лишитися в переліку.";
-
-/* --- Визначник: висновок ----------------------------------------------- */
-
-"detector.result" = "Результат";
-"detector.scope" = "Найближча з %1$@ · %2$@";
-"detector.noMatch" = "Жодна з цих мов не збіглася";
-"detector.noMatchHelp" = "У тексті не знайшлося нічого достатньо характерного, щоб їх розрізнити. Це не висновок про текст — це порожній результат порівняння.";
-"detector.forcedTitle" = "Немає з чим порівнювати";
-"detector.forcedBody" = "%@ була єдиним кандидатом у цій абетці, тож будь-який написаний нею текст збігається за замовчуванням. Додайте ще одну мову, щоб порівняння стало справжнім.";
-"detector.unavailable" = "Визначник не запустився.";
-"detector.nativeName" = "Власна назва";
-
-/* --- Визначник: докази -------------------------------------------------- */
-
-"detector.evidence" = "Що видало мову";
-"detector.shared" = "Не зараховано нікому";
-"detector.sharedHelp" = "Це є в тексті, але їх уживає більш ніж одна мова з тих, які ви порівнюєте, — тож вони ні на що не вказують і нікому не зараховані.";
-"detector.nothingExclusive" = "Нічого, що є лише в цієї мови";
-"detector.outOfScope" = "Інша абетка — цього разу не брала участі";
-
-"detector.rung.1" = "характерними літерами";
-"detector.rung.2a" = "дрібними щоденними словами";
-"detector.rung.2b" = "поширеними словами";
-"detector.rung.3" = "сполученнями літер";
-
-"detector.clue.1" = "Характерні літери";
-"detector.clue.2a" = "Дрібні щоденні слова";
-"detector.clue.2b" = "Поширені слова";
-"detector.clue.3" = "Сполучення літер";
-
-"detector.howItWorks.title" = "Як це працює";
-"detector.howItWorks.body" = "Мовар пробує одну ознаку за одною й зупиняється на першій, яка розділяє ваші мови: літери, що є лише в однієї з них, потім короткі слова, на які кожна спирається, далі — найуживаніші слова, і врешті сполучення літер, характерні для кожної. Результат показує, яка ознака вирішила.";
-"detector.limitations.title" = "Чого він не вміє";
-"detector.limitations.body" = "Це не ШІ, немає ні сервера, ні словника — лише фіксований набір перевірок над текстом перед ним. Короткий, змішаний або латинізований текст часто не розділяє нічого, а мова, якої немає у вашому переліку, ніколи не стане відповіддю: написаний нею текст буде віднесено до тієї з перелічених мов, на яку він випадково схожий.";
 
 /* --- Налаштування ------------------------------------------------------- */
 
@@ -300,8 +233,8 @@
 /* --- Аудит: звіт -------------------------------------------------------- */
 
 "audit.back" = "Аудити";
-"audit.again" = "Провести аудит ще раз";
-"audit.export" = "Експортувати";
+"audit.again" = "Перевірити знову";
+"audit.export" = "Поділитися звітом";
 "audit.exportUnavailable" = "Експорт звіту працює лише в застосунку Мовар.";
 
 "audit.brokenPromises.one" = "%d порушена обіцянка";
@@ -455,3 +388,82 @@
 "audit.rule.ua/state-language-interface-elements" = "Сторінку видано українською, а елементи інтерфейсу — ні";
 
 /* --- END generated audit catalogue --- */
+
+/* --- MovarKit (draft copy, host-app one-list redesign) --- */
+
+"movarkit.row.remove" = "Видалити %@";
+"movarkit.row.moveUp" = "Перемістити вище";
+"movarkit.row.moveDown" = "Перемістити нижче";
+"movarkit.step.spoken" = "Крок %1$d з %2$d, %3$@";
+"movarkit.status.enabled" = "Мовар увімкнений";
+"movarkit.status.disabled" = "Мовар вимкнений у Safari";
+"movarkit.status.paneNote" = "Стан оновиться, щойно ви повернетеся до застосунку.";
+"movarkit.setup.turnOn" = "Мовар — увімкнути";
+"movarkit.setup.allow" = "«Інші вебсайти» — Дозволити";
+
+/* --- Audit home (draft copy, host-app one-list redesign) --- */
+
+"audithome.field.placeholder" = "Адреса сайту";
+"audithome.field.check" = "Перевірити";
+"audithome.sidebar.header" = "Аудит";
+"audithome.sidebar.new" = "Новий аудит";
+"audithome.empty.ghostTitle" = "приклад.ua";
+"audithome.empty.ghostSubtitle" = "Мова за замовчуванням · Перемикач · hreflang";
+"audithome.empty.line" = "Перевірте, чи сайт справді віддає українську, — і отримайте звіт, яким можна поділитися.";
+"audithome.empty.action" = "Перевірити movar.fyi";
+"audithome.progress.requests" = "%1$d з %2$d запитів";
+"audithome.progress.waiting" = "чекаємо…";
+
+/* --- Audit report (draft copy, host-app one-list redesign) --- */
+
+/* NEW: dashed badge beside the coverage line */
+"audit.report.notChecked" = "%d не перевірено";
+/* NEW: row at the end of each findings family; scrolls to all rules filtered to passed */
+"audit.report.passedMore.one" = "Ще %d правило пройдено";
+"audit.report.passedMore.few" = "Ще %d правила пройдено";
+"audit.report.passedMore.many" = "Ще %d правил пройдено";
+
+/* --- Settings screens (draft copy, host-app one-list redesign) --- */
+
+"settings.skipped.title" = "Пропущені сайти";
+"settings.hide.title" = "Ховати вміст";
+"settings.help.title" = "Мовар у Safari";
+"settings.priority.header" = "Ваш порядок";
+"settings.priority.addHeader" = "Додати";
+"settings.priority.footer" = "Мовар просить у сайту першу мову зі списку; якщо її немає — наступну.";
+"settings.priority.footerMac" = "Мовар просить у сайту першу мову зі списку; якщо її немає — наступну. Перетягніть, щоб змінити порядок.";
+"settings.priority.addFooter" = "Російська заблокована завжди, тому її тут немає.";
+"settings.priority.addFooterMac" = "Російська заблокована завжди, тому її немає серед доступних.";
+"settings.skipped.placeholder" = "домен, напр. example.com";
+"settings.skipped.subdomains" = "Піддомени теж пропускаються.";
+"settings.skipped.swipeHint" = "Проведіть вліво, щоб видалити.";
+"settings.skipped.ghost" = "приклад.ua";
+"settings.skipped.emptyLine" = "Тут Мовар нічого не змінює: ні мову, ні вміст. Для сайтів, які ви свідомо читаєте іншою мовою.";
+"settings.skipped.emptyAction" = "Додати сайт";
+"settings.hide.footer" = "У перемикачах мов і стрічках: картки, коментарі, результати пошуку.";
+"settings.hide.howHeader" = "Як ховати";
+"settings.help.enableHeader" = "Увімкнути";
+"settings.help.verifyHeader" = "Перевірити, що працює";
+"settings.help.verify1" = "Відкрийте будь-який сайт у Safari";
+"settings.help.verify2" = "Торкніться значка розширень в адресному рядку";
+"settings.help.verify3" = "Мовар є у списку розширень — отже, увімкнений";
+"settings.help.footer" = "Застосунок не бачить, чи ввімкнено розширення — iOS цього не дозволяє.";
+"settings.summary.none" = "немає";
+"settings.summary.off" = "Вимкнено";
+
+/* --- Home / sidebar (draft copy, host-app one-list redesign) --- */
+
+"home.languages.header" = "Мови";
+"home.more.header" = "Більше";
+
+/* --- Acceptance-check fixes --- */
+
+"audit.report.meta.one" = "%1$@ · %2$d запит";
+"audit.report.meta.few" = "%1$@ · %2$d запити";
+"audit.report.meta.many" = "%1$@ · %2$d запитів";
+"audithome.violations.one" = "%d порушення";
+"audithome.violations.few" = "%d порушення";
+"audithome.violations.many" = "%d порушень";
+"audithome.violations.none" = "Без порушень";
+"audithome.time.justNow" = "щойно";
+"home.safariHelp.value" = "Як увімкнути";

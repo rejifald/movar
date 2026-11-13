@@ -43,7 +43,7 @@ final class EngineHost: NSObject {
     /// leaks a handler per request, and the leak is invisible: everything keeps
     /// working, the dictionary just grows for the life of the app.
     private static let terminalKinds: Set<String> = [
-        "audit.complete", "artifact.ready", "catalogue.state", "settings.state", "detect.result",
+        "audit.complete", "artifact.ready", "catalogue.state", "settings.state",
         "failed",
     ]
 

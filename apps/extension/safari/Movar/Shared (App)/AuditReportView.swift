@@ -65,7 +65,20 @@ struct AuditReportView: View {
 
     var body: some View {
         content
-            .movarPushedTitle(AuditModel.hostOf(run.target))
+            .movarPushedTitle(AuditModel.hostOf(run.target), large: true)
+#if os(macOS)
+            // The site is the window title; share and re-run are toolbar
+            // buttons here, so there is no actions section in the list.
+            .navigationTitle(AuditModel.hostOf(run.target))
+            .toolbar {
+                ToolbarItemGroup {
+                    Button(action: rerun) { Text(rerunTitle) }
+                        .disabled(model.isRunning)
+                    Button(action: exportReport) { Text(HostStrings.auditExport) }
+                        .disabled(exportState == .busy)
+                }
+            }
+#endif
     }
 
     @ViewBuilder
@@ -77,8 +90,8 @@ struct AuditReportView: View {
                     Label(HostStrings.auditBack, systemImage: "chevron.left")
                 }
                 .movarRowButtonStyle()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.horizontal, MovarMetrics.Space.md)
+                .padding(.vertical, MovarMetrics.Space.xs)
                 Divider()
             }
             list
@@ -101,9 +114,11 @@ struct AuditReportView: View {
         ScrollViewReader { scroller in
             List {
                 verdictSection
+#if os(iOS)
                 actionsSection
+#endif
                 matrixSection
-                findingSections
+                findingSections(scroller)
                 observationSections
                 rulesSection(scroller)
                 colophonSection
@@ -126,75 +141,95 @@ struct AuditReportView: View {
     /// masthead does, so it reads as the document's headline instead of as the
     /// first row of a list.
     private var verdictSection: some View {
-        Section {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: AuditVerdictStyle.headlineSymbol(for: report))
-                    .font(.title)
-                    .foregroundColor(AuditVerdictStyle.headlineTint(for: report))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(AuditVerdictStyle.headline(for: report))
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    Text(
-                        HostStrings.auditCoverage(
-                            report.coverage.ran, report.coverage.rules,
-                            report.coverage.notCollected)
-                    )
+        MovarSection(verdictFooter) {
+            VStack(alignment: .leading, spacing: MovarMetrics.Space.xxs) {
+#if os(iOS)
+                Text(metaLine)
                     .font(.footnote)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(MovarPalette.secondaryLabel)
+#endif
+                Text(AuditVerdictStyle.headline(for: report))
+                    .font(.title)
+                    .fontWeight(.semibold)
+                    .foregroundColor(MovarPalette.label)
+                // Coverage on the headline's own line-pair, never apart from it;
+                // what could not run is a dashed badge, not a hidden clause.
+                HStack(alignment: .firstTextBaseline, spacing: MovarMetrics.Space.xs) {
+                    Text(HostStrings.auditCoverage(report.coverage.ran, report.coverage.rules, 0))
+                        .font(.subheadline)
+                        .foregroundColor(MovarPalette.label)
+                    if report.coverage.notCollected > 0 {
+                        MovarVerdictBadge(
+                            .notCollected,
+                            text: HostStrings.reportNotChecked(report.coverage.notCollected))
+                    }
                 }
-                Spacer(minLength: 0)
+                if report.coverage.notCollected > 0 {
+                    movarUnhyphenated(HostStrings.auditNotCollectedNote)
+                        .font(.footnote)
+                        .foregroundColor(MovarPalette.secondaryLabel)
+                        .movarWrapping()
+                }
             }
-            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, MovarMetrics.Space.xs)
+            // The plain row has zero insets, so the first glyph of a footnote
+            // line sat on the list's clip edge and lost a sliver; one step in.
+            .padding(.horizontal, MovarMetrics.Space.xxs)
             .accessibilityElement(children: .combine)
             .movarPlainRow()
         }
     }
 
+    /// An export that failed. Lives under the panel (not the actions) so it
+    /// survives macOS having no actions section. The «not checked is not passed»
+    /// note is inside the panel, under the coverage line.
+    private var verdictFooter: String? {
+        exportState == .failed ? HostStrings.auditExportUnavailable : nil
+    }
+
+    /// «Сьогодні о 09:41 · 5 запитів» — when the run happened and how many
+    /// requests the matrix made.
+    private var metaLine: String {
+        HostStrings.reportMeta(
+            when: Self.metaFormatter.string(from: run.ranAt),
+            requests: run.outcome.evidence.legs.count)
+    }
+
+    private static let metaFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: HostStrings.resolvedLocale)
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        formatter.doesRelativeDateFormatting = true
+        return formatter
+    }()
+
     // MARK: - Actions
 
-    /// Re-run and export, as two rows.
+    private var rerunTitle: String {
+        model.isRunning ? HostStrings.auditRunning : HostStrings.auditAgain
+    }
+
+    private func rerun() {
+        model.run(target: run.target)
+    }
+
+    /// Share and re-run, as two rows (iOS; macOS has them in the toolbar).
     ///
     /// STACKED, not side by side: two buttons on one line read as a single split
     /// control, and the app is one narrow column everywhere it runs. As list rows
-    /// they are also full-width hit targets, which two inline buttons were not.
+    /// they are also full-width hit targets.
     ///
     /// Re-running keeps the old report in the list rather than overwriting it, so
     /// the two can be compared — either to confirm a fix landed, or to see
     /// whether anything moved.
-    @ViewBuilder
     private var actionsSection: some View {
-        Section {
-            Button {
-                model.run(target: run.target)
-            } label: {
-                Label(
-                    model.isRunning ? HostStrings.auditRunning : HostStrings.auditAgain,
-                    systemImage: "arrow.clockwise")
-            }
-            .movarRowButtonStyle()
-            .disabled(model.isRunning)
-
-            Button(action: exportReport) {
-                Label(HostStrings.auditExport, systemImage: "square.and.arrow.up")
-            }
-            .movarRowButtonStyle()
-            .disabled(exportState == .busy)
-        } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                if exportState == .failed {
-                    Text(HostStrings.auditExportUnavailable)
-                        .movarWrapping()
-                }
-                // `not-collected` is never a pass. This tier collects no rendered
-                // DOM and follows no declared targets, so a good part of the
-                // catalogue could not run — saying so on the report's face is the
-                // point.
-                if report.coverage.notCollected > 0 {
-                    Text(HostStrings.auditNotCollectedNote)
-                }
-            }
+        MovarSection {
+            MovarRow.action(HostStrings.auditExport, action: exportReport)
+                .disabled(exportState == .busy)
+            MovarRow.action(rerunTitle, action: rerun)
+                .disabled(model.isRunning)
         }
     }
 
@@ -238,7 +273,7 @@ struct AuditReportView: View {
     private var matrixSection: some View {
         let legs = run.outcome.evidence.legs
         if !legs.isEmpty {
-            Section {
+            MovarSection(HostStrings.auditMatrixTitle, footer: HostStrings.auditMatrixIntro) {
                 // The columns name themselves. "How the site answered" is the
                 // TABLE's title and sat directly above the left column, which
                 // made it read as that column's heading — so the left column
@@ -248,22 +283,30 @@ struct AuditReportView: View {
                 // uses is what turns five pairs into a table.
                 HStack(alignment: .firstTextBaseline) {
                     Text(HostStrings.auditMatrixColumnAsked)
-                    Spacer(minLength: 12)
+                    Spacer(minLength: MovarMetrics.Space.sm)
                     Text(HostStrings.auditMatrixColumnGot)
                         .multilineTextAlignment(.trailing)
                 }
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(MovarPalette.secondaryLabel)
                 .accessibilityHidden(true)
 
                 ForEach(legs) { leg in
-                    HStack(alignment: .firstTextBaseline) {
+                    HStack(alignment: .firstTextBaseline, spacing: MovarMetrics.Space.sm) {
                         Text(
                             leg.acceptLanguage.map(HostSettings.languageName)
                                 ?? HostStrings.auditMatrixNoPreference)
-                        Spacer(minLength: 12)
+                        Image(systemName: "arrow.right")
+                            .font(.footnote)
+                            .foregroundColor(MovarPalette.secondaryLabel)
+                            .accessibilityHidden(true)
+                        Spacer(minLength: MovarMetrics.Space.sm)
+                        // A language the reader did not ask for — or one Movar
+                        // blocks outright — is the finding in miniature.
                         Text(servedLabel(leg))
-                            .foregroundColor(.secondary)
+                            .font(servedIsWrong(leg) ? Font.body.weight(.semibold) : .body)
+                            .foregroundColor(
+                                servedIsWrong(leg) ? MovarPalette.danger : MovarPalette.label)
                             .multilineTextAlignment(.trailing)
                     }
                     // Combined, and the column names are hidden from VoiceOver
@@ -282,16 +325,24 @@ struct AuditReportView: View {
                     Label(HostStrings.auditMatrixOpenSite, systemImage: "arrow.up.forward.app")
                 }
                 .movarRowButtonStyle()
-            } header: {
-                Text(HostStrings.auditMatrixTitle)
-            } footer: {
-                // The one thing the columns cannot say: the ADDRESS never
-                // changed. Without it the table is five results; with it, it is a
-                // controlled experiment with one variable.
-                movarUnhyphenated(HostStrings.auditMatrixIntro)
-                    .movarWrapping()
             }
         }
+    }
+
+    /// True only when the leg was served a locked-blocked language (Russian).
+    /// The view does not judge beyond the product's own policy: «asked German,
+    /// got English» is a fact, not a failure. Only a DECLARED language on an
+    /// answered, non-error page counts; the other outcomes say nothing about
+    /// language.
+    private func servedIsWrong(_ leg: MatrixLeg) -> Bool {
+        guard leg.answered, leg.status < 400, let served = leg.served else { return false }
+        return HostSettings.isLockedBlocked(Self.primarySubtag(served))
+    }
+
+    private static func primarySubtag(_ tag: String) -> String {
+        let lowered = tag.lowercased()
+        return lowered.split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init)
+            ?? lowered
     }
 
     /// What one leg came back with, in a reader's words.
@@ -318,21 +369,56 @@ struct AuditReportView: View {
     /// failures but did have observations, which render right below it. An absent
     /// section is the correct way to show an absence.
     @ViewBuilder
-    private var findingSections: some View {
+    private func findingSections(_ scroller: ScrollViewProxy) -> some View {
         let sections = groupedSections { $0.verdict.isHeadline }
         if !sections.isEmpty {
             ForEach(sections, id: \.family) { section in
-                Section {
+                MovarSection(sectionHeading(HostStrings.auditFindings, section)) {
                     ForEach(section.groups, id: \.rule) { group in
                         AuditFindingCard(group: group)
                             .id(Self.anchor(for: group.rule))
                     }
-                } header: {
-                    Text(sectionHeading(HostStrings.auditFindings, section))
+                    passedMoreRow(for: section.family, scroller)
                 }
             }
         }
     }
+
+    /// «Ще N правил пройдено» — the family's passing rules, folded into one row
+    /// so the failures above are not buried under them. Passing rules live only
+    /// in the all-rules list, so the row takes the reader there with its filter
+    /// set to «пройдено» rather than opening a screen of its own.
+    @ViewBuilder
+    private func passedMoreRow(for family: String, _ scroller: ScrollViewProxy) -> some View {
+        let passed = passedCount(in: family)
+        if passed > 0 {
+            Button {
+                filter = .pass
+                withAnimation { scroller.scrollTo(Self.allRulesAnchor, anchor: .top) }
+            } label: {
+                HStack(spacing: MovarMetrics.Space.sm) {
+                    MovarRow.nav(HostStrings.reportPassedMore(passed))
+                    Image(systemName: "chevron.right")
+                        .font(Font.footnote.weight(.semibold))
+                        .foregroundColor(MovarPalette.secondaryLabel)
+                        .accessibilityHidden(true)
+                }
+            }
+            .movarRowButtonStyle()
+        }
+    }
+
+    /// Rules of `family` whose verdict is a pass.
+    private func passedCount(in family: String) -> Int {
+        let familyOfRule = Dictionary(
+            model.catalogue.flatMap { entry in entry.rules.map { ($0, entry.id) } },
+            uniquingKeysWith: { first, _ in first })
+        return report.results.filter {
+            $0.verdict == .pass && (familyOfRule[$0.rule] ?? "") == family
+        }.count
+    }
+
+    private static let allRulesAnchor = "all-rules"
 
     /// Everything else the rules said. Shown, but in its own group.
     ///
@@ -350,17 +436,13 @@ struct AuditReportView: View {
         }
         if !sections.isEmpty {
             ForEach(sections, id: \.family) { section in
-                Section {
+                MovarSection(
+                    sectionHeading(HostStrings.auditObservations, section),
+                    footer: section.id == sections.last?.id ? HostStrings.auditObservationsNote : nil
+                ) {
                     ForEach(section.groups, id: \.rule) { group in
                         AuditFindingCard(group: group)
                             .id(Self.anchor(for: group.rule))
-                    }
-                } header: {
-                    Text(sectionHeading(HostStrings.auditObservations, section))
-                } footer: {
-                    if section.id == sections.last?.id {
-                        Text(HostStrings.auditObservationsNote)
-                            .movarWrapping()
                     }
                 }
             }
@@ -391,8 +473,9 @@ struct AuditReportView: View {
     /// name a build that judged nothing, in the one line a reader uses to find
     /// the code that judged.
     private func rulesSection(_ scroller: ScrollViewProxy) -> some View {
-        Section {
+        MovarSection(HostStrings.auditAllRules) {
             filterMenu
+                .id(Self.allRulesAnchor)
             ForEach(visibleResults, id: \.rule) { result in
                 AuditRuleRow(
                     result: result,
@@ -401,8 +484,6 @@ struct AuditReportView: View {
                         withAnimation { scroller.scrollTo(anchor, anchor: .top) }
                     })
             }
-        } header: {
-            Text(HostStrings.auditAllRules)
         }
     }
 
@@ -426,12 +507,12 @@ struct AuditReportView: View {
         Section {
             HStack {
                 Text(HostStrings.auditEngineLabel)
-                Spacer(minLength: 12)
+                Spacer(minLength: MovarMetrics.Space.sm)
                 Text(
                     report.engine.map { "\($0.id) \($0.version)" }
                         ?? HostStrings.auditEngineUnknown
                 )
-                .foregroundColor(.secondary)
+                .foregroundColor(MovarPalette.secondaryLabel)
                 .multilineTextAlignment(.trailing)
             }
             .accessibilityElement(children: .combine)
@@ -469,12 +550,12 @@ struct AuditReportView: View {
         } label: {
             HStack {
                 Text(HostStrings.auditFilterLabel)
-                Spacer(minLength: 12)
+                Spacer(minLength: MovarMetrics.Space.sm)
                 Text(activeFilterLabel)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(MovarPalette.secondaryLabel)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.footnote)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(MovarPalette.secondaryLabel)
             }
             .contentShape(Rectangle())
         }
@@ -653,20 +734,19 @@ struct AuditFindingCard: View {
         DisclosureGroup {
             detail
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Image(systemName: AuditVerdictStyle.symbol(for: group.verdict))
-                        .foregroundColor(AuditVerdictStyle.tint(for: group.verdict))
-                        .accessibilityHidden(true)
-                    Text(HostStrings.auditFindingVerdict(group.verdict))
-                        .font(.subheadline)
-                        .foregroundColor(AuditVerdictStyle.tint(for: group.verdict))
+            VStack(alignment: .leading, spacing: MovarMetrics.Space.xs) {
+                // The verdict WORD in a pill, so "we could not check this" and
+                // "this failed" are never separable only by hue.
+                HStack(spacing: MovarMetrics.Space.xs) {
+                    MovarVerdictBadge(
+                        AuditVerdictStyle.badgeKind(for: group.verdict),
+                        text: HostStrings.auditFindingVerdict(group.verdict))
                     // Only worth saying when there is more than one: "on 1 page"
                     // next to a single URL is noise.
                     if subjects.count > 1 {
                         Text("· " + HostStrings.auditPageCount(subjects.count))
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(MovarPalette.secondaryLabel)
                     }
                 }
                 movarUnhyphenated(group.title)
@@ -679,14 +759,14 @@ struct AuditFindingCard: View {
                     ForEach(measurements, id: \.self) { measurement in
                         Text(measurement)
                             .font(.footnote)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(MovarPalette.secondaryLabel)
                     }
                 }
                 if showSubjects {
                     ForEach(subjects, id: \.self) { subject in
                         Text(subject)
                             .font(.footnote)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(MovarPalette.secondaryLabel)
                             .lineLimit(2)
                     }
                 }
@@ -695,16 +775,15 @@ struct AuditFindingCard: View {
                         "\(citation.source) — \(citation.article)",
                         systemImage: "building.columns")
                     .font(.footnote)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(MovarPalette.secondaryLabel)
                 }
             }
-            .padding(.vertical, 2)
         }
     }
 
     /// The reference block: the rule's ID, and every finding's own sentence.
     private var detail: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: MovarMetrics.Space.sm) {
             AuditDetailRow(label: HostStrings.auditDetailRule, value: group.rule, isCode: true)
             ForEach(Array(group.findings.enumerated()), id: \.offset) { _, finding in
                 // One rule reporting once needs no per-finding heading; several
@@ -733,7 +812,7 @@ struct AuditFindingCard: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, MovarMetrics.Space.xxs)
     }
 
     /// The pages this rule reported on, deduplicated.
@@ -785,7 +864,7 @@ struct AuditRuleRow: View {
 
     var body: some View {
         DisclosureGroup {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: MovarMetrics.Space.sm) {
                 if let why = whyLine {
                     movarUnhyphenated(why).font(.footnote)
                 }
@@ -813,7 +892,7 @@ struct AuditRuleRow: View {
                     .movarRowButtonStyle()
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, MovarMetrics.Space.xxs)
         } label: {
             // STATUS UNDER THE TITLE, not beside it. The token was a trailing
             // column, and in Ukrainian its words are long — «не перевірено», «не
@@ -829,19 +908,15 @@ struct AuditRuleRow: View {
             // order, read once. The word is the part that must survive — "we did
             // not check this" may never be readable as "this is fine", and a
             // glyph alone leaves that to a guess.
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: MovarMetrics.Space.xxs) {
                 movarUnhyphenated(title)
-                HStack(spacing: 4) {
-                    Image(systemName: AuditVerdictStyle.symbol(for: result.verdict))
-                        .accessibilityHidden(true)
-                    Text(
-                        result.findings.isEmpty
-                            ? HostStrings.auditVerdict(result.verdict)
-                            : HostStrings.auditFindingCount(result.findings.count)
-                    )
+                if result.findings.isEmpty {
+                    MovarVerdictBadge(result.verdict)
+                } else {
+                    MovarVerdictBadge(
+                        AuditVerdictStyle.badgeKind(for: result.verdict),
+                        text: HostStrings.auditFindingCount(result.findings.count))
                 }
-                .font(.footnote)
-                .foregroundColor(AuditVerdictStyle.tint(for: result.verdict))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -899,10 +974,10 @@ struct AuditDetailRow: View {
     var isCode = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: MovarMetrics.Space.xxs) {
             Text(label)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(MovarPalette.secondaryLabel)
             if isCode {
                 // `.system(.footnote, design:)` rather than
                 // `.footnote.monospaced()`, which is macOS 12; this app's floor
@@ -946,10 +1021,31 @@ enum AuditVerdictStyle {
 
     static func tint(for verdict: RuleVerdict) -> Color {
         switch verdict {
-        case .fail: return .red
-        case .warn: return .orange
-        case .pass: return .green
-        case .notCollected, .notApplicable, .unknown: return .secondary
+        case .fail: return MovarPalette.danger
+        case .warn: return MovarPalette.warning
+        case .pass: return MovarPalette.brandText
+        case .notCollected, .notApplicable, .unknown: return MovarPalette.secondaryLabel
+        }
+    }
+
+    /// The pill a rule verdict takes (mirrors `MovarVerdictBadge.init(_: RuleVerdict)`,
+    /// for the caller that words the pill itself).
+    static func badgeKind(for verdict: RuleVerdict) -> MovarVerdictBadge.Kind {
+        switch verdict {
+        case .fail: return .fail
+        case .pass: return .pass
+        case .warn, .notApplicable: return .warn
+        case .notCollected, .unknown: return .notCollected
+        }
+    }
+
+    /// A finding's pill: scored verdicts take their own look, observations a
+    /// neutral one, and a verdict this build does not know the dashed one.
+    static func badgeKind(for verdict: FindingVerdict) -> MovarVerdictBadge.Kind {
+        switch verdict {
+        case .fail: return .fail
+        case .warn, .observation, .info: return .warn
+        case .unknown: return .notCollected
         }
     }
 
@@ -966,9 +1062,9 @@ enum AuditVerdictStyle {
 
     static func tint(for verdict: FindingVerdict) -> Color {
         switch verdict {
-        case .fail: return .red
-        case .warn: return .orange
-        case .observation, .info, .unknown: return .secondary
+        case .fail: return MovarPalette.danger
+        case .warn: return MovarPalette.warning
+        case .observation, .info, .unknown: return MovarPalette.secondaryLabel
         }
     }
 
@@ -985,7 +1081,7 @@ enum AuditVerdictStyle {
     }
 
     static func headlineTint(for report: AuditReport) -> Color {
-        report.brokenPromises > 0 ? .red : .green
+        report.brokenPromises > 0 ? MovarPalette.danger : MovarPalette.brandText
     }
 }
 

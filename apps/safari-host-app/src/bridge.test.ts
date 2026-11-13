@@ -393,9 +393,9 @@ describe('__movarSelectTab — the native tab channel', () => {
   it('stops delivering to a reader that unmounted', () => {
     const { result, unmount } = renderHook(() => useNativeTab());
     act(() => {
-      globalThis.__movarSelectTab?.('detector');
+      globalThis.__movarSelectTab?.('audit');
     });
-    expect(result.current).toBe('detector');
+    expect(result.current).toBe('audit');
 
     unmount();
     // No listener remains, so this must not throw or resurrect the unmounted

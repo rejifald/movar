@@ -82,58 +82,35 @@ final class ScreenshotTests: XCTestCase {
 
         resize(window, to: targetSize)
 
-        // The tab picker is a segmented SwiftUI Picker. Its labels are
-        // localized, so address the segments BY INDEX — a label lookup would
-        // pass in one locale and fail in the other, which is the whole reason
-        // this test runs twice.
-        let tabs = window.radioButtons
-        XCTAssertEqual(tabs.count, 3, "expected three tabs, found \(tabs.count)")
-
-        for (index, name) in ["01-detector", "02-audit", "03-settings"].enumerated() {
-            let tab = tabs.element(boundBy: index)
-            XCTAssertTrue(tab.waitForExistence(timeout: 10), "tab \(index) never appeared")
-            tab.click()
+        // The sidebar rows carry accessibility IDENTIFIERS (set in
+        // `MacSidebarShell`), because their labels are localized: a label lookup
+        // would pass in one locale and fail in the other, which is the whole
+        // reason this test runs twice.
+        //
+        // The Audit pane is the «Новий аудит» form, deliberately NOT run: a run's
+        // results come from actually fetching a site, and a screenshot test that
+        // needs the network fails on a plane. A finished report stays an
+        // operator's step, the same bargain `capture-host-app-screenshots.mts`
+        // documents for iOS.
+        let scenes: [(name: String, rowID: String)] = [
+            ("02-audit", "sidebar.newAudit"),
+            ("03-settings", "sidebar.priority"),
+            ("04-about", "sidebar.about"),
+        ]
+        for scene in scenes {
+            let row = app.descendants(matching: .any)
+                .matching(identifier: scene.rowID).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 10), "sidebar row \(scene.rowID) never appeared")
+            row.click()
 
             // Let the pane settle before the shutter: SwiftUI swaps the detail
             // view a frame after the click, and a screenshot taken into that
-            // gap catches the OUTGOING tab — a wrong picture that still has
+            // gap catches the OUTGOING pane — a wrong picture that still has
             // the right dimensions and so passes every other check here.
             Thread.sleep(forTimeInterval: 1.5)
 
-            // The Detector opens on sample text with no verdict, which makes a
-            // listless store shot: half the pane is empty. Running it fills the
-            // evidence card, and the detection is local — no network, so this
-            // stays deterministic. The Audit tab is deliberately NOT run here:
-            // its results come from actually fetching a site, and a screenshot
-            // test that needs the network fails on a plane. That one scene
-            // stays an operator's step, the same bargain
-            // `capture-host-app-screenshots.mts` documents for iOS.
-            if name.hasSuffix("detector") {
-                runDetector(in: window)
-            }
-
-            capture(window, named: "\(locale)-\(name)")
+            capture(window, named: "\(locale)-\(scene.name)")
         }
-    }
-
-    /// Click the Detector's action button and wait for the verdict.
-    ///
-    /// Found by POSITION, not by label: the button reads "Визначити" or
-    /// "Detect" depending on the locale this run is capturing, and a label
-    /// lookup would pass in one and fail in the other. It is the lowest button
-    /// in the window — the window's own close/minimise/zoom controls sit at the
-    /// top, so the largest `maxY` is unambiguous.
-    private func runDetector(in window: XCUIElement) {
-        let buttons = window.buttons.allElementsBoundByIndex.filter { $0.isHittable }
-        guard let action = buttons.max(by: { $0.frame.maxY < $1.frame.maxY }) else {
-            XCTFail("the Detector pane has no clickable button")
-            return
-        }
-        action.click()
-
-        // The verdict renders from a local comparison, so this is fast; the
-        // wait is for SwiftUI to lay the evidence card out, not for any I/O.
-        Thread.sleep(forTimeInterval: 2.5)
     }
 
     /// Drag the window's bottom-right corner by the difference between where it

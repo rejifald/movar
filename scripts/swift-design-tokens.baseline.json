@@ -1,0 +1,23 @@
+{
+  "$comment": "Shrink-only baseline for scripts/check-swift-design-tokens.mts. Per file, per kind, the number of raw design literals tolerated. Counts may only go down; regenerate with `tsx scripts/check-swift-design-tokens.mts --update`. Do not hand-raise a count.",
+  "files": {
+    "apps/extension/safari/Movar/Shared (App)/AboutView.swift": {
+      "padding": 1,
+      "spacing": 2
+    },
+    "apps/extension/safari/Movar/Shared (App)/AuditView.swift": {
+      "spacing": 1
+    },
+    "apps/extension/safari/Movar/Shared (App)/MovarRootView.swift": {
+      "color": 1
+    },
+    "apps/extension/safari/Movar/Shared (App)/PlatformSeams.swift": {
+      "padding": 4,
+      "frame": 1,
+      "spacing": 1
+    },
+    "apps/extension/safari/Movar/Shared (App)/SetupBanner.swift": {
+      "padding": 2
+    }
+  }
+}

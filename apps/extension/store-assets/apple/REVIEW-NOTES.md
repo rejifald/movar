@@ -19,16 +19,20 @@ requests the site you name) works with no network connection at all.
 ## Notes field (paste verbatim)
 
 > Movar is a Safari Web Extension shipped inside this app. The app is **not just a
-> launcher**. It has three tabs, and two of them do work of their own with the
-> extension switched off: **Detector** is a fully on-device Ukrainian / Russian /
-> Belarusian language checker, and **Audit** reports how a site you name serves
-> Ukrainian. **Settings** configures the extension. (About — version, licences and
-> support links — is reached from Settings, not from a tab of its own.)
+> launcher**: its main screen leads with **Movar Audit**, a tool that works with the
+> extension switched off. Type any site's address and the app requests that page
+> once per language preference, then produces a language-conformance report — what
+> the site declares, what it actually serves, and whether its language switcher
+> works — which you can re-run and export as a self-contained document. Below the
+> audit, the same screen configures the extension (language priority, sites to
+> skip, hiding blocked-language content); About — version, licences and support
+> links — is the last row. (On Mac the same list is the window's sidebar.)
 >
 > **How to enable + test the extension**
 >
-> 1. Open the Movar app once. While the extension is off, the **Settings** tab
->    leads with a card spelling out the enable path for this exact device.
+> 1. Open the Movar app once. While the extension is off, the main screen leads
+>    with a card spelling out the enable path for this exact device (on Mac, a
+>    status row with a button that opens Safari's Extensions settings).
 > 2. **iOS / iPadOS:** Settings ▸ Apps ▸ Safari ▸ Extensions ▸ Movar → turn On,
 >    then set website access to **Allow** (All Websites). (On iOS 17 and earlier
 >    the path omits the "Apps" step: Settings ▸ Safari ▸ Extensions ▸ Movar.)
@@ -56,13 +60,17 @@ requests the site you name) works with no network connection at all.
 ## Maintainer talking points (NOT submitted — for reviewer follow-ups)
 
 - **Guideline 4.2 (Minimum Functionality).** The container app must do more than
-  launch/configure the extension. It does, on two tabs. **Detector** runs a real
-  on-device Cyrillic-language classifier (paste text → Ukrainian / Russian /
-  Belarusian / "no Cyrillic language"), fully functional with the extension
-  disabled and offline. **Audit** takes a URL and produces a language-conformance
-  report on it — a standalone diagnostic tool, not a setting. Neither needs the
-  extension to be enabled. This is the deliberate 4.2 remediation — see
-  `deployment-checklist.md`.
+  launch/configure the extension. It does: **Movar Audit** takes a URL and
+  produces a language-conformance report on it — the same `evaluate()` kernel the
+  CLI runs, rendered natively, re-runnable and exportable as a self-contained HTML
+  document. It is a standalone diagnostic tool, not a setting, and needs neither
+  the extension nor an account. It does need the network (it fetches the site the
+  reviewer names); if a reviewer reports the app as "only a launcher", point at the
+  audit flow first and offer a test URL that answers quickly (movar.fyi).
+  History: until 2026-11 the app also carried an on-device text **Detector**,
+  listed here as a second 4.2 feature. The owner removed it with the one-list
+  redesign (`docs/design/host-app/anatomy.md`), so Audit now carries this case
+  alone. This is the deliberate 4.2 remediation — see `deployment-checklist.md`.
 - **`<all_urls>` host permission.** The extension applies the language
   correction on whichever site the user is viewing, so it can't be narrowed to a
   fixed allowlist (users expect in-language content everywhere). On Safari the

@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Movar — Safari wrapper app, unified host screen (Detector / Settings / About).
+ * Movar — Safari wrapper app, unified host screen (Audit / Settings / About).
  *
  * Rendered in the WKWebView hosted by `Shared (App)/ViewController.swift`,
  * under a near-strict `default-src 'self'; font-src 'self' data:` CSP. Vite
@@ -14,7 +14,7 @@
  * wired into Tailwind's `@theme inline` so utilities like `bg-accent` /
  * `text-ink-strong` resolve through the live CSS variables and flip with
  * `prefers-color-scheme`. The dense host-specific layout (the bottom frosted
- * tab bar, the enablement banner, the settings rows, the detector) is ported as
+ * tab bar, the enablement banner, the settings rows, the composer) is ported as
  * plain component classes below, mirroring magical-snyder's `Style.css` 1:1 so
  * the appearance is preserved — but every colour now reads a shared token
  * instead of the hard-coded hexes the static screen inlined.
@@ -122,7 +122,7 @@
   --text-ui-xs: 0.89rem; /* trust row, tokens, notes, brand subtitle */
   --text-ui-sm: 0.93rem; /* helper/secondary body, method line, links */
   --text-ui-base: 1rem; /* default body text */
-  --text-ui-md: 1.07rem; /* feature/clue titles, the detector textarea */
+  --text-ui-md: 1.07rem; /* feature/clue titles, the composer textarea */
   --text-ui-lg: 1.2rem; /* wordmark, brand title, verdict */
   --text-ui-xl: 1.33rem; /* section titles, the About lede */
   --text-ui-2xl: 1.47rem; /* the enablement headline */
@@ -136,7 +136,7 @@
    * `env()` safe-area insets, and the root anchor itself (see the `html` rule).
    */
   --radius: 0.5rem; /* 8px — controls: buttons, inputs, tabs, chips */
-  /* The larger corner the detector result card + enable banner use. */
+  /* The larger corner the result card + enable banner use. */
   --radius-lg: 0.75rem; /* 12px — result cards, insets */
   /* Fixed brand app-bar height (iOS About tab). One token so the bar and the
    * body padding that reserves room for it (`body` + `body.has-appbar`) can
@@ -349,7 +349,7 @@ html.platform-mac body.native-chrome {
   color: var(--ink-strong);
 }
 
-/* --- iOS-style bottom tab bar (Detector / Settings / About) ------------ */
+/* --- iOS-style bottom tab bar (Audit / Settings / About) ------------ */
 
 .tabs {
   position: fixed;
@@ -443,7 +443,7 @@ html.platform-mac body.native-chrome {
   display: none;
 }
 
-/* --- App: the interactive cards (detector + settings) ------------------ */
+/* --- App: the interactive cards (audit + settings) ------------------ */
 
 .app {
   display: flex;
@@ -469,7 +469,7 @@ html.platform-mac body.native-chrome {
   flex: 1 1 auto;
 }
 
-/* Detector tab — a scrolling column of sections (detector · how it works ·
+/* Audit tab — a scrolling column of sections (composer · how it works ·
  * limitations), spaced like the native screen's tabpanel (22px). */
 .tool {
   display: flex;
@@ -542,7 +542,7 @@ html.platform-mac body.native-chrome {
   color: var(--ink-soft);
 }
 
-/* "What Movar does" capability list (reuses the detector's `.badge`). */
+/* "What Movar does" capability list (reuses the composer's `.badge`). */
 .features {
   display: flex;
   flex-direction: column;
@@ -765,7 +765,7 @@ button.open-preferences {
   border-radius: var(--radius);
   min-height: var(--control-h);
   padding: 0.75rem 1.25rem;
-  /* Ink-strong primary, matching the detector's Detect button + gracious-bassi
+  /* Ink-strong primary, matching the composer's primary button + gracious-bassi
    * (near-black in light, near-white in dark). */
   background: var(--ink-strong);
   color: var(--bg);
@@ -831,7 +831,7 @@ button.open-preferences:focus-visible {
   cursor: text;
 }
 
-/* --- Detector tab — paste box, verdict card, evidence report ----------- */
+/* --- Composer — paste box, buttons, verdict head ----------- */
 
 .composer {
   display: flex;
@@ -864,7 +864,7 @@ button.open-preferences:focus-visible {
   outline-offset: 1px;
 }
 
-/* Buttons — the Detect action (full-width, icon + label). */
+/* Buttons — the primary action (full-width, icon + label). */
 .btn {
   -webkit-appearance: none;
   appearance: none;
@@ -918,27 +918,6 @@ button.open-preferences:focus-visible {
   }
 }
 
-/* Detection result card. Selectable so the verdict can be copied. */
-.tool-result {
-  -webkit-user-select: text;
-  user-select: text;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-}
-
-.tool-result.is-uk {
-  border-color: var(--accent);
-}
-
-.tool-result.is-ru {
-  border-color: var(--danger);
-}
-
 /* Verdict head — circular status badge + name / ISO code / native name. */
 .result-head {
   display: flex;
@@ -963,39 +942,6 @@ button.open-preferences:focus-visible {
   height: 1rem;
 }
 
-.badge.is-accent {
-  background: var(--accent);
-  color: var(--accent-on);
-  box-shadow: var(--shadow-sm);
-}
-
-.badge.is-danger {
-  background: var(--danger);
-  color: var(--danger-on);
-  box-shadow: var(--shadow-sm);
-}
-
-.result-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.result-verdict {
-  font-size: var(--text-ui-lg);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink-strong);
-}
-
-.result-name-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
 .result-code {
   font-family: var(--font-mono);
   font-size: var(--text-ui-2xs);
@@ -1010,211 +956,6 @@ button.open-preferences:focus-visible {
 
 .result-code::after {
   content: ']';
-}
-
-.result-native {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.result-native-label {
-  font-size: var(--text-ui-2xs);
-  color: var(--ink-faint);
-}
-
-.result-native-value {
-  font-size: var(--text-ui-base);
-  font-weight: 500;
-  color: var(--ink-strong);
-}
-
-/* "Matched by <layer>" — which rung of the classifier decided. */
-.result-method {
-  margin: 0;
-  font-size: var(--text-ui-sm);
-  color: var(--ink-soft);
-}
-
-.result-method-by {
-  color: var(--ink-faint);
-}
-
-.result-method-layer {
-  font-weight: 600;
-  color: var(--ink-strong);
-}
-
-/* Evidence report — per-language clue blocks; the verdict's is highlighted. */
-.clues {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.clue-lang {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-}
-
-.clue-lang.is-detected {
-  background: var(--surface);
-  border-color: var(--border-strong);
-}
-
-.clue-lang.is-detected.is-uk {
-  border-color: var(--accent);
-  background: var(--accent-surface);
-}
-
-.clue-lang.is-detected.is-ru {
-  border-color: var(--danger);
-  background: var(--danger-surface);
-}
-
-.clue-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.clue-name {
-  font-size: var(--text-ui-md);
-  font-weight: 600;
-  color: var(--ink-strong);
-}
-
-.clue-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-start;
-}
-
-.clue-label {
-  flex: 0 0 auto;
-  width: 6.5rem;
-  padding-top: 0.25rem;
-  font-size: var(--text-ui-2xs);
-  line-height: 1.45;
-  color: var(--ink-faint);
-}
-
-.clue-tokens {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.clue-token {
-  display: inline-block;
-  padding: 0 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: var(--text-ui-xs);
-  color: var(--ink);
-}
-
-.clue-token.mono {
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-}
-
-.clue-verdict {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding-top: 0.25rem;
-  font-size: var(--text-ui-sm);
-  color: var(--ink-soft);
-}
-
-.clue-verdict .ico {
-  width: 0.75rem;
-  height: 0.75rem;
-  flex: 0 0 auto;
-  color: var(--accent);
-}
-
-/* "How it works" legend — the rung ladder in plain language. */
-.howto {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.howto p {
-  margin: 0;
-  font-size: var(--text-ui-base);
-  line-height: 1.5;
-  color: var(--ink-soft);
-}
-
-.howto .howto-foot {
-  font-size: var(--text-ui-xs);
-  color: var(--ink-faint);
-}
-
-.layers {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.layer {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.layer-num {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: var(--surface-3);
-  color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: var(--text-ui-2xs);
-  font-weight: 600;
-}
-
-.layer-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.layer-title {
-  font-size: var(--text-ui-base);
-  font-weight: 600;
-  color: var(--ink-strong);
-}
-
-.layer-detail {
-  font-size: var(--text-ui-sm);
-  line-height: 1.5;
-  color: var(--ink-soft);
-}
-
-.layer-detail .mono {
-  color: var(--ink);
-  letter-spacing: 0.04em;
 }
 
 /* Limitations list. */
@@ -1357,7 +1098,7 @@ button.open-preferences:focus-visible {
 /* --- Phase C stub marker ----------------------------------------------- */
 
 /* Temporary visual marker for the not-yet-implemented tab bodies. Removed when
- * Phase C lands the real Detector / Settings / About content. */
+ * Phase C lands the real Audit / Settings / About content. */
 .stub-todo {
   display: flex;
   flex: 1 1 auto;
@@ -1382,7 +1123,7 @@ button.open-preferences:focus-visible {
 /* ---------------------------------------------------------------------------
    Audit tab — Movar Audit's report surface.
 
-   Reuses the Detector's card vocabulary (`.tool-input`, `.badge`, `.eyebrow`,
+   Reuses the composer's card vocabulary (`.tool-input`, `.badge`, `.eyebrow`,
    `.result-code`) so the two "point Movar at something and read what it found"
    tabs look like one product. Only what a REPORT needs beyond a verdict card is
    defined here.
@@ -1460,9 +1201,9 @@ button.open-preferences:focus-visible {
 
 /* The "What Movar Audit is" explainer: a paragraph over a bullet list, which
    `.sec-body` alone cannot space because its one margin rule targets a single
-   direct child. Same 0.75rem stack as the detector's `.howto`, kept its own
-   class rather than reusing that one — nothing here is a how-to, and sharing
-   the selector would tie two unrelated sections' spacing together. */
+   direct child. Same 0.75rem stack the old how-to block used, kept its own
+   class — nothing here is a how-to, and sharing the selector would tie two
+   unrelated sections' spacing together. */
 /* `.sec` is a flex column with no gap and only `.sec-body` carries a margin, so
    a section with two children stacks them flush — which is how the previous-
    audits note ended up sitting on top of the first row. Both sections that need

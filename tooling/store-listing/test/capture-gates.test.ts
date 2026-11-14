@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateGates, parseProxyLog, type ShotRecord } from '../src/capture/gates';
 import {
+  activeService,
+  defaultInterface,
   manualProxyInstructions,
   parseProxyGet,
   planProxy,
@@ -100,5 +102,25 @@ describe('proxy state planning', () => {
     expect(manualProxyInstructions('Wi-Fi', '127.0.0.1', 8877)).toMatch(
       /setsecurewebproxy "Wi-Fi"/,
     );
+  });
+});
+
+describe('activeService', () => {
+  const order = [
+    '(1) Wi-Fi',
+    '(Hardware Port: Wi-Fi, Device: en0)',
+    '(2) USB 10/100/1000 LAN',
+    '(Hardware Port: USB, Device: en5)',
+  ].join('\n');
+  it('reads the default interface', () => {
+    expect(defaultInterface('   route to: default\n  interface: en0\n')).toBe('en0');
+    expect(defaultInterface('no route')).toBeNull();
+  });
+  it('maps the default route to its service', () => {
+    expect(activeService('interface: en5', order)).toBe('USB 10/100/1000 LAN');
+  });
+  it('is null without an interface or a matching service', () => {
+    expect(activeService('no route', order)).toBeNull();
+    expect(activeService('interface: en9', order)).toBeNull();
   });
 });

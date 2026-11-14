@@ -40,6 +40,17 @@ export function serviceForInterface(listing: string, interfaceName: string): str
   return null;
 }
 
+/** Interface name from `route -n get default` output (`interface: en0`). */
+export function defaultInterface(routeOutput: string): string | null {
+  return /interface:\s*(\S+)/.exec(routeOutput)?.[1] ?? null;
+}
+
+/** The network service behind the default route, or null when it cannot be told. */
+export function activeService(routeOutput: string, serviceOrder: string): string | null {
+  const iface = defaultInterface(routeOutput);
+  return iface === null ? null : serviceForInterface(serviceOrder, iface);
+}
+
 export interface ProxyPlan {
   readonly service: string;
   readonly apply: readonly (readonly string[])[];

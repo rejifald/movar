@@ -85,3 +85,26 @@ export const SHOTS: readonly Shot[] = [
 export const SCREENSHOT_SIZE = { width: 1320, height: 2868 } as const;
 
 export const DEVICE_TYPE_NAME = 'iPhone 17 Pro Max';
+
+/** One shot as the runner drives it: open `url`, run `flow` with `env`. */
+export interface PlannedShot {
+  readonly id: string;
+  readonly url: string;
+  readonly flow: string;
+  readonly env: Record<string, string>;
+}
+
+/** The real listing: every shot, with its visible/absent assertions for `locale`. */
+export function listingPlan(locale: Locale): PlannedShot[] {
+  return SHOTS.map((shot) => ({
+    id: shot.id,
+    url: shot.url,
+    flow: shot.flow,
+    env: { V: shot.expect[locale].visible, A: shot.expect[locale].absent },
+  }));
+}
+
+/** The mechanics check: one shot of a localhost page, no assertions. */
+export function smokePlan(url: string): PlannedShot[] {
+  return [{ id: 'smoke', url, flow: 'shot-smoke', env: {} }];
+}

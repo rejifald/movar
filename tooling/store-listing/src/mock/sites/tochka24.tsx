@@ -105,7 +105,7 @@ export const COPY: Record<SiteLang, Copy> = {
 const ORIGIN = 'https://tochka24.example';
 
 /** Path per language. Russian is the site default at the root. */
-export const LANG_PATH: Record<SiteLang, string> = { ru: '/', uk: '/uk/', en: '/en/' };
+const LANG_PATH: Record<SiteLang, string> = { ru: '/', uk: '/uk/', en: '/en/' };
 
 const CSS = `
   :root { --bg:#fff; --ink:#0f172a; --soft:#475569; --rule:#e2e8f0; --accent:#1d4ed8;

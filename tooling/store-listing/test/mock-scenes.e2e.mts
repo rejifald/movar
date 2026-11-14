@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import type * as PlaywrightTest from '@playwright/test';
 type BrowserContext = PlaywrightTest.BrowserContext;
 type Page = PlaywrightTest.Page;
+type Route = PlaywrightTest.Route;
 import { defaultSettings } from '@movar/settings';
 import { MOCK_HOSTS, SCENES, resolveRoute } from '../src/mock/routes.ts';
 
@@ -63,6 +64,23 @@ async function seedSettings(context: BrowserContext, settings: object): Promise<
   await page.close();
 }
 
+function fulfillMock(route: Route, url: URL, refused: string[]): Promise<void> {
+  const hit = resolveRoute(url.hostname, `${url.pathname}${url.search}`);
+  if (hit === null) {
+    refused.push(`MISS ${url.href}`);
+    return route.fulfill({ status: 404, body: 'miss' });
+  }
+  return route.fulfill({ status: hit.status, headers: hit.headers, body: hit.body });
+}
+
+async function serveMocked(route: Route, refused: string[]): Promise<void> {
+  const url = new URL(route.request().url());
+  if (url.protocol === 'chrome-extension:' || url.protocol === 'data:') return route.continue();
+  if (MOCK_HOSTS.includes(url.hostname)) return fulfillMock(route, url, refused);
+  refused.push(url.href);
+  return route.abort('blockedbyclient');
+}
+
 async function launch(): Promise<BrowserContext> {
   const context = await chromium.launchPersistentContext('', {
     headless: true,
@@ -87,20 +105,7 @@ async function launch(): Promise<BrowserContext> {
   const refused: string[] = [];
   await context.route(
     () => true,
-    async (route) => {
-      const url = new URL(route.request().url());
-      if (url.protocol === 'chrome-extension:' || url.protocol === 'data:') return route.continue();
-      if (!MOCK_HOSTS.includes(url.hostname)) {
-        refused.push(url.href);
-        return route.abort('blockedbyclient');
-      }
-      const hit = resolveRoute(url.hostname, `${url.pathname}${url.search}`);
-      if (hit === null) {
-        refused.push(`MISS ${url.href}`);
-        return route.fulfill({ status: 404, body: 'miss' });
-      }
-      return route.fulfill({ status: hit.status, headers: hit.headers, body: hit.body });
-    },
+    (route) => serveMocked(route, refused),
   );
   (context as unknown as { refused: string[] }).refused = refused;
   return context;
@@ -130,16 +135,22 @@ async function waitFor(page: Page, fn: () => Promise<boolean>, timeout = 12_000)
   return false;
 }
 
+/** A new page that records its main-frame navigations, already pointed at `startUrl`. */
+async function openTracked(startUrl: string): Promise<{ page: Page; visited: string[] }> {
+  const page = await context.newPage();
+  const visited: string[] = [];
+  page.on('framenavigated', (f) => {
+    if (f === page.mainFrame()) visited.push(f.url());
+  });
+  await page.goto(startUrl, { waitUntil: 'domcontentloaded' });
+  return { page, visited };
+}
+
 const context = await launch();
 try {
   // ── Scene 1: Google ──────────────────────────────────────────────────────
   {
-    const page = await context.newPage();
-    const visited: string[] = [];
-    page.on('framenavigated', (f) => {
-      if (f === page.mainFrame()) visited.push(f.url());
-    });
-    await page.goto(SCENES.google.startUrl, { waitUntil: 'domcontentloaded' });
+    const { page, visited } = await openTracked(SCENES.google.startUrl);
     const redirected = await waitFor(
       page,
       async () => new URL(page.url()).searchParams.get('hl') === 'uk',
@@ -167,12 +178,7 @@ try {
 
   // ── Scene 2: Tochka24 ────────────────────────────────────────────────────
   {
-    const page = await context.newPage();
-    const visited: string[] = [];
-    page.on('framenavigated', (f) => {
-      if (f === page.mainFrame()) visited.push(f.url());
-    });
-    await page.goto(SCENES.tochka24.startUrl, { waitUntil: 'domcontentloaded' });
+    const { page, visited } = await openTracked(SCENES.tochka24.startUrl);
     const arrived = await waitFor(page, async () => page.url() === SCENES.tochka24.finalUrl);
     check('tochka24: redirected to /uk/', arrived, page.url());
     await settle(page, 1500);

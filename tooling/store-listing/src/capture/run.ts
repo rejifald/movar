@@ -30,17 +30,12 @@ import { LABELS } from './labels';
 import { runFlow } from './maestro';
 import { freePort, startMockProxy } from './mock-proxy';
 import type { MockProxy } from './mock-proxy';
-import {
-  manualProxyInstructions,
-  parseProxyGet,
-  planProxy,
-  serviceForInterface,
-} from './proxy-state';
+import { activeService, manualProxyInstructions, parseProxyGet, planProxy } from './proxy-state';
 import type { ProxyPlan } from './proxy-state';
 import { log, out } from './sh';
 import * as sim from './simulator';
-import { DEVICE_TYPE_NAME, SCREENSHOT_SIZE, SHOTS } from './shots';
-import type { Locale } from './shots';
+import { DEVICE_TYPE_NAME, listingPlan, SCREENSHOT_SIZE, smokePlan } from './shots';
+import type { Locale, PlannedShot } from './shots';
 
 const { values } = parseArgs({
   options: {
@@ -89,11 +84,11 @@ const networksetup = (args: readonly string[]): string =>
 
 /** CI only: read the active service's proxy state, apply ours, register the restore. */
 function pointSystemProxyAt(port: number): void {
-  const iface = /interface:\s*(\S+)/.exec(out('route', ['-n', 'get', 'default']))?.[1];
-  const service = iface
-    ? serviceForInterface(out('networksetup', ['-listnetworkserviceorder']), iface)
-    : null;
-  if (!service) throw new Error('cannot find the active network service');
+  const service = activeService(
+    out('route', ['-n', 'get', 'default']),
+    out('networksetup', ['-listnetworkserviceorder']),
+  );
+  if (service === null) throw new Error('cannot find the active network service');
   const plan: ProxyPlan = planProxy(service, '127.0.0.1', port, {
     web: parseProxyGet(out('networksetup', ['-getwebproxy', service])),
     secure: parseProxyGet(out('networksetup', ['-getsecurewebproxy', service])),
@@ -112,60 +107,58 @@ async function pngSize(file: string): Promise<{ width: number; height: number }>
   return { width: width ?? 0, height: height ?? 0 };
 }
 
-async function main(): Promise<void> {
-  const started = new Date().toISOString();
-  mkdirSync(runDir, { recursive: true });
-  mkdirSync(debugDir, { recursive: true });
-
-  // 0. Proxy policy first, so a local run fails fast before the long build.
-  const port = Number.parseInt(values['proxy-port'], 10);
+/** Proxy policy first, so a local run fails fast before the long build. */
+function assertProxyPolicy(port: number): void {
   if (!smoke && !isCI && !values['local-proxy-already-set']) {
     console.error(manualProxyInstructions('Wi-Fi', '127.0.0.1', port));
     throw new Error('refusing to change network settings outside CI');
   }
+}
 
-  // 1. Build.
-  const app =
-    values['reuse-build'] && existsSync(builtAppPath(derived))
-      ? builtAppPath(derived)
-      : build(derived);
-  const sha = gitSha();
+function buildApp(): string {
+  return values['reuse-build'] && existsSync(builtAppPath(derived))
+    ? builtAppPath(derived)
+    : build(derived);
+}
 
-  // 2. Servers: mock proxy (real run) or a localhost fixture (smoke).
-  let proxy: MockProxy | null = null;
-  let smokeUrl = '';
-  if (smoke) {
-    // A CHILD process, not an in-process server: every step of this script is a
-    // synchronous exec (maestro, xcrun), which would freeze our own event loop
-    // and leave Safari staring at a server that never answers.
-    const fixture = path.join(REPO_ROOT, 'apps/e2e/src/fixtures/html/picker-listbox-ru.html');
-    const smokePort = await freePort();
-    const server = spawn(
-      process.execPath,
-      [
-        '-e',
-        `const fs=require('fs');require('http').createServer((q,r)=>{r.writeHead(200,{'content-type':'text/html; charset=utf-8'});r.end(fs.readFileSync(process.argv[1]))}).listen(Number(process.argv[2]))`,
-        fixture,
-        String(smokePort),
-      ],
-      { stdio: 'ignore' },
-    );
-    cleanups.push(() => {
-      server.kill('SIGTERM');
-    });
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    smokeUrl = `http://localhost:${smokePort}/`;
-  } else {
-    proxy = await startMockProxy(
-      await freePort().then((free) => (isCI ? port : free)),
-      path.join(runDir, 'proxy.log'),
-    );
-    cleanups.push(async () => proxy?.stop());
-    if (isCI) pointSystemProxyAt(proxy.port);
-    else log(`▸ expecting the system proxy to already point at the mock proxy (${proxy.port})`);
-  }
+/**
+ * A localhost fixture served by a CHILD process, not an in-process server: every
+ * step of this script is a synchronous exec (maestro, xcrun), which would freeze
+ * our own event loop and leave Safari staring at a server that never answers.
+ */
+async function startSmokeServer(): Promise<string> {
+  const fixture = path.join(REPO_ROOT, 'apps/e2e/src/fixtures/html/picker-listbox-ru.html');
+  const smokePort = await freePort();
+  const server = spawn(
+    process.execPath,
+    [
+      '-e',
+      `const fs=require('fs');require('http').createServer((q,r)=>{r.writeHead(200,{'content-type':'text/html; charset=utf-8'});r.end(fs.readFileSync(process.argv[1]))}).listen(Number(process.argv[2]))`,
+      fixture,
+      String(smokePort),
+    ],
+    { stdio: 'ignore' },
+  );
+  cleanups.push(() => {
+    server.kill('SIGTERM');
+  });
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return `http://localhost:${smokePort}/`;
+}
 
-  // 3. Throwaway simulator (deleted in cleanup, whatever happens next).
+async function startProxy(port: number): Promise<MockProxy> {
+  const proxy = await startMockProxy(
+    await freePort().then((free) => (isCI ? port : free)),
+    path.join(runDir, 'proxy.log'),
+  );
+  cleanups.push(async () => proxy.stop());
+  if (isCI) pointSystemProxyAt(proxy.port);
+  else log(`▸ expecting the system proxy to already point at the mock proxy (${proxy.port})`);
+  return proxy;
+}
+
+/** Throwaway simulator (deleted in cleanup, whatever happens next), ready with the app installed. */
+function prepareSimulator(app: string, proxy: MockProxy | null): sim.ThrowawaySim {
   const device = sim.createThrowaway(DEVICE_TYPE_NAME, runId);
   cleanups.push(() => {
     if (values['keep-sim']) {
@@ -181,84 +174,131 @@ async function main(): Promise<void> {
   sim.polish(device);
   if (proxy) sim.installRootCert(device, proxy.caCertPath);
   sim.installApp(device, app);
+  return device;
+}
 
-  // 4. Setup flows.
+function runSetupFlows(device: sim.ThrowawaySim): void {
   const labels = LABELS[locale];
   for (const flow of ['00-enable-extension', '01-host-app-hide-content']) {
     if (!runFlow(device.udid, flow, labels, debugDir)) throw new Error(`setup flow ${flow} failed`);
   }
   sim.terminate(device, BUNDLE_ID);
+}
 
-  // 5. Shots.
-  const records: ShotRecord[] = [];
-  const files: { id: string; file: string; capturedAt: string }[] = [];
-  const plan = smoke
-    ? [{ id: 'smoke', url: smokeUrl, flow: 'shot-smoke', env: {} as Record<string, string> }]
-    : SHOTS.map((shot) => ({
-        id: shot.id,
-        url: shot.url,
-        flow: shot.flow,
-        env: { V: shot.expect[locale].visible, A: shot.expect[locale].absent },
-      }));
-  for (const shot of plan) {
-    log(`▸ shot ${shot.id}`);
-    sim.terminate(device, 'com.apple.mobilesafari');
-    sim.openUrl(device, shot.url);
-    if (!runFlow(device.udid, shot.flow, shot.env, debugDir)) {
-      throw new Error(`shot "${shot.id}": expected state not reached (wrong state)`);
-    }
-    const file = path.join(runDir, `${shot.id}.png`);
-    sim.screenshot(device, file);
-    const version = sim.installedVersion(device, BUNDLE_ID);
-    records.push({
-      id: shot.id,
-      ...(await pngSize(file)),
-      appVersion: version.version,
-      appBuild: version.build,
-    });
-    files.push({ id: shot.id, file, capturedAt: new Date().toISOString() });
+interface Captured {
+  readonly record: ShotRecord;
+  readonly file: string;
+  readonly capturedAt: string;
+}
+
+async function captureShot(device: sim.ThrowawaySim, shot: PlannedShot): Promise<Captured> {
+  log(`▸ shot ${shot.id}`);
+  sim.terminate(device, 'com.apple.mobilesafari');
+  sim.openUrl(device, shot.url);
+  if (!runFlow(device.udid, shot.flow, shot.env, debugDir)) {
+    throw new Error(`shot "${shot.id}": expected state not reached (wrong state)`);
   }
+  const file = path.join(runDir, `${shot.id}.png`);
+  sim.screenshot(device, file);
+  const version = sim.installedVersion(device, BUNDLE_ID);
+  const record: ShotRecord = {
+    id: shot.id,
+    ...(await pngSize(file)),
+    appVersion: version.version,
+    appBuild: version.build,
+  };
+  return { record, file, capturedAt: new Date().toISOString() };
+}
 
-  // 6. Gates.
-  const summary = proxy?.summary() ?? null;
-  const failures = evaluateGates({
-    proxy: summary,
-    shots: records,
-    expectedIds: plan.map((shot) => shot.id),
-    size: SCREENSHOT_SIZE,
-  });
+async function captureAll(
+  device: sim.ThrowawaySim,
+  plan: readonly PlannedShot[],
+): Promise<Captured[]> {
+  const captured: Captured[] = [];
+  for (const shot of plan) captured.push(await captureShot(device, shot));
+  return captured;
+}
+
+function writeManifest(
+  captured: readonly Captured[],
+  device: sim.ThrowawaySim,
+  summary: ReturnType<MockProxy['summary']> | null,
+  failures: readonly string[],
+  times: { started: string; sha: string },
+): void {
+  const first = captured[0]?.record;
   const manifest = {
     runId,
     locale,
     smoke,
     version: extensionVersion(),
-    appVersion: records[0]?.appVersion,
-    appBuild: records[0]?.appBuild,
-    sha,
+    appVersion: first?.appVersion,
+    appBuild: first?.appBuild,
+    sha: times.sha,
     simulator: { device: DEVICE_TYPE_NAME, runtime: device.runtimeName, runtimeId: device.runtime },
-    startedAt: started,
+    startedAt: times.started,
     finishedAt: new Date().toISOString(),
     proxy: summary,
-    shots: records.map((record) => ({
-      ...record,
-      capturedAt: files.find((f) => f.id === record.id)?.capturedAt,
-    })),
+    shots: captured.map(({ record, capturedAt }) => ({ ...record, capturedAt })),
     failures,
   };
   writeFileSync(path.join(runDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+function copyOut(captured: readonly Captured[], outDir: string): void {
+  const dest = path.resolve(outDir, locale);
+  mkdirSync(dest, { recursive: true });
+  for (const { file } of captured) copyFileSync(file, path.join(dest, path.basename(file)));
+  cpSync(path.join(runDir, 'manifest.json'), path.join(dest, 'manifest.json'));
+  log(`✓ ${captured.length} shot(s) → ${dest}`);
+}
+
+/** Servers: the mock proxy (real run) or a localhost fixture (smoke), with the shots to take. */
+async function startServers(
+  port: number,
+): Promise<{ proxy: MockProxy | null; plan: PlannedShot[] }> {
+  if (smoke) return { proxy: null, plan: smokePlan(await startSmokeServer()) };
+  return { proxy: await startProxy(port), plan: listingPlan(locale) };
+}
+
+/** Gate the run, write the manifest, and either keep the outputs or throw. */
+function finish(
+  captured: readonly Captured[],
+  device: sim.ThrowawaySim,
+  proxy: MockProxy | null,
+  plan: readonly PlannedShot[],
+  times: { started: string; sha: string },
+): void {
+  const summary = proxy?.summary() ?? null;
+  const failures = evaluateGates({
+    proxy: summary,
+    shots: captured.map((c) => c.record),
+    expectedIds: plan.map((shot) => shot.id),
+    size: SCREENSHOT_SIZE,
+  });
+  writeManifest(captured, device, summary, failures, times);
   if (failures.length > 0) {
     rmSync(runDir, { recursive: true, force: true });
     throw new Error(`gates failed, no outputs kept:\n  - ${failures.join('\n  - ')}`);
   }
+  if (values.out) copyOut(captured, values.out);
+}
 
-  // 7. Success: copy out.
-  if (values.out) {
-    const dest = path.resolve(values.out, locale);
-    mkdirSync(dest, { recursive: true });
-    for (const { file } of files) copyFileSync(file, path.join(dest, path.basename(file)));
-    cpSync(path.join(runDir, 'manifest.json'), path.join(dest, 'manifest.json'));
-    log(`✓ ${files.length} shot(s) → ${dest}`);
-  }
+async function main(): Promise<void> {
+  const started = new Date().toISOString();
+  mkdirSync(runDir, { recursive: true });
+  mkdirSync(debugDir, { recursive: true });
+
+  const port = Number.parseInt(values['proxy-port'], 10);
+  assertProxyPolicy(port);
+  const app = buildApp();
+  const sha = gitSha();
+  const { proxy, plan } = await startServers(port);
+
+  const device = prepareSimulator(app, proxy);
+  runSetupFlows(device);
+  const captured = await captureAll(device, plan);
+  finish(captured, device, proxy, plan, { started, sha });
   log(`✓ run ${runId} passed; captures in ${runDir}`);
 }
 

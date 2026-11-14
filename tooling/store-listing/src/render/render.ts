@@ -81,7 +81,7 @@ function parseBaselines(svg: string): number {
  * Counts the lines a headline wraps to by rendering it with Satori (glyphs left
  * as `<text>`) and counting distinct text baselines in the SVG it emits.
  */
-export async function measureHeadlineLines(text: string, canvasWidth: number): Promise<number> {
+async function measureHeadlineLines(text: string, canvasWidth: number): Promise<number> {
   const metrics = {
     fontSize: headlineFontSize(canvasWidth),
     lineHeight: Math.round(headlineFontSize(canvasWidth) * HEADLINE_LINE_HEIGHT),
@@ -180,5 +180,3 @@ export async function renderShot(spec: ShotSpec, options: RenderOptions = {}): P
   assertLayout(plan.layout);
   return renderLayout(plan, spec, options);
 }
-
-export { RenderGuardError } from './errors.js';

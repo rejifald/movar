@@ -15,7 +15,7 @@ export interface ThrowawaySim {
 }
 
 /** Newest available iOS runtime identifier, e.g. `com.apple.CoreSimulator.SimRuntime.iOS-26-3`. */
-export function latestIosRuntime(): { id: string; name: string } {
+function latestIosRuntime(): { id: string; name: string } {
   const listing = JSON.parse(simctl('list', 'runtimes', 'available', '--json')) as {
     runtimes: { identifier: string; name: string; version: string; platform?: string }[];
   };
@@ -106,10 +106,6 @@ export function installRootCert(sim: ThrowawaySim, caCertPath: string): void {
 
 export function openUrl(sim: ThrowawaySim, url: string): void {
   simctl('openurl', sim.udid, url);
-}
-
-export function launch(sim: ThrowawaySim, bundleId: string, ...args: string[]): void {
-  simctl('launch', sim.udid, bundleId, ...args);
 }
 
 export function terminate(sim: ThrowawaySim, bundleId: string): void {

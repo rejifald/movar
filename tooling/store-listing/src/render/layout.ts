@@ -15,11 +15,11 @@ const REFERENCE_WIDTH = 1320;
 /** Fraction-of-width helper: `ref(84)` is 84 px on a 1320 px canvas. */
 const ref = (px: number): number => px / REFERENCE_WIDTH;
 
-export const MIN_SIDE_GAP = ref(84);
-export const HEADLINE_FONT_SIZE = ref(98);
+const MIN_SIDE_GAP = ref(84);
+const HEADLINE_FONT_SIZE = ref(98);
 export const HEADLINE_LINE_HEIGHT = 1.08;
 export const MAX_HEADLINE_LINES = 3;
-export const DEFAULT_MAX_BOTTOM_CROP = 0.09;
+const DEFAULT_MAX_BOTTOM_CROP = 0.09;
 /** Extra crop beyond the corner radius so the cut is clearly above the curve. */
 /** Keeps pixel rounding from tipping the crop over its allowance. */
 const CROP_HEADROOM = 0.004;

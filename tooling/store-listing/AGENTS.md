@@ -14,11 +14,11 @@ renderer. Private build tooling, never shipped in a product.
 
 ```sh
 pnpm --filter @movar/store-listing check:mock-scenes         # real extension (Chromium) vs the mock pages
-pnpm --filter @movar/store-listing capture -- --smoke-localhost --locale uk   # local mechanics check
-pnpm --filter @movar/store-listing frame -- --captures <dir> --out <dir> --locale uk
+pnpm --filter @movar/store-listing capture --smoke-localhost --locale uk   # local mechanics check
+pnpm --filter @movar/store-listing frame --captures <dir> --out <dir> --locale uk
 ```
 
-The full capture (`capture -- --locale uk`) needs the mock proxy set as the system proxy, which
+The full capture (`capture --locale uk`) needs the mock proxy set as the system proxy, which
 the script does **only when `CI=true`** (the `store-listing` workflow on an ephemeral macOS
 runner). Locally it refuses and prints the `networksetup` commands; run them yourself only on a
 machine you own, then pass `--local-proxy-already-set`.

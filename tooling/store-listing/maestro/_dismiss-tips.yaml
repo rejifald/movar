@@ -1,0 +1,11 @@
+# Safari's first-run tip bubble ("bookmarks, share and tabs now live in the ...
+# menu") floats over the page and would end up in the screenshot. Close it when
+# it is there; absent on later pages, so this is a no-op then.
+appId: com.apple.mobilesafari
+---
+- runFlow:
+    when:
+      visible: '.*(закладок|Bookmarks).*'
+    commands:
+      - tapOn:
+          point: '91%,73%'

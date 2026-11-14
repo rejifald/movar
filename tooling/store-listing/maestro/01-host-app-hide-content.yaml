@@ -1,0 +1,16 @@
+# Movar host app > "Hide content" > turn the content-hiding toggle ON.
+# The row has no accessibility identifier (labels are localized SwiftUI text),
+# and the switch is a UISwitch, so it is tapped by position, then asserted.
+appId: fyi.movar.safari
+---
+- launchApp:
+    appId: fyi.movar.safari
+    stopApp: true
+- scrollUntilVisible:
+    element: ${L_HIDE_CONTENT}
+    timeout: 20000
+- tapOn: ${L_HIDE_CONTENT}
+- assertVisible: ${L_TOGGLE_LABEL}
+- tapOn:
+    point: '84%,20%'
+- assertVisible: ${L_CONCEAL_HOW}

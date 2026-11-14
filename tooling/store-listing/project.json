@@ -1,0 +1,26 @@
+{
+  "name": "store-listing",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "tooling/store-listing/src",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit", "cwd": "tooling/store-listing" },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint . --cache --cache-location node_modules/.eslintcache",
+        "cwd": "tooling/store-listing"
+      },
+      "cache": true
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vitest run", "cwd": "tooling/store-listing" },
+      "cache": true
+    }
+  }
+}

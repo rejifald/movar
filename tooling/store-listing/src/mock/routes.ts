@@ -1,0 +1,113 @@
+import {
+  GOOGLE_QUERY,
+  googleFinalPage,
+  googleInitialPage,
+  tochka24Page,
+  youtubeFeedPage,
+} from './pages';
+
+/** What a route yields: a rendered page, a redirect, or an empty 204. */
+export interface MockResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}
+
+export type RouteTable = (host: string, target: string) => MockResponse | null;
+
+export const MOCK_HOSTS: readonly string[] = [
+  'www.google.com',
+  'google.com',
+  'tochka24.example',
+  'm.youtube.com',
+  'www.youtube.com',
+];
+
+/** The scenes' entry URLs and where Movar is expected to leave the browser. */
+export const SCENES = {
+  google: {
+    startUrl: `https://www.google.com/search?q=${encodeURIComponent(GOOGLE_QUERY).replaceAll('%20', '+')}`,
+    /** Final URL carries the `hl=uk` Movar's searchParams rewrite adds. */
+    finalHl: 'uk',
+  },
+  tochka24: {
+    startUrl: 'https://tochka24.example/',
+    finalUrl: 'https://tochka24.example/uk/',
+  },
+  youtube: {
+    startUrl: 'https://m.youtube.com/',
+  },
+} as const;
+
+const NO_STORE = 'no-store';
+
+function html(body: string): MockResponse {
+  return {
+    status: HTTP_OK,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': NO_STORE },
+    body,
+  };
+}
+
+const MOVED_PERMANENTLY = 301;
+const HTTP_OK = 200;
+
+function redirect(location: string, status = MOVED_PERMANENTLY): MockResponse {
+  return { status, headers: { location, 'cache-control': NO_STORE }, body: '' };
+}
+
+const NO_CONTENT = 204;
+const EMPTY: MockResponse = {
+  status: NO_CONTENT,
+  headers: { 'cache-control': NO_STORE },
+  body: '',
+};
+
+function googleRoute(host: string, url: URL): MockResponse | null {
+  if (host === 'google.com') return redirect(`https://www.google.com${url.pathname}${url.search}`);
+  if (url.pathname !== '/search' || url.searchParams.get('q') !== GOOGLE_QUERY) return null;
+  // Movar's rewrite (DNR on Chromium, content script elsewhere) adds hl=uk.
+  return html(url.searchParams.get('hl') === 'uk' ? googleFinalPage() : googleInitialPage());
+}
+
+function tochka24Route(url: URL): MockResponse | null {
+  switch (url.pathname) {
+    case '/': {
+      return html(tochka24Page('ru', { gate: true }));
+    }
+    case '/ru/': {
+      return html(tochka24Page('ru'));
+    }
+    case '/uk/': {
+      return html(tochka24Page('uk'));
+    }
+    case '/en/': {
+      return html(tochka24Page('en'));
+    }
+    default: {
+      return null;
+    }
+  }
+}
+
+function youtubeRoute(url: URL): MockResponse | null {
+  return url.pathname === '/' ? html(youtubeFeedPage()) : null;
+}
+
+/** Pure route table: (host, path+query) → response, or null when unrouted. */
+export const resolveRoute: RouteTable = (host, target) => {
+  if (!MOCK_HOSTS.includes(host)) return null;
+  const url = new URL(target, `https://${host}`);
+  if (url.pathname === '/favicon.ico') return EMPTY;
+  if (host.endsWith('google.com')) return googleRoute(host, url);
+  if (host === 'tochka24.example') return tochka24Route(url);
+  return youtubeRoute(url);
+};
+
+/** The route table plus the hosts it answers for — what the proxy consumes. */
+export interface MockRoutes {
+  hosts: readonly string[];
+  resolve: RouteTable;
+}
+
+export const mockRoutes: MockRoutes = { hosts: MOCK_HOSTS, resolve: resolveRoute };

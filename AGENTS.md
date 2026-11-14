@@ -74,9 +74,10 @@ pnpm + nx workspace: `apps/*`, `packages/*`, `tooling/*`.
 
 ### Tooling
 
-| Member                                                                 | What it is                                                                                                                    |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| [`tooling/eslint-config-movar`](tooling/eslint-config-movar/AGENTS.md) | Shared ESLint 9 flat-config presets (`base`, `quality`, `tests`, `ukrainian`, `react`, `boundaries`, …) every member composes |
+| Member                                                                 | What it is                                                                                                                                                       |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`tooling/eslint-config-movar`](tooling/eslint-config-movar/AGENTS.md) | Shared ESLint 9 flat-config presets (`base`, `quality`, `tests`, `ukrainian`, `react`, `boundaries`, …) every member composes                                    |
+| [`tooling/store-listing`](tooling/store-listing/AGENTS.md)             | iPhone App Store listing from real captures: curated mock sites + MITM proxy, a Maestro-driven simulator capture, and a Satori/resvg framer with geometry guards |
 
 ## Toolchain & commands
 

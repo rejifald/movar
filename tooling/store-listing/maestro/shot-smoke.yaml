@@ -1,0 +1,15 @@
+# Smoke gate: localhost fixture picker-listbox-ru.html. Movar must have replaced
+# the Russian row with its "Мовар: приховано" chip while the rest survive.
+appId: com.apple.mobilesafari
+---
+- extendedWaitUntil:
+    visible: '.*(закладок|Bookmarks|Тест особистості).*'
+    timeout: 60000
+- runFlow: _dismiss-tips.yaml
+- extendedWaitUntil:
+    visible: 'Тест особистості.*'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: '.*(Мовар|Movar).*(приховав|hid).*'
+    timeout: 30000
+- assertNotVisible: 'Russian.*'

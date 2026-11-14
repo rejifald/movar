@@ -1,0 +1,143 @@
+name: Store listing
+
+# App Store screenshot pipeline (tooling/store-listing): the `capture` job builds
+# the iOS app, drives a THROWAWAY simulator with Maestro through the curated mock
+# sites (src/mock, served by a local MITM proxy), and gates the result; the
+# `frame` job turns the raw captures into framed store images + a contact sheet.
+#
+# macOS minutes are ~10x Linux, so this runs on demand and when the pipeline's own
+# files change — not on every PR. The raw capture needs a Mac; framing does not.
+#
+# CI-ONLY NETWORK STEP: capture/run.ts points the runner's HTTP/HTTPS system proxy
+# at the mock proxy, and ONLY when CI=true (this runner is ephemeral). It restores
+# the previous state in a `finally`, and a local run refuses to touch network
+# settings at all (it prints the manual commands instead).
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tooling/store-listing/**'
+      - '.github/workflows/store-listing.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-listing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    # macos-15 ships Xcode 26 (iOS 26 SDK + simulator runtime, iPhone 17 Pro Max
+    # device type) and is what the repo's other Safari jobs already use. The run
+    # needs the iOS 26 Settings layout, so the Xcode floor below is 26.
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Same floor-not-pin selection as release.yml / safari-wrapper.yml.
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          MIN_XCODE_MAJOR=26
+          best=""; best_version=""
+          for candidate in /Applications/Xcode*.app; do
+            [ -d "$candidate" ] || continue
+            version="$(/usr/bin/defaults read "$candidate/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?')"
+            echo "  $candidate → $version"
+            case "$version" in ''|'?') continue ;; esac
+            [ "${version%%.*}" -ge "$MIN_XCODE_MAJOR" ] 2>/dev/null || continue
+            if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best_version" "$version" | sort -V | tail -1)" = "$version" ]; then
+              best="$candidate"; best_version="$version"
+            fi
+          done
+          [ -n "$best" ] || { echo "::error::No Xcode >= $MIN_XCODE_MAJOR on this runner"; exit 1; }
+          sudo xcode-select -s "$best/Contents/Developer"
+          echo "DEVELOPER_DIR=$best/Contents/Developer" >> "$GITHUB_ENV"
+          xcodebuild -version
+          xcrun simctl list runtimes available
+
+      # Maestro from Homebrew (it brings its own OpenJDK, which capture/maestro.ts
+      # finds when the system java is too old). Homebrew core cannot pin a
+      # version, so the step FAILS on drift instead of silently running another.
+      # TODO(owner): to hard-pin, switch to the official release zip with a sha256.
+      - name: Install Maestro
+        env:
+          MAESTRO_EXPECTED: '2.11.0'
+        run: |
+          set -euo pipefail
+          brew install maestro
+          actual="$(maestro --version 2>/dev/null | tail -1)"
+          echo "maestro $actual"
+          [ "$actual" = "$MAESTRO_EXPECTED" ] || { echo "::error::Maestro $actual != pinned $MAESTRO_EXPECTED — review, then bump MAESTRO_EXPECTED"; exit 1; }
+
+      # One build, both locales (--reuse-build). CI=true is already set by Actions;
+      # it is what allows run.ts to change the runner's system proxy.
+      - name: Capture uk
+        env:
+          CI: 'true'
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --locale uk --out "$GITHUB_WORKSPACE/captures"
+      - name: Capture en
+        env:
+          CI: 'true'
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --locale en --reuse-build --out "$GITHUB_WORKSPACE/captures"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: store-listing-captures
+          path: |
+            captures
+            tooling/store-listing/.cache/maestro-debug
+          if-no-files-found: warn
+
+  frame:
+    needs: capture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: store-listing-captures
+          path: artifact
+      - name: Frame
+        run: |
+          set -euo pipefail
+          for locale in uk en; do
+            pnpm --filter @movar/store-listing exec tsx src/render/cli.ts \
+              --captures "$GITHUB_WORKSPACE/artifact/captures/$locale" \
+              --out "$GITHUB_WORKSPACE/framed" --locale "$locale"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: store-listing-framed
+          path: framed
+          if-no-files-found: error
+
+  # TODO(owner): propose — commit the framed set to a branch and open a PR.
+  # Deliberately NOT wired yet (this pipeline must not write to the repo until the
+  # output has been reviewed by hand once). Sketch:
+  #
+  # propose:
+  #   needs: frame
+  #   if: github.event_name == 'workflow_dispatch'
+  #   runs-on: ubuntu-latest
+  #   permissions: { contents: write, pull-requests: write }
+  #   steps:
+  #     - download store-listing-framed, copy into apps/extension/store-assets/…,
+  #       open a PR with the manifest.json run id + sha in the body.

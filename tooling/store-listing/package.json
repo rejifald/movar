@@ -1,0 +1,30 @@
+{
+  "name": "@movar/store-listing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "App Store listing pipeline: curated mock sites + proxy, simulator capture, Satori/resvg framing.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "mock": "tsx src/mock/serve.ts",
+    "capture": "tsx src/capture/run.ts",
+    "frame": "tsx src/render/cli.ts",
+    "check:mock-scenes": "tsx test/mock-scenes.e2e.mts"
+  },
+  "devDependencies": {
+    "@movar/eslint-config": "workspace:*",
+    "@resvg/resvg-js": "2.6.2",
+    "@types/node": "^22.19.19",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "satori": "0.63.2",
+    "sharp": "^0.34.5",
+    "tsx": "^4.22.3",
+    "vitest": "^4.1.7"
+  }
+}

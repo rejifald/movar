@@ -66,16 +66,19 @@ jobs:
           xcodebuild -version
           xcrun simctl list runtimes available
 
-      # Maestro from Homebrew (it brings its own OpenJDK, which capture/maestro.ts
-      # finds when the system java is too old). Homebrew core cannot pin a
-      # version, so the step FAILS on drift instead of silently running another.
+      # Maestro from its vendor tap (it brings its own OpenJDK, which
+      # capture/maestro.ts finds when the system java is too old). Always the
+      # fully qualified name: a bare `brew install maestro` resolves to an
+      # unrelated cask (Maestro.app) and leaves no `maestro` on PATH. A tap
+      # cannot pin a version, so the step FAILS on drift instead of silently
+      # running another.
       # TODO(owner): to hard-pin, switch to the official release zip with a sha256.
       - name: Install Maestro
         env:
           MAESTRO_EXPECTED: '2.11.0'
         run: |
           set -euo pipefail
-          brew install maestro
+          brew install mobile-dev-inc/tap/maestro
           actual="$(maestro --version 2>/dev/null | tail -1)"
           echo "maestro $actual"
           [ "$actual" = "$MAESTRO_EXPECTED" ] || { echo "::error::Maestro $actual != pinned $MAESTRO_EXPECTED — review, then bump MAESTRO_EXPECTED"; exit 1; }

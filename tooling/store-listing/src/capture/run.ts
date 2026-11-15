@@ -191,13 +191,24 @@ interface Captured {
   readonly capturedAt: string;
 }
 
-async function captureShot(device: sim.ThrowawaySim, shot: PlannedShot): Promise<Captured> {
+/** A dead mock proxy makes every later page blank: name it, don't report a "wrong state". */
+function assertProxyAlive(proxy: MockProxy | null, when: string): void {
+  const exit = proxy?.exited() ?? null;
+  if (exit !== null) throw new Error(`mock proxy died (${exit}) ${when}; see its stderr above`);
+}
+
+async function captureShot(
+  device: sim.ThrowawaySim,
+  shot: PlannedShot,
+  proxy: MockProxy | null,
+): Promise<Captured> {
   log(`▸ shot ${shot.id}`);
+  assertProxyAlive(proxy, `before shot "${shot.id}"`);
   sim.terminate(device, 'com.apple.mobilesafari');
   sim.openUrl(device, shot.url);
-  if (!runFlow(device.udid, shot.flow, shot.env, debugDir)) {
-    throw new Error(`shot "${shot.id}": expected state not reached (wrong state)`);
-  }
+  const reached = runFlow(device.udid, shot.flow, shot.env, debugDir);
+  assertProxyAlive(proxy, `during shot "${shot.id}"`);
+  if (!reached) throw new Error(`shot "${shot.id}": expected state not reached (wrong state)`);
   const file = path.join(runDir, `${shot.id}.png`);
   sim.screenshot(device, file);
   const version = sim.installedVersion(device, BUNDLE_ID);
@@ -213,9 +224,10 @@ async function captureShot(device: sim.ThrowawaySim, shot: PlannedShot): Promise
 async function captureAll(
   device: sim.ThrowawaySim,
   plan: readonly PlannedShot[],
+  proxy: MockProxy | null,
 ): Promise<Captured[]> {
   const captured: Captured[] = [];
-  for (const shot of plan) captured.push(await captureShot(device, shot));
+  for (const shot of plan) captured.push(await captureShot(device, shot, proxy));
   return captured;
 }
 
@@ -297,7 +309,7 @@ async function main(): Promise<void> {
 
   const device = prepareSimulator(app, proxy);
   runSetupFlows(device);
-  const captured = await captureAll(device, plan);
+  const captured = await captureAll(device, plan, proxy);
   finish(captured, device, proxy, plan, { started, sha });
   log(`✓ run ${runId} passed; captures in ${runDir}`);
 }

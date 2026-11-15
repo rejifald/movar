@@ -163,9 +163,15 @@ export async function startMockProxy(options: StartMockProxyOptions = {}): Promi
     tlsServer.emit('connection', clientSocket);
   });
 
+  // Every client socket gets its own 'error' listener at accept time. Once a
+  // CONNECT is answered, http detaches its parser and with it the listener
+  // that turned socket errors into 'clientError', so a client RST (Safari
+  // drops tunnels it no longer needs) would otherwise be an uncaught
+  // ECONNRESET that kills the proxy mid-capture.
   for (const server of [proxy, tlsServer]) {
     server.on('connection', (socket: net.Socket) => {
       sockets.add(socket);
+      socket.on('error', () => socket.destroy());
       socket.on('close', () => sockets.delete(socket));
     });
   }

@@ -12,6 +12,8 @@ export interface MockProxy {
   readonly port: number;
   readonly caCertPath: string;
   readonly logFile: string;
+  /** Null while the proxy runs; its exit code or signal once it has died. */
+  exited(): string | null;
   stop(): Promise<void>;
   summary(): ProxyLogSummary;
 }
@@ -65,10 +67,15 @@ export async function startMockProxy(port: number, logFile: string): Promise<Moc
       }
     });
   });
+  let exit: string | null = null;
+  child.on('exit', (code, signal) => {
+    exit = signal ?? String(code);
+  });
   return {
     port: ready.port,
     caCertPath: ready.caCertPath,
     logFile,
+    exited: () => exit,
     stop: async () => {
       if (child.exitCode !== null) return;
       child.removeAllListeners('exit');

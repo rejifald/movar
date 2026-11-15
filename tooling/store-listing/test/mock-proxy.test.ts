@@ -118,6 +118,29 @@ describe('mock proxy', () => {
     });
   });
 
+  // Safari resets tunnels it no longer needs. A client socket with no 'error'
+  // listener turns that RST into an uncaught ECONNRESET that kills the proxy
+  // (and Vitest fails the run on it), so every client socket must survive one.
+  it.each([
+    ['a tunnelled socket before the TLS handshake', 'tochka24.example:443'],
+    ['a refused CONNECT', 'gateway.icloud.example:443'],
+  ])(
+    'survives a TCP reset on %s and keeps serving',
+    async (_case, authority) => {
+      const { socket } = await connect(authority);
+      socket.resetAndDestroy();
+      const raw = net.connect(proxy.port, '127.0.0.1');
+      raw.once('connect', () => raw.resetAndDestroy());
+      raw.on('error', () => {
+        /* our own RST echoes back; nothing to check */
+      });
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const res = await httpsGet('tochka24.example', '/uk/');
+      expect(res.status).toBe(200);
+    },
+    60_000,
+  );
+
   it('serves plain-HTTP proxy requests for mocked hosts', async () => {
     const body = await new Promise<string>((resolve, reject) => {
       http

@@ -113,6 +113,9 @@ jobs:
             captures
             tooling/store-listing/.cache/maestro-debug
           if-no-files-found: warn
+          # Maestro writes its screenshots and UI tree under `.maestro/`, inside
+          # the hidden `.cache/`; without this a failed run uploads nothing.
+          include-hidden-files: true
 
   frame:
     needs: capture

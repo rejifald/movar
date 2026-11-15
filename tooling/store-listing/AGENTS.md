@@ -52,6 +52,9 @@ machine you own, then pass `--local-proxy-already-set`.
   build has no App Group container, so the host-app setting never reaches the extension.
 - iOS 26 Settings switches ignore taps on their labels; flows tap them by position. The host
   app's content toggle has no accessibility identifier yet.
+- **Flow budgets are sized for CI, not a fast Mac:** one hierarchy read takes ~10 s on the macOS
+  runner. Never a bare `assertVisible` after a navigation (use `extendedWaitUntil`, 60 s) and
+  never a `scrollUntilVisible` budget under 90 s.
 - Maestro needs Java 17+; `maestro.ts` falls back to Homebrew's openjdk. Under heavy load the
   driver can time out; `MAESTRO_DRIVER_STARTUP_TIMEOUT` is raised.
 - Safari's first-run tip hides the page from the accessibility tree: every shot flow runs

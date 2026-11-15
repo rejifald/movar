@@ -14,5 +14,5 @@ appId: com.apple.mobilesafari
 - tapOn: '.*(Мова|Language).*'
 - extendedWaitUntil:
     visible: ${V}
-    timeout: 20000
+    timeout: 60000
 - assertNotVisible: ${A}

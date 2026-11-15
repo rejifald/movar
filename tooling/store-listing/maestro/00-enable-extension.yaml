@@ -1,6 +1,8 @@
 # Settings > Apps > Safari > Extensions > Movar (iOS 26 layout): switch the
 # extension on and set its website access to Allow for all websites.
 # Labels are device-language text, passed per locale from src/capture/labels.ts.
+# Budgets are sized for a CI runner, where one hierarchy read takes ~10 s: never
+# a bare assertVisible after a navigation, never a scroll budget under 90 s.
 appId: com.apple.Preferences
 ---
 - launchApp:
@@ -8,23 +10,27 @@ appId: com.apple.Preferences
     stopApp: true
 - scrollUntilVisible:
     element: ${L_APPS}
-    timeout: 30000
+    timeout: 90000
 - tapOn: ${L_APPS}
 - scrollUntilVisible:
     element: ${L_SAFARI}
-    timeout: 30000
+    timeout: 90000
 - tapOn: ${L_SAFARI}
 - scrollUntilVisible:
     element: ${L_EXTENSIONS}
-    timeout: 30000
+    timeout: 90000
 - tapOn: ${L_EXTENSIONS}
 - tapOn: ${L_EXT_ROW}
 # The switch is a UISwitch right of its label: a tap on the label text does not
 # flip it, so tap the control's own position.
 - tapOn:
     point: '84%,39%'
-- assertVisible: ${L_ALL_SITES_ROW}
+- extendedWaitUntil:
+    visible: ${L_ALL_SITES_ROW}
+    timeout: 60000
 - tapOn: ${L_ALL_SITES_ROW}
 - tapOn: ${L_ALLOW}
 # The list stays open with a checkmark on the chosen row.
-- assertVisible: checkmark
+- extendedWaitUntil:
+    visible: checkmark
+    timeout: 60000

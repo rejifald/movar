@@ -22,6 +22,8 @@ export interface TonePalette {
   ctaLabel: string;
   /** Soft shadow under the phone. */
   shadow: string;
+  /** The "without Movar" caption's dot (the "with" dot is the accent). */
+  captionDot: string;
 }
 
 export const ACCENT = '#15803d'; // tokens: colorLight.accent
@@ -38,6 +40,7 @@ export const PALETTE: Record<GroundTone, TonePalette> = {
     ctaFill: INK_STRONG,
     ctaLabel: PAPER,
     shadow: 'rgba(28, 25, 23, 0.34)',
+    captionDot: '#57534e', // tokens: colorLight['ink-soft']
   },
   dark: {
     ground: '#1c1917', // tokens: colorDarkOverrides.surface
@@ -49,6 +52,7 @@ export const PALETTE: Record<GroundTone, TonePalette> = {
     ctaFill: PAPER,
     ctaLabel: INK_STRONG,
     shadow: 'rgba(0, 0, 0, 0.55)',
+    captionDot: '#a8a29e', // tokens: colorDarkOverrides['ink-soft']
   },
 };
 

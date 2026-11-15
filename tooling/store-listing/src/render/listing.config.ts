@@ -23,14 +23,14 @@ export interface ListingShot {
 
 export type Locale = 'uk' | 'en';
 
-/** The seam tags. WORKING COPY pending owner sign-off, like the headlines. */
+/** The seam captions. WORKING COPY pending owner sign-off, like the headlines. */
 export const SPLIT_TAGS: Readonly<Record<Locale, SplitTagLabels>> = {
   uk: { after: 'З Моваром', before: 'Без Мовара' },
   en: { after: 'With Movar', before: 'Without Movar' },
 };
 
 /** Every shot splits at exactly half, each part from its own page top (owner, 2026-11-15). */
-const HALF: SplitSpec = { mode: 'tops', cut: 0.5 };
+const HALF: SplitSpec = { cut: 0.5 };
 
 /** iPhone 6.9" App Store canvas. */
 export const APP_STORE_CANVAS = { width: 1320, height: 2868 } as const;

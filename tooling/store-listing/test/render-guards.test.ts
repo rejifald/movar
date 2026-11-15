@@ -43,7 +43,7 @@ function layoutFor(
     capture,
     beforeCapture: extra.beforeCapture,
     device: resolveDevice(capture.width, capture.height),
-    split: extra.split ?? { mode: 'tops', cut: 0.47 },
+    split: extra.split ?? { cut: 0.47 },
     headlineLines: extra.headlineLines ?? 2,
     screenWidth: extra.screenWidth,
     cta: extra.cta,
@@ -83,12 +83,23 @@ describe('halves layout across captures and canvases', () => {
         expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
         expect(Math.min(left, right)).toBeGreaterThanOrEqual(minSideGap - 1);
         expect(canvas.height - phone.phone.y - phone.phone.height).toBe(minSideGap);
-        // The seam band spans the screen and is centred on the cut.
-        const { seam } = layout.split;
+        // The seam line spans the screen and is centred on the cut.
+        const { seam, captions } = layout.split;
         expect(seam.x).toBe(phone.screen.x);
         expect(seam.width).toBe(phone.screen.width);
         const cutY = phone.screen.y + phone.screen.height * 0.47;
         expect(Math.abs(seam.y + seam.height / 2 - cutY)).toBeLessThanOrEqual(2);
+        // Each caption stands left of the phone, beside its own part.
+        for (const rect of [captions.after, captions.before]) {
+          expect(rect.x).toBeGreaterThanOrEqual(0);
+          expect(rect.x + rect.width).toBeLessThan(phone.phone.x);
+        }
+        expect(captions.after.y).toBe(phone.screen.y);
+        expect(captions.after.y + captions.after.height).toBe(seam.y);
+        expect(captions.before.y).toBe(seam.y + seam.height);
+        expect(captions.before.y + captions.before.height).toBe(
+          phone.screen.y + phone.screen.height,
+        );
         // Headline sits tight above the phone.
         expect(layout.headline.y + layout.headline.height).toBeLessThan(phone.phone.y);
       });
@@ -104,30 +115,21 @@ describe('halves layout across captures and canvases', () => {
     expect(layout.headline.y + layout.headline.height + 48).toBe(layout.phone.phone.y);
   });
 
-  it('tops: each part from its own page top; the band covers only the before status bar', () => {
+  it('each part from its own page top; the line covers only the before status bar', () => {
     const { split, capture, phone } = layoutFor(captures.iphone, canvases[0]);
     const cutRows = Math.round(capture.height * 0.47);
     expect(split.afterSlice).toEqual({ y: 0, height: cutRows });
     expect(split.beforeSlice.height).toBe(capture.height - cutRows);
-    // The band's lower half, in capture rows, ends exactly where the before page starts.
-    const halfBandRows =
+    // The line's lower half, in capture rows, ends exactly where the before page starts.
+    const halfLineRows =
       ((split.seam.y +
         split.seam.height -
         (phone.screen.y + (phone.screen.height * cutRows) / capture.height)) *
         capture.height) /
       phone.screen.height;
     expect(
-      Math.abs(split.beforeSlice.y + halfBandRows - Math.round(capture.height * STATUS_BAR_SHARE)),
+      Math.abs(split.beforeSlice.y + halfLineRows - Math.round(capture.height * STATUS_BAR_SHARE)),
     ).toBeLessThanOrEqual(3);
-  });
-
-  it('region: both parts from the same rows, cut at one line', () => {
-    const { split, capture } = layoutFor(captures.iphone, canvases[0], {
-      split: { mode: 'region', cut: 0.705 },
-    });
-    const cutRows = Math.round(capture.height * 0.705);
-    expect(split.afterSlice).toEqual({ y: 0, height: cutRows });
-    expect(split.beforeSlice).toEqual({ y: cutRows, height: capture.height - cutRows });
   });
 
   it('the logo stays put and the headline hugs the phone, whatever the line count', () => {
@@ -210,13 +212,11 @@ describe('guards throw typed errors', () => {
 
   it('each part keeps at least a quarter of the screen', () => {
     for (const cut of [0.2, 0.8]) {
-      for (const mode of ['tops', 'region'] as const) {
-        const layout = layoutFor(captures.iphone, canvases[0], { split: { mode, cut } });
-        expect(codeOf(() => assertLayout(layout))).toBe('split-cut');
-      }
+      const layout = layoutFor(captures.iphone, canvases[0], { split: { cut } });
+      expect(codeOf(() => assertLayout(layout))).toBe('split-cut');
     }
     for (const cut of [MIN_PART_SHARE, 1 - MIN_PART_SHARE]) {
-      const layout = layoutFor(captures.iphone, canvases[0], { split: { mode: 'region', cut } });
+      const layout = layoutFor(captures.iphone, canvases[0], { split: { cut } });
       expect(codeOf(() => assertLayout(layout))).toBeUndefined();
     }
   });
@@ -227,6 +227,19 @@ describe('guards throw typed errors', () => {
     expect(codeOf(() => assertLayout({ ...layout, split: { ...layout.split, beforeSlice } }))).toBe(
       'split-cut',
     );
+  });
+
+  it('a seam caption with no room on the ground beside the phone', () => {
+    const layout = base();
+    const { captions } = layout.split;
+    const onPhone = { ...captions.after, x: layout.phone.phone.x + 10 };
+    const offCanvas = { ...captions.before, x: -captions.before.width };
+    for (const split of [
+      { ...layout.split, captions: { ...captions, after: onPhone } },
+      { ...layout.split, captions: { ...captions, before: offCanvas } },
+    ]) {
+      expect(codeOf(() => assertLayout({ ...layout, split }))).toBe('caption-room');
+    }
   });
 
   it('4: a CTA over the phone; allowed on the ground', () => {

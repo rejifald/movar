@@ -87,6 +87,8 @@ describe('palette', () => {
     expect(PALETTE.dark.ground).toBe(colorDarkOverrides.surface);
     expect(PALETTE.light.ink).toBe(colorLight['ink-strong']);
     expect(PALETTE.dark.ink).toBe(colorDarkOverrides['ink-strong']);
+    expect(PALETTE.light.captionDot).toBe(colorLight['ink-soft']);
+    expect(PALETTE.dark.captionDot).toBe(colorDarkOverrides['ink-soft']);
     expect(ACCENT).toBe(colorLight.accent);
   });
 });

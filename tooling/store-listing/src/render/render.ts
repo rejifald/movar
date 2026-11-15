@@ -38,9 +38,9 @@ export interface ShotSpec {
   capture: Uint8Array | string;
   /** The same screen with Movar off (the bottom part). Same size as `capture`. */
   before: Uint8Array | string;
-  /** Where the seam goes and how the before part is sourced. */
+  /** Where the seam goes, as a share of the screen height. */
   split: SplitSpec;
-  /** The seam tags, in the shot's locale. */
+  /** The seam captions, in the shot's locale. */
   tags: SplitTagLabels;
   ground: GroundTone;
   /** Background image path (PNG/JPG), drawn cover-fit. Flat token colour when absent. */
@@ -173,7 +173,7 @@ export async function renderLayout(
       canvas,
       captureUri: dataUri('image/png', await splitScreen(layout, captureBytes, beforeBytes)),
     }),
-    h(Seam, { layout, labels: spec.tags }),
+    h(Seam, { layout, labels: spec.tags, tone }),
     layout.cta ? h(Cta, { cta: layout.cta, tone }) : null,
   );
   const svg = await satori(root, { ...canvas, fonts: loadFonts() });

@@ -5,18 +5,14 @@
  * The halves composition (owner, 2026-11-15): ONE whole phone, centred, standing
  * on the bottom gap. Its screen is split across by a seam: the top part is the
  * AFTER capture (Movar on), the bottom part the BEFORE capture (Movar off), both
- * undimmed. Each shot picks how the before part is sourced (`SplitSpec.mode`):
+ * undimmed. Each part shows its own page from the top, so the reader compares
+ * the same opening lines in two languages; the before part starts under its
+ * status bar, which the after part already shows.
  *
- * - `tops`: each part shows its own page from the top, so the reader compares
- *   the same opening lines in two languages (the before part starts under the
- *   status bar, which the after part already shows).
- * - `region`: both parts show the same screen region, cut at one line, for a
- *   page whose top is identical in both states (YouTube's feed): the cut runs
- *   through the card Movar conceals.
- *
- * The seam is a dark band across the screen carrying both tags at its left edge,
- * "with Movar ↑" then "without ↓", so no tag covers page content. The
- * logo sits at one fixed y on every shot; the headline sits tight above the
+ * The seam is a thin dark line across the screen. The two captions, "with Movar"
+ * and "without Movar", stand rotated on the ground left of the phone, each beside
+ * its own part, so nothing covers page content (owner, 2026-11-15: direction C).
+ * The logo sits at one fixed y on every shot; the headline sits tight above the
  * phone, and any spare height goes between the logo and the headline.
  */
 import { RenderGuardError } from './errors.js';
@@ -43,13 +39,16 @@ const TOP_PAD = ref(72);
 const LOGO_MARK = ref(84);
 /** Minimum logo-to-headline gap; the spare height of a short headline lands here. */
 const LOGO_TO_HEADLINE = ref(60);
-const TAG_HEIGHT = ref(48);
-/** Band padding around the tags, and their inset from the screen's left edge. */
-const BAND_PAD = ref(12);
-const TAG_INSET = ref(24);
+/** The seam line's thickness. */
+const SEAM_LINE = ref(8);
+/** Caption type size; the rotated caption's column is this tall times CAPTION_LEADING. */
+const CAPTION_SIZE = ref(40);
+const CAPTION_LEADING = 1.5;
+/** The caption column's centre, this far left of the phone body. */
+const CAPTION_OFFSET = ref(44);
 /**
  * The iOS status bar (with the Dynamic Island) as a share of the capture height:
- * 186 px of a 2868 px iPhone 6.9" capture. A `tops` before part starts below it.
+ * 186 px of a 2868 px iPhone 6.9" capture. The before part starts below it.
  */
 export const STATUS_BAR_SHARE = 186 / 2868;
 /** Each part must keep at least this share of the screen, or it stops reading as a page. */
@@ -69,11 +68,8 @@ export interface CtaSpec extends Rect {
   label: string;
 }
 
-export type SplitMode = 'tops' | 'region';
-
 /** How a shot's screen is split; `cut` is where the after part ends, as a share of the screen height. */
 export interface SplitSpec {
-  mode: SplitMode;
   cut: number;
 }
 
@@ -110,10 +106,13 @@ export interface SplitPlacement extends SplitSpec {
   afterSlice: Slice;
   /** Rows of the before capture drawn in the bottom part. */
   beforeSlice: Slice;
-  /** The seam band, on the canvas, centred on the cut. */
+  /** The seam line, on the canvas, centred on the cut. */
   seam: Rect;
-  /** The tag row inside the band: left inset from the band edge, and pill height. */
-  tags: { inset: number; height: number };
+  /**
+   * The rotated captions' footprints on the canvas (a narrow column left of the
+   * phone, each as tall as its part), and their type size.
+   */
+  captions: { after: Rect; before: Rect; fontSize: number };
 }
 
 export interface Layout {
@@ -185,25 +184,37 @@ function placePhone(
 function placeSplit(
   split: SplitSpec,
   capture: PixelSize,
-  screen: Rect,
+  placement: PhonePlacement,
   px: (f: number) => number,
 ): SplitPlacement {
+  const { screen, phone } = placement;
   const cutPx = Math.round(capture.height * split.cut);
-  const tagH = px(TAG_HEIGHT);
-  const bandH = tagH + 2 * px(BAND_PAD);
+  const lineH = px(SEAM_LINE);
   const seamY = screen.y + Math.round((screen.height * cutPx) / capture.height);
-  const bandTop = seamY - Math.round(bandH / 2);
-  // A `tops` before part starts under its status bar; the band's lower half then
-  // falls on status-bar rows, so it covers none of the before page.
-  const halfBandRows = Math.round(((seamY - bandTop) * capture.height) / screen.height);
+  const lineTop = seamY - Math.round(lineH / 2);
+  // The before part starts under its status bar; the line's lower half falls on
+  // status-bar rows, so it covers none of the before page.
+  const halfLineRows = Math.round(((seamY - lineTop) * capture.height) / screen.height);
   const statusBar = Math.round(capture.height * STATUS_BAR_SHARE);
-  const beforeTop = split.mode === 'tops' ? Math.max(0, statusBar - halfBandRows) : cutPx;
+  const fontSize = px(CAPTION_SIZE);
+  const column = Math.round(fontSize * CAPTION_LEADING);
+  const columnX = phone.x - px(CAPTION_OFFSET) - Math.round(column / 2);
+  const screenBottom = screen.y + screen.height;
   return {
     ...split,
     afterSlice: { y: 0, height: cutPx },
-    beforeSlice: { y: beforeTop, height: capture.height - cutPx },
-    seam: { x: screen.x, y: bandTop, width: screen.width, height: bandH },
-    tags: { inset: px(TAG_INSET), height: tagH },
+    beforeSlice: { y: Math.max(0, statusBar - halfLineRows), height: capture.height - cutPx },
+    seam: { x: screen.x, y: lineTop, width: screen.width, height: lineH },
+    captions: {
+      after: { x: columnX, y: screen.y, width: column, height: lineTop - screen.y },
+      before: {
+        x: columnX,
+        y: lineTop + lineH,
+        width: column,
+        height: screenBottom - lineTop - lineH,
+      },
+      fontSize,
+    },
   };
 }
 
@@ -239,7 +250,7 @@ export function computeLayout(input: LayoutInput): Layout {
       lines: headlineLines,
     },
     phone,
-    split: placeSplit(input.split, capture, phone.screen, px),
+    split: placeSplit(input.split, capture, phone, px),
     cta: input.cta,
   };
 }
@@ -338,6 +349,24 @@ function assertHeadline(layout: Layout): void {
   }
 }
 
+/** The captions stand on the ground: inside the canvas, clear of the phone and the headline. */
+function assertCaptions(layout: Layout): void {
+  const { captions } = layout.split;
+  for (const rect of [captions.after, captions.before]) {
+    const clash =
+      rect.x < 0 ||
+      overlapArea(rect, layout.phone.phone) > OVERLAP_EPSILON ||
+      overlapArea(rect, layout.headline) > OVERLAP_EPSILON;
+    if (clash) {
+      fail(
+        'caption-room',
+        `a seam caption at x ${rect.x}..${rect.x + rect.width} has no room on the ground ` +
+          `left of the phone (body from x ${layout.phone.phone.x})`,
+      );
+    }
+  }
+}
+
 /** An ad CTA may sit on the ground only: both halves of the screen are content. */
 function assertCta(layout: Layout): void {
   const { cta, phone } = layout;
@@ -353,6 +382,7 @@ export function assertLayout(layout: Layout): void {
   assertPhone(layout);
   assertGaps(layout);
   assertSplit(layout);
+  assertCaptions(layout);
   assertHeadline(layout);
   assertCta(layout);
 }

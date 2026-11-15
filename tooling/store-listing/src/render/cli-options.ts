@@ -68,7 +68,6 @@ export function shotMeasurement(layout: Layout, real: PhoneMeasurement): Record<
     screenMeasuredWidthPx: real.screen.width,
     top: phone.phone.y,
     split: {
-      mode: split.mode,
       cut: split.cut,
       afterRows: split.afterSlice,
       beforeRows: split.beforeSlice,

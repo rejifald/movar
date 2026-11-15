@@ -13,7 +13,7 @@ import type { GroundTone } from './palette.js';
 import type { CtaSpec } from './layout.js';
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- visual proportions
- * (shadow, rim gradient, tags) are drawing data, expressed as fractions of
+ * (shadow, rim gradient, captions) are drawing data, expressed as fractions of
  * the phone/canvas so they scale with it. */
 
 const abs = (rect: Rect, extra: CSSProperties = {}): CSSProperties => ({
@@ -113,7 +113,7 @@ export function Phone(props: {
   );
 }
 
-/** The seam band: the ink of the light palette, dark on any page. */
+/** The seam line: the ink of the light palette, dark on any page. */
 const SEAM_COLOR = '#1c1917';
 
 export interface SplitTagLabels {
@@ -123,88 +123,79 @@ export interface SplitTagLabels {
   before: string;
 }
 
-// lucide `arrow-up` / `arrow-down` (inlined: `lucide` is not a dependency of this package).
-const ARROW_PATHS = {
-  up: ['m5 12 7-7 7 7', 'M12 19V5'],
-  down: ['M12 5v14', 'm19 12-7 7-7-7'],
-} as const;
-
-function Tag(props: {
-  height: number;
+/** One caption, rotated to read bottom-up, centred in its footprint on the ground. */
+function Caption(props: {
+  rect: Rect;
+  fontSize: number;
   label: string;
-  arrow: keyof typeof ARROW_PATHS;
-  fill: string;
+  dot: string;
+  ink: string;
 }): ReactElement {
-  const { height, label, arrow, fill } = props;
-  const glyph = Math.round(height * 0.5);
+  const { rect, fontSize, label, dot, ink } = props;
+  const dotSize = Math.round(fontSize * 0.55);
+  // Laid out horizontally in a box the footprint's size turned on its side, then rotated about its centre.
+  const box: Rect = {
+    x: Math.round(rect.x + rect.width / 2 - rect.height / 2),
+    y: Math.round(rect.y + rect.height / 2 - rect.width / 2),
+    width: rect.height,
+    height: rect.width,
+  };
   return h(
     'div',
     {
-      style: {
-        display: 'flex',
+      style: abs(box, {
         alignItems: 'center',
-        height,
-        marginRight: Math.round(height * 0.3),
-        paddingLeft: Math.round(height * 0.42),
-        paddingRight: Math.round(height * 0.34),
-        borderRadius: height / 2,
-        backgroundColor: fill,
+        justifyContent: 'center',
+        transform: 'rotate(-90deg)',
         fontFamily: DISPLAY_FAMILY,
         fontWeight: 800,
-        fontSize: Math.round(height * 0.52),
-        color: '#ffffff',
-      },
+        fontSize,
+        letterSpacing: '0.06em',
+        color: ink,
+      }),
     },
-    h('div', { style: { display: 'flex', marginRight: Math.round(height * 0.16) } }, label),
-    h(
-      'svg',
-      {
-        width: glyph,
-        height: glyph,
-        viewBox: '0 0 24 24',
-        fill: 'none',
-        xmlns: 'http://www.w3.org/2000/svg',
+    h('div', {
+      style: {
+        display: 'flex',
+        width: dotSize,
+        height: dotSize,
+        borderRadius: dotSize / 2,
+        backgroundColor: dot,
+        marginRight: Math.round(fontSize * 0.4),
       },
-      ...ARROW_PATHS[arrow].map((d) =>
-        h('path', {
-          key: d,
-          d,
-          stroke: '#ffffff',
-          strokeWidth: 2.6,
-          strokeLinecap: 'round',
-          strokeLinejoin: 'round',
-          fill: 'none',
-        }),
-      ),
-    ),
+    }),
+    h('div', { style: { display: 'flex' } }, label.toLocaleUpperCase()),
   );
 }
 
-/** Seam band (Movar on above it, off below) carrying "with Movar ↑" and "without ↓". */
-export function Seam(props: { layout: Layout; labels: SplitTagLabels }): ReactElement {
-  const { seam, tags } = props.layout.split;
+/** The seam line across the screen, and the two captions on the ground beside their parts. */
+export function Seam(props: {
+  layout: Layout;
+  labels: SplitTagLabels;
+  tone: GroundTone;
+}): ReactElement {
+  const { seam, captions } = props.layout.split;
+  const palette = PALETTE[props.tone];
+  const { canvas } = props.layout;
   return h(
     'div',
-    {
-      style: abs(seam, {
-        alignItems: 'center',
-        paddingLeft: tags.inset,
-        backgroundColor: SEAM_COLOR,
-      }),
-    },
-    h(Tag, {
+    { style: abs({ x: 0, y: 0, width: canvas.width, height: canvas.height }) },
+    h('div', { key: 'line', style: abs(seam, { backgroundColor: SEAM_COLOR }) }),
+    h(Caption, {
       key: 'after',
-      height: tags.height,
+      rect: captions.after,
+      fontSize: captions.fontSize,
       label: props.labels.after,
-      arrow: 'up',
-      fill: ACCENT,
+      dot: ACCENT,
+      ink: palette.ink,
     }),
-    h(Tag, {
+    h(Caption, {
       key: 'before',
-      height: tags.height,
+      rect: captions.before,
+      fontSize: captions.fontSize,
       label: props.labels.before,
-      arrow: 'down',
-      fill: '#3f3c39',
+      dot: palette.captionDot,
+      ink: palette.ink,
     }),
   );
 }

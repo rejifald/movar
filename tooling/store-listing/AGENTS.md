@@ -35,11 +35,13 @@ machine you own, then pass `--local-proxy-already-set`.
   2026-11-15; replaced B1).** Both are real captures of the same mock page from one run:
   `<id>-before.png` with the extension still off, `<id>.png` with Movar on. One whole phone,
   centred, 84 px above the bottom; the after capture fills the screen above the seam, the before
-  capture below it, both undimmed. The seam is a dark band carrying the «З Моваром ↑» /
-  «Без Мовара ↓» tags at its left edge, so no tag covers page content. Each shot picks its split
-  in `listing.config.ts`: `tops` (each part from its own page top: the same opening lines in two
-  languages, the before part starting under its status bar) or `region` (both parts from the
-  same rows, for a page whose top is the same in both states: YouTube, cut through the curtain).
+  capture below it, both undimmed. Every shot splits at exactly half (`cut: 0.5`), each part
+  from its own page top (the same opening lines in two languages; the before part starts under
+  its status bar). Half or no split at all: no region cuts (owner, 2026-11-15). The seam is a thin
+  dark line; the captions «● З МОВАРОМ» (accent dot) / «● БЕЗ МОВАРА» (`ink-soft` dot) stand
+  rotated on the ground left of the phone, each beside its own part, so nothing covers the
+  screen (separator direction C, owner 2026-11-15). YouTube's after taps the curtain's real
+  «Приховати всі», so the Ukrainian video moves up into the Russian one's slot.
   The logo sits at the same height on every image; the headline sits tight above the phone.
 - **The before gate is dimmed, never blurred** (owner, 2026-11-15): the language gate on
   `tochka24.example` must leave the Russian page readable behind it.
@@ -57,7 +59,8 @@ machine you own, then pass `--local-proxy-already-set`.
   The phone is shown whole. 84 px min side gap at 1320.
 - **Guards fail the render:** picture > 0.5 % off its PNG ratio, body > 0.5 % off the device,
   side gap below the minimum, phone not whole, a split part under a quarter of the screen (or a
-  before slice past its capture), before/after captures of different sizes, CTA over the phone,
+  before slice past its capture), a seam caption with no room on the ground beside the phone,
+  before/after captures of different sizes, CTA over the phone,
   headline over 3 lines or into the logo, the logo moving between shots. `measure.ts` re-measures the PNG in pixels; trust that, not the layout numbers.
 - **Byte-stable:** Satori + resvg, fonts from local files only (`src/render/fonts/`, Fixel OTF
   decoded from `packages/fonts`), `loadSystemFonts: false`.

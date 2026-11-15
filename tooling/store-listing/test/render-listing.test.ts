@@ -21,7 +21,7 @@ describe('the listing as a set', () => {
   });
 
   it('splits every shot at exactly half, each part from its own page top', () => {
-    for (const shot of LISTING) expect(shot.split).toEqual({ mode: 'tops', cut: 0.5 });
+    for (const shot of LISTING) expect(shot.split).toEqual({ cut: 0.5 });
   });
 
   for (const locale of ['uk', 'en'] as const satisfies readonly Locale[]) {

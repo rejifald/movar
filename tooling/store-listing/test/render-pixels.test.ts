@@ -10,7 +10,7 @@ import {
 
 const TIMEOUT = 120_000;
 const SPLIT = {
-  split: { mode: 'tops', cut: 0.47 },
+  split: { cut: 0.47 },
   tags: { after: 'З Моваром', before: 'Без Мовара' },
 } as const;
 
@@ -183,7 +183,7 @@ describe('rendered pixels', () => {
       };
       expect(await pixel(split.seam.y - 40)).toEqual([0x3b, 0x82, 0xf6]);
       expect(await pixel(split.seam.y + split.seam.height + 40)).toEqual([0xef, 0x44, 0x44]);
-      // The band itself is the dark seam colour.
+      // The line itself is the dark seam colour.
       const [r = 0] = await pixel(split.seam.y + Math.round(split.seam.height / 2));
       expect(r).toBeLessThan(40);
     },

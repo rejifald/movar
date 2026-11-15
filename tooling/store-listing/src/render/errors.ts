@@ -8,6 +8,7 @@ export type GuardCode =
   | 'capture-mismatch'
   | 'phone-clipped'
   | 'split-cut'
+  | 'caption-room'
   | 'headline-overlap'
   | 'logo-drift';
 

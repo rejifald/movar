@@ -55,7 +55,8 @@ machine you own, then pass `--local-proxy-already-set`.
 - Maestro needs Java 17+; `maestro.ts` falls back to Homebrew's openjdk. Under heavy load the
   driver can time out; `MAESTRO_DRIVER_STARTUP_TIMEOUT` is raised.
 - Safari's first-run tip hides the page from the accessibility tree: every shot flow runs
-  `_dismiss-tips.yaml` before asserting.
+  `_dismiss-tips.yaml` before asserting. It closes the tip by its ✕ id (`xmark.circle.fill`) in
+  a loop until `TipView` is gone; one position tap during the entry animation can miss.
 - Shot assertions match **accessibility labels** (e.g. «Мовар: приховано вміст…»), not visible
   text. `test/capture-shots.test.ts` pins them to the extension's own strings.
 - Never touch a simulator this script didn't create: every throwaway sim is named

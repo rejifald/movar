@@ -66,22 +66,33 @@ jobs:
           xcodebuild -version
           xcrun simctl list runtimes available
 
-      # Maestro from its vendor tap (it brings its own OpenJDK, which
-      # capture/maestro.ts finds when the system java is too old). Always the
-      # fully qualified name: a bare `brew install maestro` resolves to an
-      # unrelated cask (Maestro.app) and leaves no `maestro` on PATH. A tap
-      # cannot pin a version, so the step FAILS on drift instead of silently
-      # running another.
-      # TODO(owner): to hard-pin, switch to the official release zip with a sha256.
+      # Maestro hard-pinned to its official release zip, checked by sha256 (the
+      # same URL + hash as the vendor tap's 2.11.0 formula, the version the
+      # flows were verified on). Not Homebrew: a bare `brew install maestro` is
+      # an unrelated cask, and the tap only ever serves the latest release.
+      # Maestro needs Java 17+; the runner's own JDK 21 goes on PATH.
       - name: Install Maestro
         env:
-          MAESTRO_EXPECTED: '2.11.0'
+          MAESTRO_VERSION: '2.11.0'
+          MAESTRO_SHA256: '5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a'
         run: |
           set -euo pipefail
-          brew install mobile-dev-inc/tap/maestro
+          dir="$RUNNER_TEMP/maestro"
+          curl -fsSL -o "$RUNNER_TEMP/maestro.zip" \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/cli-$MAESTRO_VERSION/maestro.zip"
+          echo "$MAESTRO_SHA256  $RUNNER_TEMP/maestro.zip" | shasum -a 256 -c -
+          mkdir -p "$dir" && unzip -q "$RUNNER_TEMP/maestro.zip" -d "$dir"
+          echo "$dir/maestro/bin" >> "$GITHUB_PATH"
+          java_home="${JAVA_HOME_21_arm64:-${JAVA_HOME_21_X64:-}}"
+          if [ -n "$java_home" ]; then
+            echo "JAVA_HOME=$java_home" >> "$GITHUB_ENV"
+            echo "$java_home/bin" >> "$GITHUB_PATH"
+          fi
+          PATH="$dir/maestro/bin:${java_home:+$java_home/bin:}$PATH"
+          java -version
           actual="$(maestro --version 2>/dev/null | tail -1)"
           echo "maestro $actual"
-          [ "$actual" = "$MAESTRO_EXPECTED" ] || { echo "::error::Maestro $actual != pinned $MAESTRO_EXPECTED — review, then bump MAESTRO_EXPECTED"; exit 1; }
+          [ "$actual" = "$MAESTRO_VERSION" ] || { echo "::error::Maestro $actual != pinned $MAESTRO_VERSION"; exit 1; }
 
       # One build, both locales (--reuse-build). CI=true is already set by Actions;
       # it is what allows run.ts to change the runner's system proxy.

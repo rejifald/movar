@@ -39,7 +39,9 @@ machine you own, then pass `--local-proxy-already-set`.
   A frame run with a capture missing fails (pass the locale folder, `captures/uk`).
 - **Phone:** `phoneShape(screenWidth, device)` in `src/render/devices.ts` is the only source of
   rim, bezel and radii (edge ≈ 3.5 % of screen width; iPhone 17 Pro Max body 78.0 × 163.4 mm).
-  Shrink the screen to fit, never thin the bezel. No Dynamic Island on App Store shots.
+  Shrink the screen to fit, never thin the bezel. The renderer draws no Dynamic Island on App
+  Store shots, but iOS 26 bakes the real island into the simulator capture, and that one stays:
+  it is real UI, and removing it would be an edited screenshot (owner, 2026-11-15).
   Anchored to the bottom; only Safari's bottom toolbar strip may be cropped; 84 px min side gap
   at 1320.
 - **Guards fail the render:** picture > 0.5 % off its PNG ratio, body > 0.5 % off the device,

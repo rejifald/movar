@@ -38,7 +38,8 @@ export interface ShotSpec {
   /** Background image path (PNG/JPG), drawn cover-fit. Flat token colour when absent. */
   background?: string | undefined;
   headline: string;
-  /** Dynamic Island on the screen. Off for App Store shots. */
+  /** Draw a Dynamic Island on the screen. Off for App Store shots: an iOS 26 capture already
+   *  carries the real island, which is kept (never painted out). */
   island?: boolean | undefined;
   /** Largest share of the screen height the canvas bottom may cut off. Default 0.09. */
   maxBottomCropFraction?: number | undefined;

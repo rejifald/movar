@@ -3,12 +3,14 @@ import {
   assertLayout,
   assertSameLogo,
   computeLayout,
+  MIN_PART_SHARE,
+  STATUS_BAR_SHARE,
   RenderGuardError,
   resolveDevice,
-  toolbarStrip,
   type CtaSpec,
   type Layout,
   type PhonePlacement,
+  type SplitSpec,
 } from '../src/render/index.js';
 
 const captures = {
@@ -25,7 +27,7 @@ const canvases = [
 
 interface Extra {
   cta?: CtaSpec;
-  maxBottomCropFraction?: number;
+  split?: SplitSpec;
   headlineLines?: number;
   screenWidth?: number;
   beforeCapture?: { width: number; height: number };
@@ -41,8 +43,8 @@ function layoutFor(
     capture,
     beforeCapture: extra.beforeCapture,
     device: resolveDevice(capture.width, capture.height),
+    split: extra.split ?? { mode: 'tops', cut: 0.47 },
     headlineLines: extra.headlineLines ?? 2,
-    maxBottomCropFraction: extra.maxBottomCropFraction,
     screenWidth: extra.screenWidth,
     cta: extra.cta,
   });
@@ -67,29 +69,28 @@ function expectTruePhone(placement: PhonePlacement, capture: { width: number; he
   expect((shape.edge / shape.screenWidth) * 100).toBeCloseTo(3.5, 0);
 }
 
-describe('B1 layout across captures and canvases', () => {
+describe('halves layout across captures and canvases', () => {
   for (const [name, capture] of Object.entries(captures)) {
     for (const canvas of canvases) {
       it(`${name} ${capture.width}x${capture.height} on ${canvas.width}x${canvas.height}`, () => {
         const layout = layoutFor(capture, canvas);
-        // A before phone that cannot run off the bottom cleanly is refused, never faked.
-        const code = codeOf(() => assertLayout(layout));
-        expect([undefined, 'bezel-visible', 'bottom-crop']).toContain(code);
-        if (code !== undefined) return;
-        const { after, before, minSideGap } = layout;
-        expectTruePhone(after, capture);
-        expectTruePhone(before, capture);
-        // After: whole, inside the canvas, right gap and bottom gap at the minimum.
-        expect(canvas.width - after.phone.x - after.phone.width).toBe(minSideGap);
-        expect(canvas.height - after.phone.y - after.phone.height).toBe(minSideGap);
-        // Before: left-aligned, smaller, lower, runs off the bottom past its corners.
-        expect(before.phone.x).toBe(minSideGap);
-        expect(before.screen.width).toBe(Math.round(after.screen.width * 0.9));
-        expect(before.phone.y).toBeGreaterThan(after.phone.y);
-        expect(before.crop.px).toBeGreaterThanOrEqual(before.shape.screenRadius - 0.5);
-        expect(before.crop.fraction).toBeLessThanOrEqual(layout.maxBottomCropFraction);
-        // Headline sits tight above the after phone.
-        expect(layout.headline.y + layout.headline.height).toBeLessThan(after.phone.y);
+        expect(codeOf(() => assertLayout(layout))).toBeUndefined();
+        const { phone, minSideGap } = layout;
+        expectTruePhone(phone, capture);
+        // One phone: whole, centred, the minimum gap off the bottom.
+        const left = phone.phone.x;
+        const right = canvas.width - phone.phone.x - phone.phone.width;
+        expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+        expect(Math.min(left, right)).toBeGreaterThanOrEqual(minSideGap - 1);
+        expect(canvas.height - phone.phone.y - phone.phone.height).toBe(minSideGap);
+        // The seam band spans the screen and is centred on the cut.
+        const { seam } = layout.split;
+        expect(seam.x).toBe(phone.screen.x);
+        expect(seam.width).toBe(phone.screen.width);
+        const cutY = phone.screen.y + phone.screen.height * 0.47;
+        expect(Math.abs(seam.y + seam.height / 2 - cutY)).toBeLessThanOrEqual(2);
+        // Headline sits tight above the phone.
+        expect(layout.headline.y + layout.headline.height).toBeLessThan(phone.phone.y);
       });
     }
   }
@@ -97,12 +98,36 @@ describe('B1 layout across captures and canvases', () => {
   it('App Store canvas: the owner-approved numbers', () => {
     const layout = layoutFor(captures.iphone, canvases[0]);
     expect(layout.minSideGap).toBe(84);
-    expect(layout.after.screen.width).toBe(820);
-    expect(layout.before.screen.width).toBe(738);
-    expect(layout.after.phone.y + layout.after.phone.height).toBe(2868 - 84);
-    expect(layout.before.phone.y - layout.after.phone.y).toBe(420);
+    expect(layout.phone.screen.width).toBe(940);
+    expect(layout.phone.phone.y + layout.phone.phone.height).toBe(2868 - 84);
     expect(layout.logo.y).toBe(72);
-    expect(layout.headline.y + layout.headline.height + 48).toBe(layout.after.phone.y);
+    expect(layout.headline.y + layout.headline.height + 48).toBe(layout.phone.phone.y);
+  });
+
+  it('tops: each part from its own page top; the band covers only the before status bar', () => {
+    const { split, capture, phone } = layoutFor(captures.iphone, canvases[0]);
+    const cutRows = Math.round(capture.height * 0.47);
+    expect(split.afterSlice).toEqual({ y: 0, height: cutRows });
+    expect(split.beforeSlice.height).toBe(capture.height - cutRows);
+    // The band's lower half, in capture rows, ends exactly where the before page starts.
+    const halfBandRows =
+      ((split.seam.y +
+        split.seam.height -
+        (phone.screen.y + (phone.screen.height * cutRows) / capture.height)) *
+        capture.height) /
+      phone.screen.height;
+    expect(
+      Math.abs(split.beforeSlice.y + halfBandRows - Math.round(capture.height * STATUS_BAR_SHARE)),
+    ).toBeLessThanOrEqual(3);
+  });
+
+  it('region: both parts from the same rows, cut at one line', () => {
+    const { split, capture } = layoutFor(captures.iphone, canvases[0], {
+      split: { mode: 'region', cut: 0.705 },
+    });
+    const cutRows = Math.round(capture.height * 0.705);
+    expect(split.afterSlice).toEqual({ y: 0, height: cutRows });
+    expect(split.beforeSlice).toEqual({ y: cutRows, height: capture.height - cutRows });
   });
 
   it('the logo stays put and the headline hugs the phone, whatever the line count', () => {
@@ -110,7 +135,7 @@ describe('B1 layout across captures and canvases', () => {
       layoutFor(captures.iphone, canvases[0], { headlineLines }),
     );
     expect(one?.logo).toEqual(three?.logo);
-    expect(one?.after).toEqual(three?.after);
+    expect(one?.phone).toEqual(three?.phone);
     expect(one?.headline.y).toBeGreaterThan(three?.headline.y ?? Infinity);
     expect(codeOf(() => assertSameLogo([one, three].filter((l) => l !== undefined)))).toBe(
       undefined,
@@ -119,8 +144,8 @@ describe('B1 layout across captures and canvases', () => {
 
   it('shrinks the screen, never the bezel, when a 3-line headline would not fit', () => {
     const layout = layoutFor(captures.iphone, canvases[1]);
-    expect(layout.after.screen.width).toBeLessThan(Math.round((820 * 1080) / 1320));
-    expect(layout.after.shape.edge / layout.after.screen.width).toBeCloseTo(0.0351, 3);
+    expect(layout.phone.screen.width).toBeLessThan(Math.round((940 * 1080) / 1320));
+    expect(layout.phone.shape.edge / layout.phone.screen.width).toBeCloseTo(0.0351, 3);
     expect(
       codeOf(() => assertLayout(layoutFor(captures.iphone, canvases[1], { headlineLines: 3 }))),
     ).toBe(undefined);
@@ -133,7 +158,7 @@ describe('B1 layout across captures and canvases', () => {
 
 const base = (): Layout => layoutFor(captures.iphone, canvases[0]);
 
-function shift<P extends PhonePlacement>(placement: P, dx: number, dy = 0): P {
+function shift(placement: PhonePlacement, dx: number, dy = 0): PhonePlacement {
   return {
     ...placement,
     phone: { ...placement.phone, x: placement.phone.x + dx, y: placement.phone.y + dy },
@@ -147,85 +172,69 @@ describe('guards throw typed errors', () => {
     expect(codeOf(() => assertLayout(layout))).toBe('capture-mismatch');
   });
 
-  it('1: a picture more than 0.5 % off its source aspect, on either phone', () => {
+  it('1: a picture more than 0.5 % off its source aspect', () => {
     const layout = base();
-    for (const which of ['after', 'before'] as const) {
-      const squashed = {
-        ...layout,
-        [which]: {
-          ...layout[which],
-          screen: { ...layout[which].screen, height: layout[which].screen.height * 0.98 },
-        },
-      };
-      expect(codeOf(() => assertLayout(squashed))).toBe('picture-aspect');
-    }
+    const screen = { ...layout.phone.screen, height: layout.phone.screen.height * 0.98 };
+    expect(codeOf(() => assertLayout({ ...layout, phone: { ...layout.phone, screen } }))).toBe(
+      'picture-aspect',
+    );
   });
 
-  it('2: a phone body more than 0.5 % off the device ratio, on either phone', () => {
+  it('2: a phone body more than 0.5 % off the device ratio', () => {
     const layout = base();
-    for (const which of ['after', 'before'] as const) {
-      const thin = {
-        ...layout,
-        [which]: {
-          ...layout[which],
-          phone: { ...layout[which].phone, width: layout[which].phone.width - 40 },
-        },
-      };
-      expect(codeOf(() => assertLayout(thin))).toBe('phone-body-ratio');
-    }
+    const phone = { ...layout.phone.phone, width: layout.phone.phone.width - 40 };
+    expect(codeOf(() => assertLayout({ ...layout, phone: { ...layout.phone, phone } }))).toBe(
+      'phone-body-ratio',
+    );
   });
 
   it('3: a phone closer than the minimum gap to a side edge', () => {
     const layout = base();
-    expect(codeOf(() => assertLayout({ ...layout, after: shift(layout.after, 30) }))).toBe(
+    const room = layout.phone.phone.x - layout.minSideGap;
+    expect(codeOf(() => assertLayout({ ...layout, phone: shift(layout.phone, room + 10) }))).toBe(
       'side-gap',
     );
-    expect(codeOf(() => assertLayout({ ...layout, before: shift(layout.before, -40) }))).toBe(
-      'side-gap',
-    );
-    expect(
-      codeOf(() => assertLayout(layoutFor(captures.iphone, canvases[0], { screenWidth: 1250 }))),
-    ).toBe('side-gap');
   });
 
-  it('the after phone must stand whole, the minimum gap off the bottom', () => {
+  it('the phone must stand whole, the minimum gap off the bottom', () => {
     const layout = base();
-    expect(codeOf(() => assertLayout({ ...layout, after: shift(layout.after, 0, 40) }))).toBe(
+    expect(codeOf(() => assertLayout({ ...layout, phone: shift(layout.phone, 0, 40) }))).toBe(
       'phone-clipped',
     );
     expect(
       codeOf(() =>
-        assertLayout({ ...layout, after: shift(layout.after, 0, -layout.after.phone.y - 10) }),
+        assertLayout({ ...layout, phone: shift(layout.phone, 0, -layout.phone.phone.y - 10) }),
       ),
     ).toBe('phone-clipped');
   });
 
-  it('at least a quarter of the before phone shows left of the after phone', () => {
-    const layout = base();
-    const strip = (layout.after.phone.x - layout.before.phone.x) / layout.before.phone.width;
-    expect(strip).toBeGreaterThan(0.3);
-    const hidden = { ...layout, after: shift(layout.after, -120) };
-    expect(codeOf(() => assertLayout(hidden))).toBe('before-hidden');
+  it('each part keeps at least a quarter of the screen', () => {
+    for (const cut of [0.2, 0.8]) {
+      for (const mode of ['tops', 'region'] as const) {
+        const layout = layoutFor(captures.iphone, canvases[0], { split: { mode, cut } });
+        expect(codeOf(() => assertLayout(layout))).toBe('split-cut');
+      }
+    }
+    for (const cut of [MIN_PART_SHARE, 1 - MIN_PART_SHARE]) {
+      const layout = layoutFor(captures.iphone, canvases[0], { split: { mode: 'region', cut } });
+      expect(codeOf(() => assertLayout(layout))).toBeUndefined();
+    }
   });
 
-  it('4: a CTA over a phone; allowed over the ground, the toolbar strip, and the hidden part of the before phone', () => {
+  it('a before slice that reads past its capture is refused', () => {
     const layout = base();
-    const overAfter: CtaSpec = { x: 600, y: 1400, width: 400, height: 120, label: 'Get' };
-    expect(codeOf(() => assertLayout({ ...layout, cta: overAfter }))).toBe('cta-overlap');
-    const overBefore: CtaSpec = { x: 120, y: 2000, width: 150, height: 100, label: 'Get' };
-    expect(codeOf(() => assertLayout({ ...layout, cta: overBefore }))).toBe('cta-overlap');
+    const beforeSlice = { ...layout.split.beforeSlice, y: layout.capture.height - 100 };
+    expect(codeOf(() => assertLayout({ ...layout, split: { ...layout.split, beforeSlice } }))).toBe(
+      'split-cut',
+    );
+  });
+
+  it('4: a CTA over the phone; allowed on the ground', () => {
+    const layout = base();
+    const overPhone: CtaSpec = { x: 600, y: 1400, width: 400, height: 120, label: 'Get' };
+    expect(codeOf(() => assertLayout({ ...layout, cta: overPhone }))).toBe('cta-overlap');
     const ground: CtaSpec = { x: 84, y: 300, width: 400, height: 100, label: 'Get' };
     expect(codeOf(() => assertLayout({ ...layout, cta: ground }))).toBeUndefined();
-    const strip = toolbarStrip(layout);
-    expect(strip.height).toBeGreaterThan(0);
-    const inStrip: CtaSpec = {
-      x: strip.x + 100,
-      y: strip.y + 5,
-      width: 400,
-      height: strip.height - 10,
-      label: 'Get',
-    };
-    expect(codeOf(() => assertLayout({ ...layout, cta: inStrip }))).toBeUndefined();
   });
 
   it('5: headline wrapping to more than 3 lines, or running into the logo', () => {
@@ -238,28 +247,6 @@ describe('guards throw typed errors', () => {
     const layout = base();
     const high = { ...layout, headline: { ...layout.headline, y: layout.logo.y + 100 } };
     expect(codeOf(() => assertLayout(high))).toBe('headline-overlap');
-  });
-
-  it('6: before crop above the allowance, and bezel showing under the before screen', () => {
-    const layout = base();
-    const crop = (px: number, fraction: number): Layout => ({
-      ...layout,
-      before: { ...layout.before, crop: { px, fraction } },
-    });
-    expect(codeOf(() => assertLayout(crop(300, 0.13)))).toBe('bottom-crop');
-    expect(codeOf(() => assertLayout(crop(-20, -0.01)))).toBe('bezel-visible');
-    // Only the corner-radius sliver cut: the curve would still show.
-    expect(codeOf(() => assertLayout(crop(40, 0.025)))).toBe('bezel-visible');
-    // A landscape capture cannot run off the bottom: refused, not faked.
-    expect(codeOf(() => assertLayout(layoutFor({ width: 2868, height: 1320 }, canvases[0])))).toBe(
-      'bezel-visible',
-    );
-  });
-
-  it('maxBottomCropFraction is a per-shot parameter', () => {
-    const tight = layoutFor(captures.iphone, canvases[1], { maxBottomCropFraction: 0.07 });
-    expect(tight.before.crop.fraction).toBeLessThanOrEqual(0.07);
-    expect(codeOf(() => assertLayout(tight))).toBeUndefined();
   });
 
   it('a set whose logo moves between shots is refused', () => {

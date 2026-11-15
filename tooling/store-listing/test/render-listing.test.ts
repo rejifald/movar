@@ -6,6 +6,7 @@ import {
   assertSameLogo,
   LISTING,
   planShot,
+  SPLIT_TAGS,
 } from '../src/render/index.js';
 import type { Layout, Locale } from '../src/render/index.js';
 
@@ -16,6 +17,12 @@ describe('the listing as a set', () => {
     for (const shot of LISTING) {
       expect(shot.capture).toBe(`${shot.id}.png`);
       expect(shot.before).toBe(`${shot.id}-before.png`);
+    }
+  });
+
+  it('splits youtube through the curtain (region) and every other shot from its page tops', () => {
+    for (const shot of LISTING) {
+      expect(shot.split.mode).toBe(shot.id === 'youtube' ? 'region' : 'tops');
     }
   });
 
@@ -34,6 +41,8 @@ describe('the listing as a set', () => {
             canvas: APP_STORE_CANVAS,
             capture: png,
             before: png,
+            split: shot.split,
+            tags: SPLIT_TAGS[locale],
             ground: shot.ground,
             headline: shot.headline[locale],
           });
@@ -43,7 +52,7 @@ describe('the listing as a set', () => {
         expect(() => assertSameLogo(layouts)).not.toThrow();
         expect(new Set(layouts.map((layout) => layout.logo.y)).size).toBe(1);
         // Headlines of different lengths still sit tight above the same phone.
-        expect(new Set(layouts.map((layout) => layout.after.phone.y)).size).toBe(1);
+        expect(new Set(layouts.map((layout) => layout.phone.phone.y)).size).toBe(1);
       },
       TIMEOUT,
     );

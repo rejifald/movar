@@ -2,12 +2,22 @@
  * Pure geometry: where everything goes on a canvas, and the guards that refuse
  * a layout that breaks a hard rule. Nothing here touches Satori or pixels.
  *
- * The B1 composition (owner, 2026-11-15): two real captures of the same screen.
- * The AFTER phone (Movar on) stands whole, in front, right-aligned and lifted off
- * the bottom by the side gap. The BEFORE phone (Movar off) stands behind it,
- * smaller and muted, left-aligned, dropped so it runs off the canvas bottom.
- * The logo sits at one fixed y on every shot; the headline sits tight above the
- * after phone, and any spare height goes between the logo and the headline.
+ * The halves composition (owner, 2026-11-15): ONE whole phone, centred, standing
+ * on the bottom gap. Its screen is split across by a seam: the top part is the
+ * AFTER capture (Movar on), the bottom part the BEFORE capture (Movar off), both
+ * undimmed. Each shot picks how the before part is sourced (`SplitSpec.mode`):
+ *
+ * - `tops`: each part shows its own page from the top, so the reader compares
+ *   the same opening lines in two languages (the before part starts under the
+ *   status bar, which the after part already shows).
+ * - `region`: both parts show the same screen region, cut at one line, for a
+ *   page whose top is identical in both states (YouTube's feed): the cut runs
+ *   through the card Movar conceals.
+ *
+ * The seam is a dark band across the screen carrying both tags at its left edge,
+ * "with Movar ↑" then "without ↓", so no tag covers page content. The
+ * logo sits at one fixed y on every shot; the headline sits tight above the
+ * phone, and any spare height goes between the logo and the headline.
  */
 import { RenderGuardError } from './errors.js';
 import { phoneShape } from './devices.js';
@@ -23,29 +33,27 @@ const REFERENCE_WIDTH = 1320;
 const ref = (px: number): number => px / REFERENCE_WIDTH;
 
 const MIN_SIDE_GAP = ref(84);
-/** The after phone's screen width (owner's B1 draft: 820 px at 1320). */
-const AFTER_SCREEN = ref(820);
-/** The before screen is this share of the after screen. */
-const BEFORE_SCALE = 0.9;
-/** The before phone's top sits this far below the after phone's top. */
-const BEFORE_DROP = ref(420);
-/**
- * Share of the before body that must stay visible left of the after phone. Below
- * a quarter the before phone reads as a grey sliver, not as the same page with
- * Movar off: the leading (left) column of the page, where the reader compares the
- * two, is gone. At 1320 the layout leaves ~35 %.
- */
-const MIN_BEFORE_STRIP = 0.25;
+/** The phone's screen width (owner's halves draft: 940 px at 1320). */
+const SCREEN_WIDTH = ref(940);
 const HEADLINE_FONT_SIZE = ref(98);
 export const HEADLINE_LINE_HEIGHT = 1.08;
 export const MAX_HEADLINE_LINES = 3;
-const DEFAULT_MAX_BOTTOM_CROP = 0.09;
-const CORNER_MARGIN = ref(6);
 const GAP_TO_PHONE = ref(48);
 const TOP_PAD = ref(72);
 const LOGO_MARK = ref(84);
 /** Minimum logo-to-headline gap; the spare height of a short headline lands here. */
 const LOGO_TO_HEADLINE = ref(60);
+const TAG_HEIGHT = ref(48);
+/** Band padding around the tags, and their inset from the screen's left edge. */
+const BAND_PAD = ref(12);
+const TAG_INSET = ref(24);
+/**
+ * The iOS status bar (with the Dynamic Island) as a share of the capture height:
+ * 186 px of a 2868 px iPhone 6.9" capture. A `tops` before part starts below it.
+ */
+export const STATUS_BAR_SHARE = 186 / 2868;
+/** Each part must keep at least this share of the screen, or it stops reading as a page. */
+export const MIN_PART_SHARE = 0.25;
 const ASPECT_TOLERANCE = 0.005;
 const BODY_RATIO_TOLERANCE = 0.005;
 const OVERLAP_EPSILON = 0.5;
@@ -61,6 +69,14 @@ export interface CtaSpec extends Rect {
   label: string;
 }
 
+export type SplitMode = 'tops' | 'region';
+
+/** How a shot's screen is split; `cut` is where the after part ends, as a share of the screen height. */
+export interface SplitSpec {
+  mode: SplitMode;
+  cut: number;
+}
+
 export interface LayoutInput {
   canvas: PixelSize;
   /** The after capture (Movar on). */
@@ -68,11 +84,10 @@ export interface LayoutInput {
   /** The before capture (Movar off). Defaults to the after's size. */
   beforeCapture?: PixelSize | undefined;
   device: DeviceProfile;
+  split: SplitSpec;
   /** Lines the headline wraps to at `headlineWidth` (measured, not guessed). */
   headlineLines: number;
-  /** Largest share of the BEFORE screen the canvas bottom may cut off. Default 0.09. */
-  maxBottomCropFraction?: number | undefined;
-  /** Force the after screen width (tests of the guards; normally derived). */
+  /** Force the screen width (tests of the guards; normally derived). */
   screenWidth?: number | undefined;
   cta?: CtaSpec | undefined;
 }
@@ -84,9 +99,21 @@ export interface PhonePlacement {
   screen: Rect;
 }
 
-export interface BeforePlacement extends PhonePlacement {
-  /** How much of the screen the canvas bottom cuts off. */
-  crop: { px: number; fraction: number };
+/** A horizontal slice of a capture, in capture pixels. */
+export interface Slice {
+  y: number;
+  height: number;
+}
+
+export interface SplitPlacement extends SplitSpec {
+  /** Rows of the after capture drawn in the top part. */
+  afterSlice: Slice;
+  /** Rows of the before capture drawn in the bottom part. */
+  beforeSlice: Slice;
+  /** The seam band, on the canvas, centred on the cut. */
+  seam: Rect;
+  /** The tag row inside the band: left inset from the band edge, and pill height. */
+  tags: { inset: number; height: number };
 }
 
 export interface Layout {
@@ -96,13 +123,11 @@ export interface Layout {
   device: DeviceProfile;
   minSideGap: number;
   minLogoGap: number;
-  maxBottomCropFraction: number;
   logo: { x: number; y: number; markSize: number; fontSize: number };
   headline: Rect & { fontSize: number; lineHeight: number; lines: number };
-  /** Movar on: whole, in front, inside the canvas. */
-  after: PhonePlacement;
-  /** Movar off: behind, smaller, runs off the canvas bottom. */
-  before: BeforePlacement;
+  /** The one phone: whole, centred, inside the canvas. */
+  phone: PhonePlacement;
+  split: SplitPlacement;
   cta: CtaSpec | undefined;
 }
 
@@ -115,45 +140,12 @@ export function headlineFontSize(canvasWidth: number): number {
   return Math.round(canvasWidth * HEADLINE_FONT_SIZE);
 }
 
-interface Frame {
-  shape: PhoneShape;
-  edge: number;
-  screenH: number;
-  bodyW: number;
-  bodyH: number;
-}
-
-/** A phone around a screen of `screenW`, drawn at the capture's own ratio. */
-function frameFor(screenW: number, capture: PixelSize, device: DeviceProfile): Frame {
-  const shape = phoneShape(screenW, device);
-  const edge = Math.round(shape.edge);
-  const screenH = Math.round((screenW * capture.height) / capture.width);
-  return { shape, edge, screenH, bodyW: screenW + 2 * edge, bodyH: screenH + 2 * edge };
-}
-
-function placeAt(frame: Frame, x: number, y: number): PhonePlacement {
-  return {
-    shape: frame.shape,
-    phone: { x, y, width: frame.bodyW, height: frame.bodyH },
-    screen: {
-      x: x + frame.edge,
-      y: y + frame.edge,
-      width: frame.shape.screenWidth,
-      height: frame.screenH,
-    },
-  };
-}
-
 /**
- * The after screen: the owner's width, shrunk (never the bezel) when even a
- * 3-line headline would not fit above the phone. Every headline gets the same
- * phone, so a set of shots lines up.
+ * The screen width: the owner's, shrunk (never the bezel) when even a 3-line
+ * headline would not fit above the phone. Every headline gets the same phone,
+ * so a set of shots lines up.
  */
-function afterScreenWidth(
-  input: LayoutInput,
-  px: (f: number) => number,
-  lineHeight: number,
-): number {
+function screenWidthFor(input: LayoutInput, px: (f: number) => number, lineHeight: number): number {
   const { canvas, capture } = input;
   const edgePerPx = phoneShape(1000, input.device).edge / 1000;
   const headroom =
@@ -164,28 +156,60 @@ function afterScreenWidth(
     px(GAP_TO_PHONE);
   const ratio = capture.height / capture.width;
   const heightLimit = (canvas.height - px(MIN_SIDE_GAP) - headroom) / (ratio + 2 * edgePerPx);
-  return Math.floor(input.screenWidth ?? Math.min(canvas.width * AFTER_SCREEN, heightLimit));
+  const widthLimit = (canvas.width - 2 * px(MIN_SIDE_GAP)) / (1 + 2 * edgePerPx);
+  return Math.floor(
+    input.screenWidth ?? Math.min(canvas.width * SCREEN_WIDTH, heightLimit, widthLimit),
+  );
 }
 
-/**
- * How far below the after phone's top the before phone starts: the owner's drop,
- * nudged only as far as needed to cut the before screen past its rounded corners
- * (or bezel shows under it) and within the crop allowance.
- */
-function beforeDrop(
-  nominal: number,
-  cropAtNominal: number,
-  wantedCrop: { min: number; max: number },
-): number {
-  const lo = nominal + wantedCrop.min - cropAtNominal;
-  const hi = nominal + wantedCrop.max - cropAtNominal;
-  return Math.min(Math.max(nominal, lo), hi);
+function placePhone(
+  input: LayoutInput,
+  screenW: number,
+  px: (f: number) => number,
+): PhonePlacement {
+  const { canvas, capture, device } = input;
+  const shape = phoneShape(screenW, device);
+  const edge = Math.round(shape.edge);
+  const screenH = Math.round((screenW * capture.height) / capture.width);
+  const bodyW = screenW + 2 * edge;
+  const bodyH = screenH + 2 * edge;
+  const x = Math.round((canvas.width - bodyW) / 2);
+  const y = canvas.height - px(MIN_SIDE_GAP) - bodyH;
+  return {
+    shape,
+    phone: { x, y, width: bodyW, height: bodyH },
+    screen: { x: x + edge, y: y + edge, width: shape.screenWidth, height: screenH },
+  };
+}
+
+function placeSplit(
+  split: SplitSpec,
+  capture: PixelSize,
+  screen: Rect,
+  px: (f: number) => number,
+): SplitPlacement {
+  const cutPx = Math.round(capture.height * split.cut);
+  const tagH = px(TAG_HEIGHT);
+  const bandH = tagH + 2 * px(BAND_PAD);
+  const seamY = screen.y + Math.round((screen.height * cutPx) / capture.height);
+  const bandTop = seamY - Math.round(bandH / 2);
+  // A `tops` before part starts under its status bar; the band's lower half then
+  // falls on status-bar rows, so it covers none of the before page.
+  const halfBandRows = Math.round(((seamY - bandTop) * capture.height) / screen.height);
+  const statusBar = Math.round(capture.height * STATUS_BAR_SHARE);
+  const beforeTop = split.mode === 'tops' ? Math.max(0, statusBar - halfBandRows) : cutPx;
+  return {
+    ...split,
+    afterSlice: { y: 0, height: cutPx },
+    beforeSlice: { y: beforeTop, height: capture.height - cutPx },
+    seam: { x: screen.x, y: bandTop, width: screen.width, height: bandH },
+    tags: { inset: px(TAG_INSET), height: tagH },
+  };
 }
 
 export function computeLayout(input: LayoutInput): Layout {
   const { canvas, capture, device, headlineLines } = input;
   const beforeCapture = input.beforeCapture ?? capture;
-  const maxCrop = input.maxBottomCropFraction ?? DEFAULT_MAX_BOTTOM_CROP;
   const W = canvas.width;
   const px = (fraction: number): number => Math.round(fraction * W);
   const gapSide = px(MIN_SIDE_GAP);
@@ -195,29 +219,7 @@ export function computeLayout(input: LayoutInput): Layout {
   const headlineHeight = headlineLines * lineHeight;
   const markSize = px(LOGO_MARK);
 
-  const afterFrame = frameFor(afterScreenWidth(input, px, lineHeight), capture, device);
-  const after = placeAt(
-    afterFrame,
-    W - gapSide - afterFrame.bodyW,
-    canvas.height - gapSide - afterFrame.bodyH,
-  );
-
-  const beforeFrame = frameFor(
-    Math.round(after.screen.width * BEFORE_SCALE),
-    beforeCapture,
-    device,
-  );
-  const nominalDrop = px(BEFORE_DROP);
-  const drop = beforeDrop(
-    nominalDrop,
-    after.phone.y + nominalDrop + beforeFrame.edge + beforeFrame.screenH - canvas.height,
-    {
-      min: Math.ceil(beforeFrame.shape.screenRadius + px(CORNER_MARGIN)),
-      max: Math.floor(maxCrop * beforeFrame.screenH),
-    },
-  );
-  const beforeAt = placeAt(beforeFrame, gapSide, after.phone.y + drop);
-  const cropPx = beforeAt.screen.y + beforeAt.screen.height - canvas.height;
+  const phone = placePhone(input, screenWidthFor(input, px, lineHeight), px);
 
   return {
     canvas,
@@ -226,19 +228,18 @@ export function computeLayout(input: LayoutInput): Layout {
     device,
     minSideGap: gapSide,
     minLogoGap: px(LOGO_TO_HEADLINE),
-    maxBottomCropFraction: maxCrop,
     logo: { x: gapSide, y: px(TOP_PAD), markSize, fontSize: Math.round(markSize * 0.7) },
     headline: {
       x: gapSide,
-      y: after.phone.y - px(GAP_TO_PHONE) - headlineHeight,
+      y: phone.phone.y - px(GAP_TO_PHONE) - headlineHeight,
       width: headlineWidth(W),
       height: headlineHeight,
       fontSize,
       lineHeight,
       lines: headlineLines,
     },
-    after,
-    before: { ...beforeAt, crop: { px: cropPx, fraction: cropPx / beforeAt.screen.height } },
+    phone,
+    split: placeSplit(input.split, capture, phone.screen, px),
     cta: input.cta,
   };
 }
@@ -247,24 +248,6 @@ function overlapArea(a: Rect, b: Rect): number {
   const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
   return w > 0 && h > 0 ? w * h : 0;
-}
-
-function intersection(a: Rect, b: Rect): Rect {
-  const x = Math.max(a.x, b.x);
-  const y = Math.max(a.y, b.y);
-  return {
-    x,
-    y,
-    width: Math.max(0, Math.min(a.x + a.width, b.x + b.width) - x),
-    height: Math.max(0, Math.min(a.y + a.height, b.y + b.height) - y),
-  };
-}
-
-/** The only part of a phone a CTA may cover: the after screen's bottom toolbar strip. */
-export function toolbarStrip(layout: Layout): Rect {
-  const { screen } = layout.after;
-  const strip = screen.height * layout.maxBottomCropFraction;
-  return { x: screen.x, y: screen.y + screen.height - strip, width: screen.width, height: strip };
 }
 
 function fail(code: ConstructorParameters<typeof RenderGuardError>[0], message: string): never {
@@ -281,13 +264,14 @@ function assertCaptures(layout: Layout): void {
   }
 }
 
-function assertPhone(layout: Layout, which: 'after' | 'before', capture: PixelSize): void {
-  const { screen, phone, shape } = layout[which];
+function assertPhone(layout: Layout): void {
+  const { capture } = layout;
+  const { screen, phone, shape } = layout.phone;
   const aspectOff = Math.abs(screen.width / screen.height / (capture.width / capture.height) - 1);
   if (aspectOff > ASPECT_TOLERANCE) {
     fail(
       'picture-aspect',
-      `${which} screen drawn ${screen.width}x${screen.height} is ${(aspectOff * 100).toFixed(2)}% ` +
+      `screen drawn ${screen.width}x${screen.height} is ${(aspectOff * 100).toFixed(2)}% ` +
         `off its ${capture.width}x${capture.height} source (limit ${ASPECT_TOLERANCE * 100}%)`,
     );
   }
@@ -296,36 +280,43 @@ function assertPhone(layout: Layout, which: 'after' | 'before', capture: PixelSi
   if (bodyOff > BODY_RATIO_TOLERANCE) {
     fail(
       'phone-body-ratio',
-      `${which} phone body ${phone.width}x${phone.height} (1:${bodyRatio.toFixed(3)}) is ` +
+      `phone body ${phone.width}x${phone.height} (1:${bodyRatio.toFixed(3)}) is ` +
         `${(bodyOff * 100).toFixed(2)}% off ${layout.device.label} (1:${shape.bodyRatio.toFixed(3)})`,
     );
   }
 }
 
 function assertGaps(layout: Layout): void {
-  const { after, before, canvas, minSideGap } = layout;
-  const side = Math.min(
-    before.phone.x,
-    after.phone.x,
-    canvas.width - (after.phone.x + after.phone.width),
-  );
+  const { phone, canvas, minSideGap } = layout;
+  const side = Math.min(phone.phone.x, canvas.width - (phone.phone.x + phone.phone.width));
   if (side < minSideGap - 1) {
-    fail('side-gap', `a phone is ${side} px from a side edge; minimum is ${minSideGap} px`);
+    fail('side-gap', `the phone is ${side} px from a side edge; minimum is ${minSideGap} px`);
   }
-  const bottom = canvas.height - (after.phone.y + after.phone.height);
-  if (bottom < minSideGap - 1 || after.phone.y < 0) {
+  const bottom = canvas.height - (phone.phone.y + phone.phone.height);
+  if (bottom < minSideGap - 1 || phone.phone.y < 0) {
     fail(
       'phone-clipped',
-      `the after phone must stand whole inside the canvas, ${minSideGap} px off the bottom ` +
-        `(top ${after.phone.y}, bottom gap ${bottom})`,
+      `the phone must stand whole inside the canvas, ${minSideGap} px off the bottom ` +
+        `(top ${phone.phone.y}, bottom gap ${bottom})`,
     );
   }
-  const strip = (after.phone.x - before.phone.x) / before.phone.width;
-  if (strip < MIN_BEFORE_STRIP) {
+}
+
+/** Both parts keep a readable share of the screen, and the before slice lies inside its capture. */
+function assertSplit(layout: Layout): void {
+  const { split, capture, beforeCapture } = layout;
+  if (split.cut < MIN_PART_SHARE || split.cut > 1 - MIN_PART_SHARE + 1e-9) {
     fail(
-      'before-hidden',
-      `only ${(strip * 100).toFixed(1)}% of the before phone shows left of the after phone; ` +
-        `minimum is ${MIN_BEFORE_STRIP * 100}%`,
+      'split-cut',
+      `the seam sits at ${(split.cut * 100).toFixed(1)}% of the screen; each part needs ` +
+        `at least ${MIN_PART_SHARE * 100}%`,
+    );
+  }
+  const end = split.beforeSlice.y + split.beforeSlice.height;
+  if (split.afterSlice.height > capture.height || end > beforeCapture.height) {
+    fail(
+      'split-cut',
+      `the before part reads rows ${split.beforeSlice.y}..${end} of a ${beforeCapture.height} px capture`,
     );
   }
 }
@@ -347,47 +338,22 @@ function assertHeadline(layout: Layout): void {
   }
 }
 
-function assertBeforeCrop(layout: Layout): void {
-  const { crop, shape } = layout.before;
-  if (crop.fraction > layout.maxBottomCropFraction + 1e-9) {
-    fail(
-      'bottom-crop',
-      `the canvas cuts ${(crop.fraction * 100).toFixed(1)}% off the before screen; ` +
-        `maximum is ${layout.maxBottomCropFraction * 100}%`,
-    );
-  }
-  if (crop.px < shape.screenRadius - 0.5) {
-    fail(
-      'bezel-visible',
-      `the canvas bottom cuts ${crop.px} px off the before screen but its rounded corners ` +
-        `need ${Math.round(shape.screenRadius)} px: bezel would show under the screen`,
-    );
-  }
-}
-
-/** A CTA may sit on the ground, on the after toolbar strip, or over the part of the before phone the after one hides. */
+/** An ad CTA may sit on the ground only: both halves of the screen are content. */
 function assertCta(layout: Layout): void {
-  const { cta, after, before } = layout;
+  const { cta, phone } = layout;
   if (!cta) return;
-  const hidden = intersection(before.phone, after.phone);
-  const covered =
-    overlapArea(cta, after.phone) -
-    overlapArea(cta, toolbarStrip(layout)) +
-    overlapArea(cta, before.phone) -
-    overlapArea(cta, hidden);
-  if (covered > OVERLAP_EPSILON) {
-    fail('cta-overlap', 'the CTA covers a phone outside the after screen’s bottom toolbar strip');
+  if (overlapArea(cta, phone.phone) > OVERLAP_EPSILON) {
+    fail('cta-overlap', 'the CTA covers the phone; it may sit on the ground only');
   }
 }
 
 /** Runs every geometric guard; throws `RenderGuardError` on the first breach. */
 export function assertLayout(layout: Layout): void {
   assertCaptures(layout);
-  assertPhone(layout, 'after', layout.capture);
-  assertPhone(layout, 'before', layout.beforeCapture);
+  assertPhone(layout);
   assertGaps(layout);
+  assertSplit(layout);
   assertHeadline(layout);
-  assertBeforeCrop(layout);
   assertCta(layout);
 }
 

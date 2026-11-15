@@ -11,7 +11,7 @@ import { contactSheet } from './contact-sheet.js';
 import type { SheetItem } from './contact-sheet.js';
 import { assertCapturesPresent, parseCliOptions, shotMeasurement } from './cli-options.js';
 import { assertLayout, assertSameLogo } from './layout.js';
-import { APP_STORE_CANVAS, LISTING, LISTING_GROUNDS } from './listing.config.js';
+import { APP_STORE_CANVAS, LISTING, LISTING_GROUNDS, SPLIT_TAGS } from './listing.config.js';
 import type { ListingShot, Locale } from './listing.config.js';
 import { measurePhone } from './measure.js';
 import { planShot, renderLayout } from './render.js';
@@ -44,6 +44,8 @@ function specFor(shot: ListingShot, options: CliOptions): ShotSpec {
     canvas: APP_STORE_CANVAS,
     capture: path.join(options.capturesDir, shot.capture),
     before: path.join(options.capturesDir, shot.before),
+    split: shot.split,
+    tags: SPLIT_TAGS[options.locale],
     ground: shot.ground,
     background: shot.background ?? LISTING_GROUNDS[shot.ground],
     headline: shot.headline[options.locale],

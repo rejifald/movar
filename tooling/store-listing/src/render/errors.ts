@@ -5,11 +5,9 @@ export type GuardCode =
   | 'side-gap'
   | 'cta-overlap'
   | 'headline-lines'
-  | 'bottom-crop'
-  | 'bezel-visible'
   | 'capture-mismatch'
   | 'phone-clipped'
-  | 'before-hidden'
+  | 'split-cut'
   | 'headline-overlap'
   | 'logo-drift';
 

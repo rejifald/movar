@@ -31,12 +31,18 @@ machine you own, then pass `--local-proxy-already-set`.
 - **Story:** search in Ukrainian → site opens in Ukrainian without a language pop-up → the site's
   language menu doesn't offer Russian → YouTube hides Russian videos. The headline names what
   the screen shows. Copy lives in `src/render/listing.config.ts` and needs owner sign-off.
-- **Every shot is a before/after pair ("B1", owner 2026-11-15).** Both are real captures of the
-  same mock page from one run: `<id>-before.png` with the extension still off, `<id>.png` with
-  Movar on. The after phone is whole and in front (right, 84 px above the bottom); the before
-  phone is 0.9× its size, muted (grayscale, washed toward the ground), behind on the left, and
-  runs off the bottom. The logo sits at the same height on every image; the headline sits tight
-  above the after phone.
+- **Every shot is a before/after pair, shown as one phone split across ("halves", owner
+  2026-11-15; replaced B1).** Both are real captures of the same mock page from one run:
+  `<id>-before.png` with the extension still off, `<id>.png` with Movar on. One whole phone,
+  centred, 84 px above the bottom; the after capture fills the screen above the seam, the before
+  capture below it, both undimmed. The seam is a dark band carrying the «З Моваром ↑» /
+  «Без Мовара ↓» tags at its left edge, so no tag covers page content. Each shot picks its split
+  in `listing.config.ts`: `tops` (each part from its own page top: the same opening lines in two
+  languages, the before part starting under its status bar) or `region` (both parts from the
+  same rows, for a page whose top is the same in both states: YouTube, cut through the curtain).
+  The logo sits at the same height on every image; the headline sits tight above the phone.
+- **The before gate is dimmed, never blurred** (owner, 2026-11-15): the language gate on
+  `tochka24.example` must leave the Russian page readable behind it.
 - **Mock sites** reproduce the real sites' DOM contracts (Google `#rso > [data-hveid]`,
   `m.youtube.com` `ytm-video-with-context-renderer`, hreflang + a picker on `tochka24.example`),
   styled after the Storybook backdrops. A request to a mocked host with no route is a miss, and
@@ -48,11 +54,11 @@ machine you own, then pass `--local-proxy-already-set`.
   Shrink the screen to fit, never thin the bezel. The renderer draws no Dynamic Island on App
   Store shots, but iOS 26 bakes the real island into the simulator capture, and that one stays:
   it is real UI, and removing it would be an edited screenshot (owner, 2026-11-15).
-  The after phone is shown whole; the before phone is the one anchored off the bottom edge, with
-  no bezel showing under its screen. 84 px min side gap at 1320.
+  The phone is shown whole. 84 px min side gap at 1320.
 - **Guards fail the render:** picture > 0.5 % off its PNG ratio, body > 0.5 % off the device,
-  side gap below the minimum, CTA over content, headline over 3 lines, bezel showing under the
-  screen. `measure.ts` re-measures the PNG in pixels; trust that, not the layout numbers.
+  side gap below the minimum, phone not whole, a split part under a quarter of the screen (or a
+  before slice past its capture), before/after captures of different sizes, CTA over the phone,
+  headline over 3 lines or into the logo, the logo moving between shots. `measure.ts` re-measures the PNG in pixels; trust that, not the layout numbers.
 - **Byte-stable:** Satori + resvg, fonts from local files only (`src/render/fonts/`, Fixel OTF
   decoded from `packages/fonts`), `loadSystemFonts: false`.
 

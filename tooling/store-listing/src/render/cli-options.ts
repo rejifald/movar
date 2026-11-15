@@ -47,37 +47,32 @@ export function assertCapturesPresent(
   }
 }
 
-/**
- * measurements.json entry: layout numbers beside what the pixels measured. The
- * pixels measure the after phone only; the before phone's numbers are layout.
- */
+/** measurements.json entry: layout numbers beside what the pixels measured. */
 export function shotMeasurement(layout: Layout, real: PhoneMeasurement): Record<string, unknown> {
-  const { after, before } = layout;
+  const { phone, split } = layout;
   return {
     headlineLines: layout.headline.lines,
     device: layout.device.id,
     logoY: layout.logo.y,
     headlineY: layout.headline.y,
-    after: {
-      outerWidthPx: real.outerWidth,
-      outerRatioMeasured: real.outerRatio,
-      outerRatioDevice: after.shape.bodyRatio,
-      gapsPx: real.gaps,
-      rimPx: real.rimPx,
-      bezelPx: real.bezelPx,
-      edgeFractionMeasured: real.edgeFraction,
-      screenDrawn: { width: after.screen.width, height: after.screen.height },
-      screenSourceRatio: layout.capture.height / layout.capture.width,
-      screenDrawnRatio: after.screen.height / after.screen.width,
-      screenMeasuredWidthPx: real.screen.width,
-      top: after.phone.y,
-    },
-    before: {
-      screenDrawn: { width: before.screen.width, height: before.screen.height },
-      top: before.phone.y,
-      visibleStripPx: after.phone.x - before.phone.x,
-      bottomCropPx: before.crop.px,
-      bottomCropFraction: before.crop.fraction,
+    outerWidthPx: real.outerWidth,
+    outerRatioMeasured: real.outerRatio,
+    outerRatioDevice: phone.shape.bodyRatio,
+    gapsPx: real.gaps,
+    rimPx: real.rimPx,
+    bezelPx: real.bezelPx,
+    edgeFractionMeasured: real.edgeFraction,
+    screenDrawn: { width: phone.screen.width, height: phone.screen.height },
+    screenSourceRatio: layout.capture.height / layout.capture.width,
+    screenDrawnRatio: phone.screen.height / phone.screen.width,
+    screenMeasuredWidthPx: real.screen.width,
+    top: phone.phone.y,
+    split: {
+      mode: split.mode,
+      cut: split.cut,
+      afterRows: split.afterSlice,
+      beforeRows: split.beforeSlice,
+      seamY: split.seam.y,
     },
   };
 }

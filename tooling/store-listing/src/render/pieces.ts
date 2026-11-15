@@ -1,6 +1,6 @@
 /**
  * The drawing pieces, shared by every canvas (App Store shots now, ads later):
- * `Ground`, `ShadowLayer`, `Phone`, `Wash`, `LogoRow`, `Headline`, `Cta`. Each takes
+ * `Ground`, `ShadowLayer`, `Phone`, `Seam`, `LogoRow`, `Headline`, `Cta`. Each takes
  * absolute pixel geometry from `computeLayout`; none decides a size itself.
  */
 import { createElement as h } from 'react';
@@ -13,7 +13,7 @@ import type { GroundTone } from './palette.js';
 import type { CtaSpec } from './layout.js';
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- visual proportions
- * (shadow, rim gradient, wash) are drawing data, expressed as fractions of
+ * (shadow, rim gradient, tags) are drawing data, expressed as fractions of
  * the phone/canvas so they scale with it. */
 
 const abs = (rect: Rect, extra: CSSProperties = {}): CSSProperties => ({
@@ -47,21 +47,17 @@ export function Ground(props: {
   );
 }
 
-/** Drop shadow strengths, as fractions of the canvas width: the after phone stands nearer. */
-const SHADOWS = {
-  strong: { dy: 0.03, blur: 0.09 },
-  soft: { dy: 0.012, blur: 0.04 },
-} as const;
+/** Drop shadow, as fractions of the canvas width. */
+const SHADOW = { dy: 0.03, blur: 0.09 } as const;
 
 /** Drop shadow under one phone: its own layer, deterministic. */
 export function ShadowLayer(props: {
   placement: PhonePlacement;
   canvasWidth: number;
   tone: GroundTone;
-  strength: keyof typeof SHADOWS;
 }): ReactElement {
   const { placement, canvasWidth: w, tone } = props;
-  const { dy, blur } = SHADOWS[props.strength];
+  const { dy, blur } = SHADOW;
   return h('div', {
     style: abs(placement.phone, {
       borderRadius: placement.shape.bodyRadius,
@@ -117,19 +113,100 @@ export function Phone(props: {
   );
 }
 
-/** Share of the ground colour laid over the muted (before) phone. */
-const WASH_OPACITY = 0.45;
+/** The seam band: the ink of the light palette, dark on any page. */
+const SEAM_COLOR = '#1c1917';
 
-/** Washes a whole phone body toward the ground tone, so it recedes behind the after phone. */
-export function Wash(props: { placement: PhonePlacement; tone: GroundTone }): ReactElement {
-  const { placement, tone } = props;
-  return h('div', {
-    style: abs(placement.phone, {
-      borderRadius: placement.shape.bodyRadius,
-      backgroundColor: PALETTE[tone].ground,
-      opacity: WASH_OPACITY,
+export interface SplitTagLabels {
+  /** Above the seam: the after part (Movar on). */
+  after: string;
+  /** Below the seam: the before part (Movar off). */
+  before: string;
+}
+
+// lucide `arrow-up` / `arrow-down` (inlined: `lucide` is not a dependency of this package).
+const ARROW_PATHS = {
+  up: ['m5 12 7-7 7 7', 'M12 19V5'],
+  down: ['M12 5v14', 'm19 12-7 7-7-7'],
+} as const;
+
+function Tag(props: {
+  height: number;
+  label: string;
+  arrow: keyof typeof ARROW_PATHS;
+  fill: string;
+}): ReactElement {
+  const { height, label, arrow, fill } = props;
+  const glyph = Math.round(height * 0.5);
+  return h(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        height,
+        marginRight: Math.round(height * 0.3),
+        paddingLeft: Math.round(height * 0.42),
+        paddingRight: Math.round(height * 0.34),
+        borderRadius: height / 2,
+        backgroundColor: fill,
+        fontFamily: DISPLAY_FAMILY,
+        fontWeight: 800,
+        fontSize: Math.round(height * 0.52),
+        color: '#ffffff',
+      },
+    },
+    h('div', { style: { display: 'flex', marginRight: Math.round(height * 0.16) } }, label),
+    h(
+      'svg',
+      {
+        width: glyph,
+        height: glyph,
+        viewBox: '0 0 24 24',
+        fill: 'none',
+        xmlns: 'http://www.w3.org/2000/svg',
+      },
+      ...ARROW_PATHS[arrow].map((d) =>
+        h('path', {
+          key: d,
+          d,
+          stroke: '#ffffff',
+          strokeWidth: 2.6,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          fill: 'none',
+        }),
+      ),
+    ),
+  );
+}
+
+/** Seam band (Movar on above it, off below) carrying "with Movar ↑" and "without ↓". */
+export function Seam(props: { layout: Layout; labels: SplitTagLabels }): ReactElement {
+  const { seam, tags } = props.layout.split;
+  return h(
+    'div',
+    {
+      style: abs(seam, {
+        alignItems: 'center',
+        paddingLeft: tags.inset,
+        backgroundColor: SEAM_COLOR,
+      }),
+    },
+    h(Tag, {
+      key: 'after',
+      height: tags.height,
+      label: props.labels.after,
+      arrow: 'up',
+      fill: ACCENT,
     }),
-  });
+    h(Tag, {
+      key: 'before',
+      height: tags.height,
+      label: props.labels.before,
+      arrow: 'down',
+      fill: '#3f3c39',
+    }),
+  );
 }
 
 function BrandMark(props: { size: number; tone: GroundTone }): ReactElement {

@@ -9,6 +9,10 @@ import {
 } from '../src/render/index.js';
 
 const TIMEOUT = 120_000;
+const SPLIT = {
+  split: { mode: 'tops', cut: 0.47 },
+  tags: { after: 'З Моваром', before: 'Без Мовара' },
+} as const;
 
 async function capture(width: number, height: number, colour = '#3b82f6'): Promise<Buffer> {
   return sharp({ create: { width, height, channels: 3, background: colour } })
@@ -27,13 +31,14 @@ const cases = [
 describe('rendered pixels', () => {
   for (const { name, cap, canvas } of cases) {
     it(
-      `${name}: the after phone measures whole, with its gaps, edge and body ratio`,
+      `${name}: the phone measures whole, with its gaps, edge and body ratio`,
       async () => {
         const shot = await capture(cap[0], cap[1]);
         const spec: ShotSpec = {
           canvas: { width: canvas[0], height: canvas[1] },
           capture: shot,
           before: shot,
+          ...SPLIT,
           ground: 'light',
           headline: 'Сайт — одразу українською',
         };
@@ -43,7 +48,7 @@ describe('rendered pixels', () => {
         expect([meta.width, meta.height]).toEqual([canvas[0], canvas[1]]);
 
         const real = await measurePhone(png);
-        const { after, minSideGap: minGap } = plan.layout;
+        const { phone: after, minSideGap: minGap } = plan.layout;
         expect(Math.abs(real.gaps.left - after.phone.x)).toBeLessThanOrEqual(2);
         expect(real.gaps.right).toBeGreaterThanOrEqual(minGap - 2);
         expect(real.gaps.bottom).toBeGreaterThanOrEqual(minGap - 2);
@@ -51,7 +56,7 @@ describe('rendered pixels', () => {
         expect(real.edgeFraction).toBeGreaterThan(0.034);
         expect(real.edgeFraction).toBeLessThan(0.036);
         expect(Math.abs(real.screen.width - after.screen.width)).toBeLessThanOrEqual(2);
-        // The after phone ends inside the canvas, so its true ratio is read off the real PNG.
+        // The phone ends inside the canvas, so its true ratio is read off the real PNG.
         expect(real.outerRatio).toBeDefined();
         expect(Math.abs((real.outerRatio ?? 0) / after.shape.bodyRatio - 1)).toBeLessThan(0.005);
       },
@@ -65,16 +70,16 @@ describe('rendered pixels', () => {
       const spec: ShotSpec = {
         canvas: { width: 1320, height: 2868 },
         capture: await capture(1320, 2868),
-        // A near-black before page on a dark ground: the washed before phone must
-        // not be mistaken for the after phone's bezel.
+        // A near-black before page on a dark ground must not be mistaken for the bezel.
         before: await capture(1320, 2868, '#000000'),
+        ...SPLIT,
         ground: 'dark',
         headline: 'YouTube: російські відео сховано',
       };
       const plan = await planShot(spec);
       const real = await measurePhone(await renderShot(spec));
-      expect(real.outerWidth).toBeCloseTo(plan.layout.after.phone.width, -1);
-      expect(Math.abs(real.gaps.left - plan.layout.after.phone.x)).toBeLessThanOrEqual(2);
+      expect(real.outerWidth).toBeCloseTo(plan.layout.phone.phone.width, -1);
+      expect(Math.abs(real.gaps.left - plan.layout.phone.phone.x)).toBeLessThanOrEqual(2);
       expect(real.gaps.bottom).toBeGreaterThanOrEqual(82);
     },
     TIMEOUT,
@@ -87,6 +92,7 @@ describe('rendered pixels', () => {
         canvas: { width: 1320, height: 2868 },
         capture: await capture(1320, 2868),
         before: await capture(1320, 2868, '#ef4444'),
+        ...SPLIT,
         ground: 'dark',
         headline: 'Російську навіть не запропонує',
       };
@@ -103,6 +109,7 @@ describe('rendered pixels', () => {
         canvas: { width: 1320, height: 2868 },
         capture: await capture(1320, 2868),
         before: await capture(1320, 2868),
+        ...SPLIT,
         ground: 'light',
         headline:
           'Сайт одразу українською без вікна вибору мови і без зайвих запитань про російську',
@@ -120,6 +127,7 @@ describe('rendered pixels', () => {
         canvas: { width: 1320, height: 2868 },
         capture: await capture(1320, 2868),
         before: await capture(1320, 2868),
+        ...SPLIT,
         ground: 'light',
         headline: 'Пошук — українською',
       });
@@ -135,6 +143,7 @@ describe('rendered pixels', () => {
         canvas: { width: 1080, height: 1920 },
         capture: await capture(1320, 2868),
         before: await capture(1320, 2868),
+        ...SPLIT,
         ground: 'dark',
         headline: 'Пошук — українською',
         cta: { x: 68, y: 40, width: 420, height: 96, label: 'Завантажити' },
@@ -152,32 +161,31 @@ describe('rendered pixels', () => {
   );
 
   it(
-    'mutes the before phone: grey, washed toward the ground, on either tone',
+    'draws the after capture above the seam and the before capture below it, undimmed',
     async () => {
-      for (const ground of ['light', 'dark'] as const) {
-        const spec: ShotSpec = {
-          canvas: { width: 1320, height: 2868 },
-          capture: await capture(1320, 2868),
-          before: await capture(1320, 2868),
-          ground,
-          headline: 'Пошук — українською',
-        };
-        const plan = await planShot(spec);
-        const png = await renderShot(spec);
-        const { before, after } = plan.layout;
-        const x = Math.round((before.screen.x + after.phone.x) / 2);
-        const y = before.screen.y + 400;
+      const spec: ShotSpec = {
+        canvas: { width: 1320, height: 2868 },
+        capture: await capture(1320, 2868, '#3b82f6'),
+        before: await capture(1320, 2868, '#ef4444'),
+        ...SPLIT,
+        ground: 'light',
+        headline: 'Пошук — українською',
+      };
+      const plan = await planShot(spec);
+      const png = await renderShot(spec);
+      const { phone, split } = plan.layout;
+      const pixel = async (y: number): Promise<number[]> => {
         const { data } = await sharp(png)
-          .extract({ left: x, top: y, width: 1, height: 1 })
+          .extract({ left: phone.screen.x + phone.screen.width - 60, top: y, width: 1, height: 1 })
           .raw()
           .toBuffer({ resolveWithObject: true });
-        const [r = 0, g = 0, b = 0] = data;
-        // The blue page comes out grey: no channel stands out.
-        expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThanOrEqual(6);
-        // ... and pulled toward the ground: lighter than the blue on light, darker on dark.
-        const lightness = ground === 'light' ? r - 130 : 110 - r;
-        expect(lightness).toBeGreaterThan(0);
-      }
+        return [...data.subarray(0, 3)];
+      };
+      expect(await pixel(split.seam.y - 40)).toEqual([0x3b, 0x82, 0xf6]);
+      expect(await pixel(split.seam.y + split.seam.height + 40)).toEqual([0xef, 0x44, 0x44]);
+      // The band itself is the dark seam colour.
+      const [r = 0] = await pixel(split.seam.y + Math.round(split.seam.height / 2));
+      expect(r).toBeLessThan(40);
     },
     TIMEOUT,
   );
@@ -190,6 +198,7 @@ describe('rendered pixels', () => {
           canvas: { width: 1320, height: 2868 },
           capture: await capture(1320, 2868),
           before: await capture(1080, 2400),
+          ...SPLIT,
           ground: 'light',
           headline: 'Пошук — українською',
         }),

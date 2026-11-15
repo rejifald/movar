@@ -15,7 +15,7 @@ import {
   HEADLINE_LINE_HEIGHT,
   MAX_HEADLINE_LINES,
 } from './layout.js';
-import type { CtaSpec, Layout } from './layout.js';
+import type { CtaSpec, Layout, SplitSpec } from './layout.js';
 import type { GroundTone } from './palette.js';
 import {
   Cta,
@@ -25,24 +25,27 @@ import {
   headlineStyle,
   LogoRow,
   Phone,
+  Seam,
   ShadowLayer,
-  Wash,
 } from './pieces.js';
+import type { SplitTagLabels } from './pieces.js';
 import { readPngSize } from './png.js';
 import type { PixelSize } from './png.js';
 
 export interface ShotSpec {
   canvas: PixelSize;
-  /** The real app capture with Movar on (the after phone): PNG bytes or a path to one. */
+  /** The real app capture with Movar on (the top part): PNG bytes or a path to one. */
   capture: Uint8Array | string;
-  /** The same screen with Movar off (the before phone). Same size as `capture`. */
+  /** The same screen with Movar off (the bottom part). Same size as `capture`. */
   before: Uint8Array | string;
+  /** Where the seam goes and how the before part is sourced. */
+  split: SplitSpec;
+  /** The seam tags, in the shot's locale. */
+  tags: SplitTagLabels;
   ground: GroundTone;
   /** Background image path (PNG/JPG), drawn cover-fit. Flat token colour when absent. */
   background?: string | undefined;
   headline: string;
-  /** Largest share of the before screen height the canvas bottom may cut off. Default 0.09. */
-  maxBottomCropFraction?: number | undefined;
   /** Ad CTA pill; must not cover screen content. */
   cta?: CtaSpec | undefined;
   /** Force a device profile instead of matching the capture's ratio. */
@@ -57,8 +60,6 @@ export interface ShotPlan {
 
 const BASELINE_TOLERANCE = 0.5;
 const MEASURE_SPARE_LINES = 4;
-/** The before capture is lifted a touch before the wash (owner's draft). */
-const MUTE_BRIGHTNESS = 1.05;
 
 async function loadCapture(capture: Uint8Array | string): Promise<Uint8Array> {
   return typeof capture === 'string' ? new Uint8Array(await readFile(capture)) : capture;
@@ -107,8 +108,8 @@ export async function planShot(spec: ShotSpec): Promise<ShotPlan> {
     capture,
     beforeCapture: readPngSize(beforeBytes),
     device,
+    split: spec.split,
     headlineLines,
-    maxBottomCropFraction: spec.maxBottomCropFraction,
     cta: spec.cta,
   });
   return { layout, captureBytes, beforeBytes };
@@ -126,12 +127,21 @@ async function backgroundUri(
   return dataUri('image/png', fitted);
 }
 
-/** Greyscale and slightly lifted; the wash toward the ground is drawn over the whole body. */
-async function muteCapture(bytes: Uint8Array): Promise<Buffer> {
-  return sharp(bytes)
-    .grayscale()
-    .modulate({ brightness: MUTE_BRIGHTNESS })
-    .toColourspace('srgb')
+/** The split screen picture: the after rows on top, the before rows below, at capture size. */
+async function splitScreen(layout: Layout, after: Uint8Array, before: Uint8Array): Promise<Buffer> {
+  const { capture, split } = layout;
+  const slice = async (bytes: Uint8Array, rows: { y: number; height: number }): Promise<Buffer> =>
+    sharp(bytes)
+      .extract({ left: 0, top: rows.y, width: capture.width, height: rows.height })
+      .png()
+      .toBuffer();
+  return sharp({
+    create: { width: capture.width, height: capture.height, channels: 4, background: '#ffffff' },
+  })
+    .composite([
+      { input: await slice(after, split.afterSlice), left: 0, top: 0 },
+      { input: await slice(before, split.beforeSlice), left: 0, top: split.afterSlice.height },
+    ])
     .png()
     .toBuffer();
 }
@@ -139,7 +149,7 @@ async function muteCapture(bytes: Uint8Array): Promise<Buffer> {
 /** Draws an already-planned (and checked) layout. */
 export async function renderLayout(
   plan: ShotPlan,
-  spec: Pick<ShotSpec, 'ground' | 'background' | 'headline'>,
+  spec: Pick<ShotSpec, 'ground' | 'background' | 'headline' | 'tags'>,
 ): Promise<Buffer> {
   const { layout, captureBytes, beforeBytes } = plan;
   const { canvas } = layout;
@@ -157,20 +167,13 @@ export async function renderLayout(
     }),
     h(LogoRow, { layout, tone }),
     h(Headline, { layout, text: spec.headline, tone }),
-    h(ShadowLayer, { placement: layout.before, canvasWidth: canvas.width, tone, strength: 'soft' }),
+    h(ShadowLayer, { placement: layout.phone, canvasWidth: canvas.width, tone }),
     h(Phone, {
-      placement: layout.before,
+      placement: layout.phone,
       canvas,
-      captureUri: dataUri('image/png', await muteCapture(beforeBytes)),
+      captureUri: dataUri('image/png', await splitScreen(layout, captureBytes, beforeBytes)),
     }),
-    h(Wash, { placement: layout.before, tone }),
-    h(ShadowLayer, {
-      placement: layout.after,
-      canvasWidth: canvas.width,
-      tone,
-      strength: 'strong',
-    }),
-    h(Phone, { placement: layout.after, canvas, captureUri: dataUri('image/png', captureBytes) }),
+    h(Seam, { layout, labels: spec.tags }),
     layout.cta ? h(Cta, { cta: layout.cta, tone }) : null,
   );
   const svg = await satori(root, { ...canvas, fonts: loadFonts() });

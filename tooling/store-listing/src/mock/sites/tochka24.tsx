@@ -153,8 +153,9 @@ const CSS = `
   .feature p { margin: 0; font-size: 15px; color: var(--soft); }
   /* Language gate: a full-viewport blocking overlay (Movar's gate geometry test
      wants position:fixed covering >=75% of both axes). */
+  /* Dimmed, never blurred: the Russian page behind the gate must stay legible in the listing's before shot. */
   #language-gate { position: fixed; inset: 0; z-index: 100; display: grid; place-items: end center;
-    background: rgba(15,23,42,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 20px; }
+    background: rgba(15,23,42,.45); padding: 20px; }
   #language-gate .panel { width: 100%; max-width: 400px; background: var(--bg); border-radius: 22px;
     padding: 26px 22px 22px; margin-bottom: 36px; box-shadow: 0 24px 60px rgba(0,0,0,.35); }
   #language-gate h2 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.01em; }

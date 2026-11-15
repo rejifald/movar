@@ -28,6 +28,7 @@ import { evaluateGates } from './gates';
 import type { ShotRecord } from './gates';
 import { LABELS } from './labels';
 import { runFlow } from './maestro';
+import { sleepSync } from './retry';
 import { freePort, startMockProxy } from './mock-proxy';
 import type { MockProxy } from './mock-proxy';
 import { activeService, manualProxyInstructions, parseProxyGet, planProxy } from './proxy-state';
@@ -177,11 +178,29 @@ function prepareSimulator(app: string, proxy: MockProxy | null): sim.ThrowawaySi
   return device;
 }
 
-function runSetupFlows(device: sim.ThrowawaySim): void {
-  const labels = LABELS[locale];
-  for (const flow of ['00-enable-extension', '01-host-app-hide-content']) {
-    if (!runFlow(device.udid, flow, labels, debugDir)) throw new Error(`setup flow ${flow} failed`);
+function runSetupFlow(device: sim.ThrowawaySim, flow: string): void {
+  if (!runFlow(device.udid, flow, LABELS[locale], debugDir)) {
+    throw new Error(`setup flow ${flow} failed`);
   }
+}
+
+/** How long Safari gets to run the extension's first-run setup before the host app changes a setting. */
+const FIRST_RUN_SETTLE_MS = 20_000;
+
+/**
+ * Enable the extension, let it finish its first run in Safari, THEN change the
+ * setting in the host app. On the extension's very first launch, its install
+ * initialiser can race the adoption of a host-app change and write the defaults
+ * over it (content hiding silently off); a host-app change made after the first
+ * run is adopted cleanly. `warmupUrl` is a page this run serves anyway.
+ */
+function runSetupFlows(device: sim.ThrowawaySim, warmupUrl: string): void {
+  runSetupFlow(device, '00-enable-extension');
+  log('▸ warm-up: Safari first run for the extension');
+  sim.openUrl(device, warmupUrl);
+  sleepSync(FIRST_RUN_SETTLE_MS);
+  sim.terminate(device, 'com.apple.mobilesafari');
+  runSetupFlow(device, '01-host-app-hide-content');
   sim.terminate(device, BUNDLE_ID);
 }
 
@@ -308,7 +327,9 @@ async function main(): Promise<void> {
   const { proxy, plan } = await startServers(port);
 
   const device = prepareSimulator(app, proxy);
-  runSetupFlows(device);
+  const warmup = plan[0]?.url;
+  if (warmup === undefined) throw new Error('empty shot plan');
+  runSetupFlows(device, warmup);
   const captured = await captureAll(device, plan, proxy);
   finish(captured, device, proxy, plan, { started, sha });
   log(`✓ run ${runId} passed; captures in ${runDir}`);

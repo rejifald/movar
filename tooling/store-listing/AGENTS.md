@@ -52,6 +52,10 @@ machine you own, then pass `--local-proxy-already-set`.
 
 - The simulator build is **ad-hoc signed** (`CODE_SIGN_IDENTITY=-`), not unsigned: an unsigned
   build has no App Group container, so the host-app setting never reaches the extension.
+- **Safari runs once before the host-app setting changes.** On the extension's first launch its
+  install initialiser can race the adoption of a host-app change and write the defaults over it,
+  so content hiding ends up off and no curtain appears. `runSetupFlows` opens a served page and
+  waits 20 s between the two setup flows.
 - iOS 26 Settings switches ignore taps on their labels; flows tap them by position. The host
   app's content toggle has no accessibility identifier yet.
 - **Flow budgets are sized for CI, not a fast Mac:** one hierarchy read takes ~10 s on the macOS

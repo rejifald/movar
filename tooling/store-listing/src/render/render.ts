@@ -26,22 +26,22 @@ import {
   LogoRow,
   Phone,
   ShadowLayer,
+  Wash,
 } from './pieces.js';
 import { readPngSize } from './png.js';
 import type { PixelSize } from './png.js';
 
 export interface ShotSpec {
   canvas: PixelSize;
-  /** The real app capture: PNG bytes or a path to one. */
+  /** The real app capture with Movar on (the after phone): PNG bytes or a path to one. */
   capture: Uint8Array | string;
+  /** The same screen with Movar off (the before phone). Same size as `capture`. */
+  before: Uint8Array | string;
   ground: GroundTone;
   /** Background image path (PNG/JPG), drawn cover-fit. Flat token colour when absent. */
   background?: string | undefined;
   headline: string;
-  /** Draw a Dynamic Island on the screen. Off for App Store shots: an iOS 26 capture already
-   *  carries the real island, which is kept (never painted out). */
-  island?: boolean | undefined;
-  /** Largest share of the screen height the canvas bottom may cut off. Default 0.09. */
+  /** Largest share of the before screen height the canvas bottom may cut off. Default 0.09. */
   maxBottomCropFraction?: number | undefined;
   /** Ad CTA pill; must not cover screen content. */
   cta?: CtaSpec | undefined;
@@ -49,20 +49,16 @@ export interface ShotSpec {
   device?: DeviceProfile | undefined;
 }
 
-export interface RenderOptions {
-  /** Diagnostics only: grow the canvas below the phone so its full body is visible. */
-  extendCanvasBelow?: boolean;
-}
-
 export interface ShotPlan {
   layout: Layout;
   captureBytes: Uint8Array;
+  beforeBytes: Uint8Array;
 }
 
 const BASELINE_TOLERANCE = 0.5;
 const MEASURE_SPARE_LINES = 4;
-/** Diagnostic extended canvas: spare ground below the phone, as a share of width. */
-const EXTENDED_SPARE = 0.05;
+/** The before capture is lifted a touch before the wash (owner's draft). */
+const MUTE_BRIGHTNESS = 1.05;
 
 async function loadCapture(capture: Uint8Array | string): Promise<Uint8Array> {
   return typeof capture === 'string' ? new Uint8Array(await readFile(capture)) : capture;
@@ -102,18 +98,20 @@ async function measureHeadlineLines(text: string, canvasWidth: number): Promise<
 /** Everything needed to draw a shot, without drawing it. Does not run the guards. */
 export async function planShot(spec: ShotSpec): Promise<ShotPlan> {
   const captureBytes = await loadCapture(spec.capture);
+  const beforeBytes = await loadCapture(spec.before);
   const capture = readPngSize(captureBytes);
   const device = spec.device ?? resolveDevice(capture.width, capture.height);
   const headlineLines = await measureHeadlineLines(spec.headline, spec.canvas.width);
   const layout = computeLayout({
     canvas: spec.canvas,
     capture,
+    beforeCapture: readPngSize(beforeBytes),
     device,
     headlineLines,
     maxBottomCropFraction: spec.maxBottomCropFraction,
     cta: spec.cta,
   });
-  return { layout, captureBytes };
+  return { layout, captureBytes, beforeBytes };
 }
 
 async function backgroundUri(
@@ -128,21 +126,23 @@ async function backgroundUri(
   return dataUri('image/png', fitted);
 }
 
+/** Greyscale and slightly lifted; the wash toward the ground is drawn over the whole body. */
+async function muteCapture(bytes: Uint8Array): Promise<Buffer> {
+  return sharp(bytes)
+    .grayscale()
+    .modulate({ brightness: MUTE_BRIGHTNESS })
+    .toColourspace('srgb')
+    .png()
+    .toBuffer();
+}
+
 /** Draws an already-planned (and checked) layout. */
 export async function renderLayout(
   plan: ShotPlan,
-  spec: Pick<ShotSpec, 'ground' | 'background' | 'headline' | 'island'>,
-  options: RenderOptions = {},
+  spec: Pick<ShotSpec, 'ground' | 'background' | 'headline'>,
 ): Promise<Buffer> {
-  const { layout, captureBytes } = plan;
-  const canvas: PixelSize =
-    options.extendCanvasBelow === true
-      ? {
-          width: layout.canvas.width,
-          height:
-            layout.phone.y + layout.phone.height + Math.round(layout.canvas.width * EXTENDED_SPARE),
-        }
-      : layout.canvas;
+  const { layout, captureBytes, beforeBytes } = plan;
+  const { canvas } = layout;
   const tone = spec.ground;
   const root: ReactElement = h(
     'div',
@@ -157,12 +157,20 @@ export async function renderLayout(
     }),
     h(LogoRow, { layout, tone }),
     h(Headline, { layout, text: spec.headline, tone }),
-    h(ShadowLayer, { layout, tone }),
+    h(ShadowLayer, { placement: layout.before, canvasWidth: canvas.width, tone, strength: 'soft' }),
     h(Phone, {
-      layout,
-      captureUri: dataUri('image/png', captureBytes),
-      island: spec.island ?? false,
+      placement: layout.before,
+      canvas,
+      captureUri: dataUri('image/png', await muteCapture(beforeBytes)),
     }),
+    h(Wash, { placement: layout.before, tone }),
+    h(ShadowLayer, {
+      placement: layout.after,
+      canvasWidth: canvas.width,
+      tone,
+      strength: 'strong',
+    }),
+    h(Phone, { placement: layout.after, canvas, captureUri: dataUri('image/png', captureBytes) }),
     layout.cta ? h(Cta, { cta: layout.cta, tone }) : null,
   );
   const svg = await satori(root, { ...canvas, fonts: loadFonts() });
@@ -176,8 +184,8 @@ export async function renderLayout(
 }
 
 /** Plans, runs every guard, and draws one shot. Throws `RenderGuardError` on a breach. */
-export async function renderShot(spec: ShotSpec, options: RenderOptions = {}): Promise<Buffer> {
+export async function renderShot(spec: ShotSpec): Promise<Buffer> {
   const plan = await planShot(spec);
   assertLayout(plan.layout);
-  return renderLayout(plan, spec, options);
+  return renderLayout(plan, spec);
 }

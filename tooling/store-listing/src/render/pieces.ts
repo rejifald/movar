@@ -1,19 +1,19 @@
 /**
  * The drawing pieces, shared by every canvas (App Store shots now, ads later):
- * `Ground`, `ShadowLayer`, `Phone`, `LogoRow`, `Headline`, `Cta`. Each takes
+ * `Ground`, `ShadowLayer`, `Phone`, `Wash`, `LogoRow`, `Headline`, `Cta`. Each takes
  * absolute pixel geometry from `computeLayout`; none decides a size itself.
  */
 import { createElement as h } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 import { DISPLAY_FAMILY } from './fonts.js';
 import { BRAND_DOT, BRAND_LETTER_PATH, BRAND_SQUARE_PATH, BRAND_VIEWBOX } from './logo.js';
-import type { Layout, Rect } from './layout.js';
+import type { Layout, PhonePlacement, Rect } from './layout.js';
 import { ACCENT, BEZEL_COLOR, PALETTE } from './palette.js';
 import type { GroundTone } from './palette.js';
 import type { CtaSpec } from './layout.js';
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- visual proportions
- * (shadow, rim gradient, island) are drawing data, expressed as fractions of
+ * (shadow, rim gradient, wash) are drawing data, expressed as fractions of
  * the phone/canvas so they scale with it. */
 
 const abs = (rect: Rect, extra: CSSProperties = {}): CSSProperties => ({
@@ -47,14 +47,25 @@ export function Ground(props: {
   );
 }
 
-/** Soft drop shadow under the phone: its own layer, deterministic. */
-export function ShadowLayer(props: { layout: Layout; tone: GroundTone }): ReactElement {
-  const { layout, tone } = props;
-  const w = layout.canvas.width;
+/** Drop shadow strengths, as fractions of the canvas width: the after phone stands nearer. */
+const SHADOWS = {
+  strong: { dy: 0.03, blur: 0.09 },
+  soft: { dy: 0.012, blur: 0.04 },
+} as const;
+
+/** Drop shadow under one phone: its own layer, deterministic. */
+export function ShadowLayer(props: {
+  placement: PhonePlacement;
+  canvasWidth: number;
+  tone: GroundTone;
+  strength: keyof typeof SHADOWS;
+}): ReactElement {
+  const { placement, canvasWidth: w, tone } = props;
+  const { dy, blur } = SHADOWS[props.strength];
   return h('div', {
-    style: abs(layout.phone, {
-      borderRadius: layout.shape.bodyRadius,
-      boxShadow: `0px ${Math.round(w * 0.022)}px ${Math.round(w * 0.07)}px 0px ${PALETTE[tone].shadow}`,
+    style: abs(placement.phone, {
+      borderRadius: placement.shape.bodyRadius,
+      boxShadow: `0px ${Math.round(w * dy)}px ${Math.round(w * blur)}px 0px ${PALETTE[tone].shadow}`,
     }),
   });
 }
@@ -63,13 +74,14 @@ export function ShadowLayer(props: { layout: Layout; tone: GroundTone }): ReactE
 const RIM_GRADIENT =
   'linear-gradient(135deg, #74767b 0%, #b4b6ba 28%, #8d8f94 55%, #bcbdc1 80%, #7c7e83 100%)';
 
+/** Rim, bezel and the real capture. No Dynamic Island: the real one is in the capture. */
 export function Phone(props: {
-  layout: Layout;
+  placement: PhonePlacement;
+  canvas: { width: number; height: number };
   captureUri: string;
-  island: boolean;
 }): ReactElement {
-  const { layout, captureUri, island } = props;
-  const { shape, phone, screen } = layout;
+  const { placement, canvas, captureUri } = props;
+  const { shape, phone, screen } = placement;
   const rim = Math.round(shape.rim);
   const bezelRect = {
     x: phone.x + rim,
@@ -77,7 +89,9 @@ export function Phone(props: {
     width: phone.width - 2 * rim,
     height: phone.height - 2 * rim,
   };
-  const children: ReactElement[] = [
+  return h(
+    'div',
+    { style: abs({ x: 0, y: 0, width: canvas.width, height: canvas.height }) },
     h('div', {
       key: 'rim',
       style: abs(phone, { borderRadius: shape.bodyRadius, backgroundImage: RIM_GRADIENT }),
@@ -100,30 +114,22 @@ export function Phone(props: {
         borderRadius: shape.screenRadius,
       },
     }),
-  ];
-  if (island) {
-    const islandW = Math.round(screen.width * 0.285);
-    const islandH = Math.round(screen.width * 0.084);
-    children.push(
-      h('div', {
-        key: 'island',
-        style: abs(
-          {
-            x: screen.x + Math.round((screen.width - islandW) / 2),
-            y: screen.y + Math.round(screen.width * 0.026),
-            width: islandW,
-            height: islandH,
-          },
-          { borderRadius: islandH / 2, backgroundColor: BEZEL_COLOR },
-        ),
-      }),
-    );
-  }
-  return h(
-    'div',
-    { style: abs({ x: 0, y: 0, width: layout.canvas.width, height: layout.canvas.height }) },
-    ...children,
   );
+}
+
+/** Share of the ground colour laid over the muted (before) phone. */
+const WASH_OPACITY = 0.45;
+
+/** Washes a whole phone body toward the ground tone, so it recedes behind the after phone. */
+export function Wash(props: { placement: PhonePlacement; tone: GroundTone }): ReactElement {
+  const { placement, tone } = props;
+  return h('div', {
+    style: abs(placement.phone, {
+      borderRadius: placement.shape.bodyRadius,
+      backgroundColor: PALETTE[tone].ground,
+      opacity: WASH_OPACITY,
+    }),
+  });
 }
 
 function BrandMark(props: { size: number; tone: GroundTone }): ReactElement {

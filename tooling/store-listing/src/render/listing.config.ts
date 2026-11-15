@@ -7,8 +7,10 @@ import type { GroundTone } from './palette.js';
 
 export interface ListingShot {
   id: string;
-  /** Capture file name, relative to the captures dir. */
+  /** Capture with Movar on (the after phone), relative to the captures dir. */
   capture: string;
+  /** The same screen with Movar off (the before phone): `<id>-before.png`. */
+  before: string;
   ground: GroundTone;
   /** Optional background image (path), cover-fit; flat token colour when absent. */
   background?: string;
@@ -34,12 +36,14 @@ export const LISTING: readonly ListingShot[] = [
   {
     id: 'search',
     capture: 'search.png',
+    before: 'search-before.png',
     ground: 'light',
     headline: { uk: 'Пошук — українською', en: 'Search in Ukrainian' },
   },
   {
     id: 'site-no-modal',
     capture: 'site-no-modal.png',
+    before: 'site-no-modal-before.png',
     ground: 'dark',
     headline: {
       uk: 'Сайт — одразу українською, без вікна вибору мови',
@@ -49,12 +53,14 @@ export const LISTING: readonly ListingShot[] = [
   {
     id: 'site-menu',
     capture: 'site-menu.png',
+    before: 'site-menu-before.png',
     ground: 'light',
     headline: { uk: 'Російську навіть не запропонує', en: "Russian isn't even offered" },
   },
   {
     id: 'youtube',
     capture: 'youtube.png',
+    before: 'youtube-before.png',
     ground: 'dark',
     headline: { uk: 'YouTube: російські відео сховано', en: 'YouTube: Russian videos hidden' },
   },

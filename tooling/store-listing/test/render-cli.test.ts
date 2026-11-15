@@ -21,13 +21,21 @@ describe('parseCliOptions', () => {
 // A frame run that finds no capture used to print "skip" and exit 0, so a wrong
 // --captures dir produced an empty, green listing.
 describe('assertCapturesPresent', () => {
-  const shots = [{ capture: 'a.png' }, { capture: 'b.png' }];
+  const shots = [
+    { capture: 'a.png', before: 'a-before.png' },
+    { capture: 'b.png', before: 'b-before.png' },
+  ];
   it('passes when every capture exists', () => {
     expect(() => assertCapturesPresent(shots, 'dir', () => true)).not.toThrow();
   });
   it('names every missing capture and the folder it looked in', () => {
-    expect(() => assertCapturesPresent(shots, 'dir', (file) => file.endsWith('a.png'))).toThrow(
-      /missing in dir: b\.png/,
+    expect(() => assertCapturesPresent(shots, 'dir', (file) => file.includes('a'))).toThrow(
+      /missing in dir: b\.png, b-before\.png/,
     );
+  });
+  it('requires the before capture too, not just the after one', () => {
+    expect(() =>
+      assertCapturesPresent(shots, 'dir', (file) => !file.endsWith('-before.png')),
+    ).toThrow(/missing in dir: a-before\.png, b-before\.png/);
   });
 });

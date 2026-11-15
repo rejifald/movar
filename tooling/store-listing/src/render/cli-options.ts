@@ -28,16 +28,17 @@ export function parseCliOptions(values: RawCliValues): ParsedCliOptions {
 }
 
 /**
- * Every listing shot must have its capture: a partial or empty set is a failed
- * frame run, never a silent skip (a wrong `--captures` folder skips them all).
+ * Every listing shot must have both captures (Movar on and off): a partial or
+ * empty set is a failed frame run, never a silent skip (a wrong `--captures`
+ * folder skips them all).
  */
 export function assertCapturesPresent(
-  shots: readonly { readonly capture: string }[],
+  shots: readonly { readonly capture: string; readonly before: string }[],
   capturesDir: string,
   exists: (file: string) => boolean,
 ): void {
   const missing = shots
-    .map((shot) => shot.capture)
+    .flatMap((shot) => [shot.capture, shot.before])
     .filter((capture) => !exists(path.join(capturesDir, capture)));
   if (missing.length > 0) {
     throw new Error(
@@ -46,27 +47,37 @@ export function assertCapturesPresent(
   }
 }
 
-/** measurements.json entry: layout numbers beside what the pixels measured. */
-export function shotMeasurement(
-  layout: Layout,
-  real: PhoneMeasurement,
-  full: PhoneMeasurement,
-): Record<string, unknown> {
+/**
+ * measurements.json entry: layout numbers beside what the pixels measured. The
+ * pixels measure the after phone only; the before phone's numbers are layout.
+ */
+export function shotMeasurement(layout: Layout, real: PhoneMeasurement): Record<string, unknown> {
+  const { after, before } = layout;
   return {
     headlineLines: layout.headline.lines,
     device: layout.device.id,
-    outerWidthPx: real.outerWidth,
-    outerRatioMeasured: full.outerRatio,
-    outerRatioDevice: layout.shape.bodyRatio,
-    gapsPx: real.gaps,
-    rimPx: real.rimPx,
-    bezelPx: real.bezelPx,
-    edgeFractionMeasured: real.edgeFraction,
-    screenDrawn: { width: layout.screen.width, height: layout.screen.height },
-    screenSourceRatio: layout.capture.height / layout.capture.width,
-    screenDrawnRatio: layout.screen.height / layout.screen.width,
-    screenMeasuredWidthPx: real.screen.width,
-    bottomCropPx: layout.crop.px,
-    bottomCropFraction: layout.crop.fraction,
+    logoY: layout.logo.y,
+    headlineY: layout.headline.y,
+    after: {
+      outerWidthPx: real.outerWidth,
+      outerRatioMeasured: real.outerRatio,
+      outerRatioDevice: after.shape.bodyRatio,
+      gapsPx: real.gaps,
+      rimPx: real.rimPx,
+      bezelPx: real.bezelPx,
+      edgeFractionMeasured: real.edgeFraction,
+      screenDrawn: { width: after.screen.width, height: after.screen.height },
+      screenSourceRatio: layout.capture.height / layout.capture.width,
+      screenDrawnRatio: after.screen.height / after.screen.width,
+      screenMeasuredWidthPx: real.screen.width,
+      top: after.phone.y,
+    },
+    before: {
+      screenDrawn: { width: before.screen.width, height: before.screen.height },
+      top: before.phone.y,
+      visibleStripPx: after.phone.x - before.phone.x,
+      bottomCropPx: before.crop.px,
+      bottomCropFraction: before.crop.fraction,
+    },
   };
 }

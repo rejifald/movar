@@ -31,6 +31,12 @@ machine you own, then pass `--local-proxy-already-set`.
 - **Story:** search in Ukrainian → site opens in Ukrainian without a language pop-up → the site's
   language menu doesn't offer Russian → YouTube hides Russian videos. The headline names what
   the screen shows. Copy lives in `src/render/listing.config.ts` and needs owner sign-off.
+- **Every shot is a before/after pair ("B1", owner 2026-11-15).** Both are real captures of the
+  same mock page from one run: `<id>-before.png` with the extension still off, `<id>.png` with
+  Movar on. The after phone is whole and in front (right, 84 px above the bottom); the before
+  phone is 0.9× its size, muted (grayscale, washed toward the ground), behind on the left, and
+  runs off the bottom. The logo sits at the same height on every image; the headline sits tight
+  above the after phone.
 - **Mock sites** reproduce the real sites' DOM contracts (Google `#rso > [data-hveid]`,
   `m.youtube.com` `ytm-video-with-context-renderer`, hreflang + a picker on `tochka24.example`),
   styled after the Storybook backdrops. A request to a mocked host with no route is a miss, and
@@ -42,8 +48,8 @@ machine you own, then pass `--local-proxy-already-set`.
   Shrink the screen to fit, never thin the bezel. The renderer draws no Dynamic Island on App
   Store shots, but iOS 26 bakes the real island into the simulator capture, and that one stays:
   it is real UI, and removing it would be an edited screenshot (owner, 2026-11-15).
-  Anchored to the bottom; only Safari's bottom toolbar strip may be cropped; 84 px min side gap
-  at 1320.
+  The after phone is shown whole; the before phone is the one anchored off the bottom edge, with
+  no bezel showing under its screen. 84 px min side gap at 1320.
 - **Guards fail the render:** picture > 0.5 % off its PNG ratio, body > 0.5 % off the device,
   side gap below the minimum, CTA over content, headline over 3 lines, bezel showing under the
   screen. `measure.ts` re-measures the PNG in pixels; trust that, not the layout numbers.

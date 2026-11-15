@@ -10,7 +10,7 @@ import { parseArgs } from 'node:util';
 import { contactSheet } from './contact-sheet.js';
 import type { SheetItem } from './contact-sheet.js';
 import { assertCapturesPresent, parseCliOptions, shotMeasurement } from './cli-options.js';
-import { assertLayout } from './layout.js';
+import { assertLayout, assertSameLogo } from './layout.js';
 import { APP_STORE_CANVAS, LISTING, LISTING_GROUNDS } from './listing.config.js';
 import type { ListingShot, Locale } from './listing.config.js';
 import { measurePhone } from './measure.js';
@@ -39,40 +39,39 @@ function readOptions(): CliOptions {
   };
 }
 
-async function renderOne(
-  shot: ListingShot,
-  capture: string,
-  options: CliOptions,
-): Promise<{ png: Buffer; measurement: Record<string, unknown> }> {
-  const spec: ShotSpec = {
+function specFor(shot: ListingShot, options: CliOptions): ShotSpec {
+  return {
     canvas: APP_STORE_CANVAS,
-    capture,
+    capture: path.join(options.capturesDir, shot.capture),
+    before: path.join(options.capturesDir, shot.before),
     ground: shot.ground,
     background: shot.background ?? LISTING_GROUNDS[shot.ground],
     headline: shot.headline[options.locale],
   };
-  const plan = await planShot(spec);
-  assertLayout(plan.layout);
-  const png = await renderLayout(plan, spec);
-  // Pixel checks: the real canvas (gaps) and a diagnostic extended canvas (true outer ratio).
-  const real = await measurePhone(png);
-  const full = await measurePhone(await renderLayout(plan, spec, { extendCanvasBelow: true }));
-  return { png, measurement: shotMeasurement(plan.layout, real, full) };
 }
 
 async function main(): Promise<void> {
   const options = readOptions();
   await mkdir(options.outDir, { recursive: true });
+  assertCapturesPresent(LISTING, options.capturesDir, existsSync);
+
+  // Plan and check the whole set first: the logo must sit at one place on every shot.
+  const planned = await Promise.all(
+    LISTING.map(async (shot) => {
+      const spec = specFor(shot, options);
+      return { shot, spec, plan: await planShot(spec) };
+    }),
+  );
+  for (const { plan } of planned) assertLayout(plan.layout);
+  assertSameLogo(planned.map(({ plan }) => plan.layout));
 
   const sheet: SheetItem[] = [];
   const measurements: Record<string, unknown> = {};
-  assertCapturesPresent(LISTING, options.capturesDir, existsSync);
-  for (const shot of LISTING) {
-    const capture = path.join(options.capturesDir, shot.capture);
-    const { png, measurement } = await renderOne(shot, capture, options);
+  for (const { shot, spec, plan } of planned) {
+    const png = await renderLayout(plan, spec);
     await writeFile(path.join(options.outDir, `${shot.id}.png`), png);
     sheet.push({ label: `${shot.id} (${shot.ground})`, png });
-    measurements[shot.id] = measurement;
+    measurements[shot.id] = shotMeasurement(plan.layout, await measurePhone(png));
     process.stdout.write(`ok   ${shot.id}\n`);
   }
   await writeFile(path.join(options.outDir, 'contact-sheet.png'), await contactSheet(sheet));

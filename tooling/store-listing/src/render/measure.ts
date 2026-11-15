@@ -1,9 +1,18 @@
 /**
  * Pixel re-measurement of a rendered shot (independent of the layout maths).
- * Finds the near-black bezel, then the rim outside it. The rim's outer edge is
- * the first sharp luminance step walking outward sideways (the drop shadow is a
- * smooth gradient); top and bottom reuse that measured rim width, because the
- * shadow is darkest under the phone and hides the step there.
+ * Measures the AFTER phone (Movar on), which stands whole inside the canvas:
+ * its ratio, edge and all four gaps come from the real PNG.
+ *
+ * The BEFORE phone is not measured: it is washed toward the ground (no
+ * near-black bezel left to find) and the after phone hides its right side and
+ * the canvas its bottom; its guards are geometric only (`assertLayout`).
+ *
+ * Finds the after phone's near-black bezel from the right (only ground and
+ * shadow lie right of it), then probes rows near its top, above where the before
+ * phone starts, so a row scanned from the left meets ground, then the after rim.
+ * The rim's outer edge is the first sharp luminance step walking outward
+ * sideways (the drop shadow is a smooth gradient); top and bottom reuse that
+ * measured rim width, because the shadow hides the step there.
  */
 import sharp from 'sharp';
 
@@ -11,18 +20,25 @@ import sharp from 'sharp';
 
 const BEZEL_MAX_LUMA = 9;
 const EDGE_STEP = 7;
-const PROBE_ROWS = [0.55, 0.62, 0.7, 0.78, 0.85] as const;
+/** Rows searched for the after phone's right bezel, as shares of the canvas height. */
+const RIGHT_BEZEL_ROWS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] as const;
+/** Probe rows, as shares of the right bezel's straight run: near its top, above the before phone. */
+const PROBE_ROWS = [0.03, 0.06, 0.09, 0.12, 0.15] as const;
+/** Column for the bottom edge, as a share of the screen width: right of the before phone. */
+const BOTTOM_COLUMN = 0.8;
+/** Steps inside the right bezel's outer edge for its vertical run. */
+const BEZEL_COLUMN_INSET = 2;
 const [LUMA_R, LUMA_G, LUMA_B] = [0.2126, 0.7152, 0.0722] as const;
 const RIM_START_OFFSET = 2;
 
 export interface PhoneMeasurement {
-  /** Outer phone bounds (rim included), px. `bottom` only when the body ends inside the canvas. */
+  /** After phone outer bounds (rim included), px. `bottom` only when the body ends inside the canvas. */
   outer: { left: number; right: number; top: number; bottom: number | undefined };
   outerWidth: number;
   outerHeight: number | undefined;
   /** Outer height / width; undefined when the phone runs off the canvas. */
   outerRatio: number | undefined;
-  gaps: { left: number; right: number; top: number };
+  gaps: { left: number; right: number; top: number; bottom: number | undefined };
   rimPx: number;
   bezelPx: number;
   screen: { left: number; right: number; top: number; width: number };
@@ -115,9 +131,34 @@ function bezelRunEnd(r: Raster, x: number, from: number): number {
   return y;
 }
 
+/** Longest vertical dark run in a column. */
+function longestDarkRun(r: Raster, x: number): { start: number; end: number } {
+  let best = { start: 0, end: -1 };
+  let y = 0;
+  while (y < r.height) {
+    const start = firstDarkDown(r, x, y);
+    if (start < 0) break;
+    const end = bezelRunEnd(r, x, start);
+    if (end - start > best.end - best.start) best = { start, end };
+    y = end;
+  }
+  return best;
+}
+
+/** Rows that cross the after phone above the before one: from its right bezel's straight run. */
+function probeRows(r: Raster): number[] {
+  const rights = RIGHT_BEZEL_ROWS.map((f) => {
+    const y = Math.floor(r.height * f);
+    return scanRow(r, r.width - 1, -1, (x) => dark(r, x, y));
+  }).filter((x) => x >= 0);
+  if (rights.length === 0) throw new Error('No phone bezel found from the right');
+  const run = longestDarkRun(r, median(rights) - BEZEL_COLUMN_INSET);
+  return PROBE_ROWS.map((f) => Math.floor(run.start + (run.end - run.start) * f));
+}
+
 export async function measurePhone(png: Uint8Array): Promise<PhoneMeasurement> {
   const r = await decode(png);
-  const samples = PROBE_ROWS.map((f) => sampleRow(r, Math.floor(r.height * f)));
+  const samples = probeRows(r).map((y) => sampleRow(r, y));
   const pick = (key: keyof RowSample): number => median(samples.map((s) => s[key]));
   const [bezelLeft, bezelRight] = [pick('bezelLeft'), pick('bezelRight')];
   const [left, right] = [pick('outerLeft'), pick('outerRight')];
@@ -130,8 +171,9 @@ export async function measurePhone(png: Uint8Array): Promise<PhoneMeasurement> {
   const top = bezelTop - rimPx;
   const screenTop = bezelRunEnd(r, cx, bezelTop);
 
-  // The body only has a bottom edge when it ends inside the canvas (diagnostic render).
-  const lastDark = lastDarkUp(r, cx);
+  // The bottom edge is read right of the before phone, which runs off the canvas.
+  const bx = Math.round(screenLeft + (screenRight - screenLeft) * BOTTOM_COLUMN);
+  const lastDark = lastDarkUp(r, bx);
   const endsInside = lastDark > screenTop && lastDark < r.height - 1;
   const bottom = endsInside ? lastDark + rimPx : undefined;
 
@@ -143,7 +185,12 @@ export async function measurePhone(png: Uint8Array): Promise<PhoneMeasurement> {
     outerWidth,
     outerHeight,
     outerRatio: outerHeight === undefined ? undefined : outerHeight / outerWidth,
-    gaps: { left, right: r.width - 1 - right, top },
+    gaps: {
+      left,
+      right: r.width - 1 - right,
+      top,
+      bottom: bottom === undefined ? undefined : r.height - 1 - bottom,
+    },
     rimPx,
     bezelPx: screenLeft - bezelLeft,
     screen: { left: screenLeft, right: screenRight, top: screenTop, width: screenWidth },

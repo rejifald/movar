@@ -6,7 +6,12 @@ export type GuardCode =
   | 'cta-overlap'
   | 'headline-lines'
   | 'bottom-crop'
-  | 'bezel-visible';
+  | 'bezel-visible'
+  | 'capture-mismatch'
+  | 'phone-clipped'
+  | 'before-hidden'
+  | 'headline-overlap'
+  | 'logo-drift';
 
 /** Thrown when a layout (or the rendered headline) breaks a hard rule. */
 export class RenderGuardError extends Error {

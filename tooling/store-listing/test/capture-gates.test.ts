@@ -147,7 +147,13 @@ describe('hostSettingsSummary', () => {
     ].join('\n');
     expect(hostSettingsSummary(dump)).toBe('contentModification=true rev=3');
   });
-  it('marks what it cannot find instead of guessing', () => {
-    expect(hostSettingsSummary('unreadable: no such domain')).toBe('contentModification=? rev=?');
+  it('reads the plutil JSON of the App Group plist', () => {
+    const json = String.raw`{"settings":"{\"contentModification\":false}","settingsRev":7}`;
+    expect(hostSettingsSummary(json)).toBe('contentModification=false rev=7');
+  });
+  it('marks what it cannot find instead of guessing, and shows the raw dump', () => {
+    expect(hostSettingsSummary('unreadable: no such domain')).toBe(
+      'contentModification=? rev=? (raw: unreadable: no such domain)',
+    );
   });
 });

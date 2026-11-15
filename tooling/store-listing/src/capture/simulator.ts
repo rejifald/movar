@@ -121,10 +121,21 @@ export function terminate(sim: ThrowawaySim, bundleId: string): void {
   }
 }
 
-/** `defaults read <suite>` inside the simulator (live, via cfprefsd), or why it could not. */
-export function readDefaults(sim: ThrowawaySim, suite: string): string {
+/**
+ * The App Group's preferences plist as JSON, read from the group container on
+ * disk. `defaults read <suite>` inside the simulator reads the simulator user's
+ * own domain, not the group container, so it never sees what the host app wrote.
+ * Returns why it could not, instead of throwing: this is diagnostics only.
+ */
+export function readAppGroupDefaults(sim: ThrowawaySim, bundleId: string, group: string): string {
   try {
-    return simctl('spawn', sim.udid, 'defaults', 'read', suite);
+    const containers = simctl('get_app_container', sim.udid, bundleId, 'groups');
+    const line = containers.split('\n').find((row) => row.startsWith(group));
+    const dir = line?.slice(group.length).trim();
+    if (dir === undefined || dir === '')
+      return `unreadable: no ${group} container in: ${containers.trim()}`;
+    const plist = path.join(dir, 'Library', 'Preferences', `${group}.plist`);
+    return out('plutil', ['-convert', 'json', '-o', '-', plist]);
   } catch (error) {
     return `unreadable: ${(error as Error).message}`;
   }

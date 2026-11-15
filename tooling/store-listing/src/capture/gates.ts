@@ -101,11 +101,19 @@ export function evaluateGates(input: GateInput): string[] {
 
 /**
  * The two host-app values that decide whether curtains appear, read out of a
- * `defaults read group.fyi.movar.safari` dump (settings are a JSON string, so
+ * App Group plist dump, as plutil JSON or a `defaults read` (settings are a JSON string, so
  * quotes may be escaped). `?` when absent: a diagnostic, never a gate.
  */
+/** How much of an unparsed dump the log shows. */
+const RAW_DUMP_CHARS = 300;
+
 export function hostSettingsSummary(dump: string): string {
   const hiding = /contentModification\\?"\s*:\s*(true|false)/.exec(dump)?.[1] ?? '?';
-  const rev = /settingsRev\s*=\s*(\d+)/.exec(dump)?.[1] ?? '?';
-  return `contentModification=${hiding} rev=${rev}`;
+  // `settingsRev = 3;` in a defaults dump, `"settingsRev" : 3` in plutil JSON.
+  const rev = /settingsRev"?\s*[=:]\s*(\d+)/.exec(dump)?.[1] ?? '?';
+  const summary = `contentModification=${hiding} rev=${rev}`;
+  // An unparsed dump is shown, never hidden behind a '?'.
+  return hiding === '?' || rev === '?'
+    ? `${summary} (raw: ${dump.trim().slice(0, RAW_DUMP_CHARS)})`
+    : summary;
 }

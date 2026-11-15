@@ -220,7 +220,9 @@ const APP_GROUP = 'group.fyi.movar.safari';
 
 /** Diagnostic only: what the host app last wrote for the extension to adopt. */
 function logHostSettings(device: sim.ThrowawaySim, when: string): void {
-  log(`▸ host settings ${when}: ${hostSettingsSummary(sim.readDefaults(device, APP_GROUP))}`);
+  log(
+    `▸ host settings ${when}: ${hostSettingsSummary(sim.readAppGroupDefaults(device, BUNDLE_ID, APP_GROUP))}`,
+  );
 }
 
 async function captureShot(

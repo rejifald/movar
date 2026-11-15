@@ -412,6 +412,109 @@ describe('onStartup', () => {
   });
 });
 
+/** A fake Safari App Group behind `runtime.sendNativeMessage`, mirroring
+ *  SafariWebExtensionHandler.swift: `getSettings` returns the blob + rev,
+ *  `setSettings` stores the blob and bumps the rev unconditionally. */
+function installAppGroup(initial: { rev: number; settings: unknown }) {
+  const group = { ...initial };
+  const send = vi.fn((_app: string, msg: { type: string; settings?: unknown }) => {
+    if (msg.type === 'getSettings') {
+      return { rev: group.rev, settings: group.settings };
+    }
+    group.rev += 1;
+    group.settings = msg.settings;
+    return { ok: true, rev: group.rev };
+  });
+  Object.assign(browser.runtime, { sendNativeMessage: send });
+  return group;
+}
+
+/** Hold every `storage.sync` read that finds no settings until the next settings
+ *  write lands (or a short fallback elapses, so a fixed build can't deadlock).
+ *  This forces the first-run interleaving deterministically: a read that saw an
+ *  empty store resolves only AFTER the host app's blob was adopted. */
+function holdEmptySettingsReads(): void {
+  const realGet = fakeBrowser.storage.sync.get.bind(fakeBrowser.storage.sync);
+  const realSet = fakeBrowser.storage.sync.set.bind(fakeBrowser.storage.sync);
+  const waiters: (() => void)[] = [];
+  vi.spyOn(fakeBrowser.storage.sync, 'set').mockImplementation(async (items) => {
+    await realSet(items);
+    if (SETTINGS_KEY in items) {
+      for (const release of waiters.splice(0)) release();
+    }
+  });
+  vi.spyOn(fakeBrowser.storage.sync, 'get').mockImplementation(async (keys) => {
+    const result = await realGet(keys);
+    if (result[SETTINGS_KEY] == null) {
+      await new Promise<void>((resolve) => {
+        waiters.push(resolve);
+        setTimeout(resolve, 20);
+      });
+    }
+    return result;
+  });
+}
+
+/** Let every fire-and-forget chain the worker started run to completion. */
+async function settle(): Promise<void> {
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
+async function storedSettings(): Promise<{ contentModification?: boolean } | undefined> {
+  return (await fakeBrowser.storage.sync.get(SETTINGS_KEY))[SETTINGS_KEY] as
+    | { contentModification?: boolean }
+    | undefined;
+}
+
+describe('Safari first run: host-app settings survive the first launch', () => {
+  // The user turned content hiding on in the host app before Safari ever ran
+  // the extension: the App Group holds a blob, storage.sync is still empty.
+  const hostChoice = { ...defaultSettings, contentModification: true };
+
+  beforeEach(() => {
+    vi.stubEnv('BROWSER', 'safari');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('adopts the App Group blob instead of seeding defaults over it', async () => {
+    const group = installAppGroup({ rev: 1, settings: hostChoice });
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
+    await settle();
+
+    expect((await storedSettings())?.contentModification).toBe(true);
+    // The host app keeps the choice too: nothing pushed defaults back over it.
+    expect((group.settings as { contentModification: boolean }).contentModification).toBe(true);
+  });
+
+  it('keeps the adopted blob when the first-run read precedes the adoption (TOCTOU)', async () => {
+    const group = installAppGroup({ rev: 1, settings: hostChoice });
+    holdEmptySettingsReads();
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
+    await settle();
+
+    expect((await storedSettings())?.contentModification).toBe(true);
+    expect((group.settings as { contentModification: boolean }).contentModification).toBe(true);
+  });
+
+  it('seeds an empty App Group from the defaults on a plain first run', async () => {
+    const group = installAppGroup({ rev: 0, settings: null });
+    await loadBackground();
+
+    await fakeBrowser.runtime.onInstalled.trigger({ reason: 'install', temporary: false });
+    await settle();
+
+    expect(await storedSettings()).toEqual(defaultSettings);
+    expect(group.settings).toEqual(defaultSettings);
+  });
+});
+
 describe('onAlarm', () => {
   it('resumes a timed pause and resyncs when the resume alarm fires', async () => {
     // An active timed pause + its alarm, plus a stale "active" rule. Firing the

@@ -35,6 +35,8 @@ export interface StartMockProxyOptions {
   /** Persist/reuse the CA in this directory (install it once into a simulator).
    *  Omit for a throwaway directory removed on close. */
   certDir?: string;
+  /** Called with each record as one JSON line, the moment it is recorded. */
+  onRecord?: (line: string) => void;
 }
 
 export interface MockProxy {
@@ -71,7 +73,9 @@ export async function startMockProxy(options: StartMockProxyOptions = {}): Promi
   const sockets = new Set<net.Socket>();
 
   const record = (r: Omit<RequestRecord, 'at'>): void => {
-    log.push({ at: new Date().toISOString(), ...r });
+    const entry = { at: new Date().toISOString(), ...r };
+    log.push(entry);
+    options.onRecord?.(JSON.stringify(entry));
   };
 
   /** Answer one request that was addressed to `host` over `scheme`. */

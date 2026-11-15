@@ -1,4 +1,5 @@
 /** Pure parts of the `frame` CLI: option validation and the per-shot measurement record. */
+import path from 'node:path';
 import type { Layout } from './layout.js';
 import type { Locale } from './listing.config.js';
 import type { PhoneMeasurement } from './measure.js';
@@ -24,6 +25,25 @@ export function parseCliOptions(values: RawCliValues): ParsedCliOptions {
     throw new Error('--locale must be uk or en');
   }
   return { captures: values.captures, out: values.out, locale: values.locale };
+}
+
+/**
+ * Every listing shot must have its capture: a partial or empty set is a failed
+ * frame run, never a silent skip (a wrong `--captures` folder skips them all).
+ */
+export function assertCapturesPresent(
+  shots: readonly { readonly capture: string }[],
+  capturesDir: string,
+  exists: (file: string) => boolean,
+): void {
+  const missing = shots
+    .map((shot) => shot.capture)
+    .filter((capture) => !exists(path.join(capturesDir, capture)));
+  if (missing.length > 0) {
+    throw new Error(
+      `captures missing in ${capturesDir}: ${missing.join(', ')} (pass the locale folder, e.g. captures/uk)`,
+    );
+  }
 }
 
 /** measurements.json entry: layout numbers beside what the pixels measured. */

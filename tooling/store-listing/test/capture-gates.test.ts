@@ -52,6 +52,13 @@ describe('evaluateGates', () => {
     const failures = evaluateGates({ ...base, shots: [shot('a'), shot('b', { appBuild: '2' })] });
     expect(failures.join('|')).toMatch(/differs between shots/);
   });
+  // A proxied run whose proxy saw nothing means the log never reached the gate
+  // (or Safari bypassed the proxy): every miss would pass unseen.
+  it('fails a proxied run whose proxy recorded no requests', () => {
+    const proxy = { requests: 0, misses: [] };
+    const failures = evaluateGates({ ...base, proxy, shots: [shot('a'), shot('b')] });
+    expect(failures.join('|')).toMatch(/recorded no requests/);
+  });
   it('skips the proxy gate when there is no proxy (smoke)', () => {
     expect(evaluateGates({ ...base, proxy: null, shots: [shot('a'), shot('b')] })).toEqual([]);
   });

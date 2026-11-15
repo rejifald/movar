@@ -9,7 +9,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { contactSheet } from './contact-sheet.js';
 import type { SheetItem } from './contact-sheet.js';
-import { parseCliOptions, shotMeasurement } from './cli-options.js';
+import { assertCapturesPresent, parseCliOptions, shotMeasurement } from './cli-options.js';
 import { assertLayout } from './layout.js';
 import { APP_STORE_CANVAS, LISTING, LISTING_GROUNDS } from './listing.config.js';
 import type { ListingShot, Locale } from './listing.config.js';
@@ -66,20 +66,16 @@ async function main(): Promise<void> {
 
   const sheet: SheetItem[] = [];
   const measurements: Record<string, unknown> = {};
+  assertCapturesPresent(LISTING, options.capturesDir, existsSync);
   for (const shot of LISTING) {
     const capture = path.join(options.capturesDir, shot.capture);
-    if (!existsSync(capture)) {
-      process.stdout.write(`skip ${shot.id}: no ${shot.capture}\n`);
-      continue;
-    }
     const { png, measurement } = await renderOne(shot, capture, options);
     await writeFile(path.join(options.outDir, `${shot.id}.png`), png);
     sheet.push({ label: `${shot.id} (${shot.ground})`, png });
     measurements[shot.id] = measurement;
     process.stdout.write(`ok   ${shot.id}\n`);
   }
-  if (sheet.length > 0)
-    await writeFile(path.join(options.outDir, 'contact-sheet.png'), await contactSheet(sheet));
+  await writeFile(path.join(options.outDir, 'contact-sheet.png'), await contactSheet(sheet));
   await writeFile(
     path.join(options.outDir, 'measurements.json'),
     `${JSON.stringify(measurements, null, 2)}\n`,

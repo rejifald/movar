@@ -71,6 +71,11 @@ export function evaluateGates(input: GateInput): string[] {
   const { proxy, shots, expectedIds, size } = input;
 
   if (proxy) {
+    if (proxy.requests === 0) {
+      failures.push(
+        'mock proxy recorded no requests: its log never reached the gate, or Safari bypassed it',
+      );
+    }
     for (const miss of proxy.misses) failures.push(`mock proxy miss: ${miss}`);
   }
 

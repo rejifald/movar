@@ -34,7 +34,9 @@ machine you own, then pass `--local-proxy-already-set`.
 - **Mock sites** reproduce the real sites' DOM contracts (Google `#rso > [data-hveid]`,
   `m.youtube.com` `ytm-video-with-context-renderer`, hreflang + a picker on `tochka24.example`),
   styled after the Storybook backdrops. A request to a mocked host with no route is a miss, and
-  a miss fails the capture.
+  a miss fails the capture. The proxy log is JSON lines appended as each request happens (the
+  run reads it while the proxy still runs); a proxied run with zero recorded requests fails too.
+  A frame run with a capture missing fails (pass the locale folder, `captures/uk`).
 - **Phone:** `phoneShape(screenWidth, device)` in `src/render/devices.ts` is the only source of
   rim, bezel and radii (edge ≈ 3.5 % of screen width; iPhone 17 Pro Max body 78.0 × 163.4 mm).
   Shrink the screen to fit, never thin the bezel. No Dynamic Island on App Store shots.

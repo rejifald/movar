@@ -4,13 +4,15 @@ import http from 'node:http';
 import net from 'node:net';
 import tls from 'node:tls';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { parseProxyLog } from '../src/capture/gates';
 import { startMockProxy } from '../src/mock/proxy';
 import type { MockProxy } from '../src/mock/proxy';
 
 let proxy: MockProxy;
+const logLines: string[] = [];
 
 beforeAll(async () => {
-  proxy = await startMockProxy();
+  proxy = await startMockProxy({ onRecord: (line) => logLines.push(line) });
 }, 60_000);
 
 afterAll(async () => {
@@ -161,5 +163,14 @@ describe('mock proxy', () => {
     });
     expect(body).toContain('<html lang="uk">');
     expect(proxy.requests().at(-1)).toMatchObject({ scheme: 'http', outcome: 'served' });
+  });
+
+  // The capture gate reads the log while the proxy still runs, as JSON lines:
+  // every recorded request must reach it live, in the shape it parses.
+  it('streams every record as a JSON line the capture gate parses', () => {
+    const summary = parseProxyLog(logLines.join('\n'));
+    expect(summary.requests).toBe(proxy.requests().length);
+    expect(summary.requests).toBeGreaterThan(0);
+    expect(summary.misses).toHaveLength(proxy.misses().length);
   });
 });

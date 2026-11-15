@@ -28,12 +28,8 @@ import {
   SNOOZE_ALARM,
   sweepExpiredSnoozes,
 } from '../lib/pause';
-import { ensureSettingsInitialised, getSettings, onSettingsChange } from '../lib/settings';
-import {
-  isNativeBridgeAvailable,
-  pushSettingsToNative,
-  reconcileNativeSettings,
-} from '../lib/native-settings';
+import { getSettings, onSettingsChange } from '../lib/settings';
+import { initialiseSettings, syncFromNative, syncToNative } from '../lib/settings-bootstrap';
 import {
   initBadgeStyle,
   refreshActiveTabs,
@@ -286,8 +282,9 @@ export default defineBackground({
       // filters expired on read), so the sweep is pure storage/alarm cleanup.
       await sweepExpiredSnoozes();
       // Safari only: fold any host-app settings change (made while the worker
-      // slept) in from the shared App Group, or seed it on first run.
-      if (isNativeBridgeAvailable()) await reconcileNativeSettings();
+      // slept) in from the shared App Group, or seed it on first run. Queued
+      // with onInstalled's first-run init so the two never interleave.
+      await syncFromNative();
       // Paint the active tab's icon on wake — the SW may have slept through the
       // tab activation that would otherwise have set it.
       await refreshActiveTabs();
@@ -295,7 +292,10 @@ export default defineBackground({
 
     browser.runtime.onInstalled.addListener((details) => {
       void (async () => {
-        await ensureSettingsInitialised();
+        // Adopts the host app's settings first (Safari), then fills any gap
+        // with the defaults — serialised with the wake reconcile above, so the
+        // defaults can never land over (or be pushed over) a host-app choice.
+        await initialiseSettings();
         // A site turned off from the crash screen recovers when MOVAR ITSELF
         // updates — the crash it was working around is presumably fixed in
         // whatever just shipped. Scoped to 'update' only: a bare browser
@@ -304,8 +304,6 @@ export default defineBackground({
         // freshly-synced rules already reflect the resumed hosts.
         if (details.reason === 'update') await clearDisabledUntilUpdateHosts();
         await resync();
-        // Seed the App Group from the freshly-initialised settings (Safari).
-        if (isNativeBridgeAvailable()) await reconcileNativeSettings();
         // First run only (not an update / browser update): open the onboarding
         // page that walks the visitor through pinning Movar and — the step this
         // page exists for — granting host access to every site. Chromium +
@@ -322,13 +320,13 @@ export default defineBackground({
       // clears them. We still resync because the DNR rule lives in MV3 dynamic
       // rules that may have been wiped between sessions.
       void resync();
-      if (isNativeBridgeAvailable()) void reconcileNativeSettings();
+      void syncFromNative();
     });
 
     onSettingsChange(() => {
       void resync();
       // Mirror the change out to the host app's App Group (Safari).
-      if (isNativeBridgeAvailable()) void pushSettingsToNative();
+      void syncToNative();
       // enabled / allowlist changes flip the icon (off ↔ active ↔ exempt).
       void refreshActiveTabs();
       // The UI language is a setting, and it picks the uninstall page's locale.

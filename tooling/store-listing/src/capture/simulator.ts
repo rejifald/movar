@@ -2,6 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { retrySync } from './retry';
 import { out } from './sh';
 import type { Locale } from './shots';
 
@@ -104,8 +105,12 @@ export function installRootCert(sim: ThrowawaySim, caCertPath: string): void {
   simctl('keychain', sim.udid, 'add-root-cert', caCertPath);
 }
 
+/**
+ * Relaunching Safari right after `terminate` can time out under load
+ * (`openurl` → NSPOSIXErrorDomain code 60), so retry a few times first.
+ */
 export function openUrl(sim: ThrowawaySim, url: string): void {
-  simctl('openurl', sim.udid, url);
+  retrySync(() => simctl('openurl', sim.udid, url), { attempts: 3, waitMs: 5000 });
 }
 
 export function terminate(sim: ThrowawaySim, bundleId: string): void {

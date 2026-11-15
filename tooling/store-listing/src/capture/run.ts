@@ -24,7 +24,7 @@ import {
   PACKAGE_ROOT,
   REPO_ROOT,
 } from './build';
-import { evaluateGates } from './gates';
+import { evaluateGates, hostSettingsSummary } from './gates';
 import type { ShotRecord } from './gates';
 import { LABELS } from './labels';
 import { runFlow } from './maestro';
@@ -35,7 +35,7 @@ import { activeService, manualProxyInstructions, parseProxyGet, planProxy } from
 import type { ProxyPlan } from './proxy-state';
 import { log, out } from './sh';
 import * as sim from './simulator';
-import { DEVICE_TYPE_NAME, listingPlan, SCREENSHOT_SIZE, smokePlan } from './shots';
+import { beforePlan, DEVICE_TYPE_NAME, listingPlan, SCREENSHOT_SIZE, smokePlan } from './shots';
 import type { Locale, PlannedShot } from './shots';
 
 const { values } = parseArgs({
@@ -216,6 +216,13 @@ function assertProxyAlive(proxy: MockProxy | null, when: string): void {
   if (exit !== null) throw new Error(`mock proxy died (${exit}) ${when}; see its stderr above`);
 }
 
+const APP_GROUP = 'group.fyi.movar.safari';
+
+/** Diagnostic only: what the host app last wrote for the extension to adopt. */
+function logHostSettings(device: sim.ThrowawaySim, when: string): void {
+  log(`▸ host settings ${when}: ${hostSettingsSummary(sim.readDefaults(device, APP_GROUP))}`);
+}
+
 async function captureShot(
   device: sim.ThrowawaySim,
   shot: PlannedShot,
@@ -227,7 +234,10 @@ async function captureShot(
   sim.openUrl(device, shot.url);
   const reached = runFlow(device.udid, shot.flow, shot.env, debugDir);
   assertProxyAlive(proxy, `during shot "${shot.id}"`);
-  if (!reached) throw new Error(`shot "${shot.id}": expected state not reached (wrong state)`);
+  if (!reached) {
+    logHostSettings(device, `at the failed shot "${shot.id}"`);
+    throw new Error(`shot "${shot.id}": expected state not reached (wrong state)`);
+  }
   const file = path.join(runDir, `${shot.id}.png`);
   sim.screenshot(device, file);
   const version = sim.installedVersion(device, BUNDLE_ID);
@@ -287,9 +297,9 @@ function copyOut(captured: readonly Captured[], outDir: string): void {
 /** Servers: the mock proxy (real run) or a localhost fixture (smoke), with the shots to take. */
 async function startServers(
   port: number,
-): Promise<{ proxy: MockProxy | null; plan: PlannedShot[] }> {
-  if (smoke) return { proxy: null, plan: smokePlan(await startSmokeServer()) };
-  return { proxy: await startProxy(port), plan: listingPlan(locale) };
+): Promise<{ proxy: MockProxy | null; before: PlannedShot[]; plan: PlannedShot[] }> {
+  if (smoke) return { proxy: null, before: [], plan: smokePlan(await startSmokeServer()) };
+  return { proxy: await startProxy(port), before: beforePlan(locale), plan: listingPlan(locale) };
 }
 
 /** Gate the run, write the manifest, and either keep the outputs or throw. */
@@ -324,14 +334,17 @@ async function main(): Promise<void> {
   assertProxyPolicy(port);
   const app = buildApp();
   const sha = gitSha();
-  const { proxy, plan } = await startServers(port);
+  const { proxy, before, plan } = await startServers(port);
 
   const device = prepareSimulator(app, proxy);
   const warmup = plan[0]?.url;
   if (warmup === undefined) throw new Error('empty shot plan');
+  // Before pass first: the extension is still off, so this is plain Safari.
+  const captured = await captureAll(device, before, proxy);
   runSetupFlows(device, warmup);
-  const captured = await captureAll(device, plan, proxy);
-  finish(captured, device, proxy, plan, { started, sha });
+  logHostSettings(device, 'after setup');
+  captured.push(...(await captureAll(device, plan, proxy)));
+  finish(captured, device, proxy, [...before, ...plan], { started, sha });
   log(`✓ run ${runId} passed; captures in ${runDir}`);
 }
 

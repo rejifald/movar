@@ -121,6 +121,15 @@ export function terminate(sim: ThrowawaySim, bundleId: string): void {
   }
 }
 
+/** `defaults read <suite>` inside the simulator (live, via cfprefsd), or why it could not. */
+export function readDefaults(sim: ThrowawaySim, suite: string): string {
+  try {
+    return simctl('spawn', sim.udid, 'defaults', 'read', suite);
+  } catch (error) {
+    return `unreadable: ${(error as Error).message}`;
+  }
+}
+
 export function screenshot(sim: ThrowawaySim, file: string): void {
   simctl('io', sim.udid, 'screenshot', '--type=png', file);
 }

@@ -26,6 +26,16 @@ export interface Shot {
   /** `maestro/<flow>.yaml`: asserts the state, may interact (menu tap). */
   readonly flow: string;
   readonly expect: Record<Locale, ShotExpectation>;
+  /**
+   * The same screen with Movar not yet enabled, taken as `<id>-before` before the
+   * extension is switched on. Same flow; its own URL and assertions, which are
+   * page content (fixed Russian/Ukrainian mock text), so locale-independent
+   * except for the curtain.
+   */
+  readonly before: {
+    readonly url: string;
+    readonly expect: Record<Locale, ShotExpectation>;
+  };
 }
 
 /**
@@ -41,6 +51,12 @@ const RU_MODAL = '.*(Выберите язык|Русский).*';
 /** Matches nothing on screen: for flows with no "must be visible" claim. */
 const ANY = '.*';
 const NEVER = String.raw`\u0000never`;
+/** First Russian result / tile titles of the mock Google and YouTube pages (`src/mock/pages.ts`). */
+const RU_RESULT = '.*Борщ классический.*';
+const RU_TILE = '.*Как приготовить идеальный борщ.*';
+
+/** The same expectation for both locales. */
+const both = (e: ShotExpectation): Record<Locale, ShotExpectation> => ({ uk: e, en: e });
 
 export const SHOTS: readonly Shot[] = [
   {
@@ -51,6 +67,13 @@ export const SHOTS: readonly Shot[] = [
       uk: { visible: CURTAIN.uk, absent: NEVER },
       en: { visible: CURTAIN.en, absent: NEVER },
     },
+    before: {
+      url: SCENES.google.startUrl,
+      expect: {
+        uk: { visible: RU_RESULT, absent: CURTAIN.uk },
+        en: { visible: RU_RESULT, absent: CURTAIN.en },
+      },
+    },
   },
   {
     id: 'site-no-modal',
@@ -59,6 +82,10 @@ export const SHOTS: readonly Shot[] = [
     expect: {
       uk: { visible: ANY, absent: RU_MODAL },
       en: { visible: ANY, absent: RU_MODAL },
+    },
+    before: {
+      url: SCENES.tochka24.startUrl,
+      expect: both({ visible: RU_MODAL, absent: NEVER }),
     },
   },
   {
@@ -69,6 +96,10 @@ export const SHOTS: readonly Shot[] = [
       uk: { visible: '.*Українська.*', absent: '.*Русский.*' },
       en: { visible: '.*Українська.*', absent: '.*Русский.*' },
     },
+    before: {
+      url: SCENES.tochka24.finalUrl,
+      expect: both({ visible: '.*Русский.*', absent: NEVER }),
+    },
   },
   {
     id: 'youtube',
@@ -77,6 +108,13 @@ export const SHOTS: readonly Shot[] = [
     expect: {
       uk: { visible: CURTAIN.uk, absent: NEVER },
       en: { visible: CURTAIN.en, absent: NEVER },
+    },
+    before: {
+      url: SCENES.youtube.startUrl,
+      expect: {
+        uk: { visible: RU_TILE, absent: CURTAIN.uk },
+        en: { visible: RU_TILE, absent: CURTAIN.en },
+      },
     },
   },
 ];
@@ -101,6 +139,16 @@ export function listingPlan(locale: Locale): PlannedShot[] {
     url: shot.url,
     flow: shot.flow,
     env: { V: shot.expect[locale].visible, A: shot.expect[locale].absent },
+  }));
+}
+
+/** The "before" pass: each shot as real Safari shows it with no Movar, ids `<id>-before`. */
+export function beforePlan(locale: Locale): PlannedShot[] {
+  return SHOTS.map((shot) => ({
+    id: `${shot.id}-before`,
+    url: shot.before.url,
+    flow: shot.flow,
+    env: { V: shot.before.expect[locale].visible, A: shot.before.expect[locale].absent },
   }));
 }
 

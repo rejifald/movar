@@ -98,3 +98,14 @@ export function evaluateGates(input: GateInput): string[] {
   }
   return failures;
 }
+
+/**
+ * The two host-app values that decide whether curtains appear, read out of a
+ * `defaults read group.fyi.movar.safari` dump (settings are a JSON string, so
+ * quotes may be escaped). `?` when absent: a diagnostic, never a gate.
+ */
+export function hostSettingsSummary(dump: string): string {
+  const hiding = /contentModification\\?"\s*:\s*(true|false)/.exec(dump)?.[1] ?? '?';
+  const rev = /settingsRev\s*=\s*(\d+)/.exec(dump)?.[1] ?? '?';
+  return `contentModification=${hiding} rev=${rev}`;
+}

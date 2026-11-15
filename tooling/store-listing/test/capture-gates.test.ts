@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateGates, parseProxyLog, type ShotRecord } from '../src/capture/gates';
+import {
+  evaluateGates,
+  hostSettingsSummary,
+  parseProxyLog,
+  type ShotRecord,
+} from '../src/capture/gates';
 import {
   activeService,
   defaultInterface,
@@ -129,5 +134,20 @@ describe('activeService', () => {
   it('is null without an interface or a matching service', () => {
     expect(activeService('no route', order)).toBeNull();
     expect(activeService('interface: en9', order)).toBeNull();
+  });
+});
+
+describe('hostSettingsSummary', () => {
+  it('reads content hiding and rev from a defaults dump with an escaped JSON string', () => {
+    const dump = [
+      '{',
+      String.raw`    settings = "{\"contentModification\":true,\"priority\":[\"uk\"]}";`,
+      '    settingsRev = 3;',
+      '}',
+    ].join('\n');
+    expect(hostSettingsSummary(dump)).toBe('contentModification=true rev=3');
+  });
+  it('marks what it cannot find instead of guessing', () => {
+    expect(hostSettingsSummary('unreadable: no such domain')).toBe('contentModification=? rev=?');
   });
 });

@@ -9,7 +9,11 @@ appId: fyi.movar.safari
 - scrollUntilVisible:
     element: ${L_HIDE_CONTENT}
     timeout: 90000
-- tapOn: ${L_HIDE_CONTENT}
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    text: ${L_HIDE_CONTENT}
+    retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: ${L_TOGGLE_LABEL}
     timeout: 60000

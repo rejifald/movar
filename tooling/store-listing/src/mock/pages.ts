@@ -154,15 +154,10 @@ export function tochka24Page(lang: SiteLang, opts: { gate?: boolean } = {}): str
 
 // ── Scene 3: YouTube ────────────────────────────────────────────────────────
 
+// The Russian video leads the feed and a Ukrainian one follows it: with Movar's
+// "Hide all" the Ukrainian video takes the Russian one's slot, which is the
+// listing's YouTube before/after (`shots.ts`).
 const YT_VIDEOS: readonly FeedVideo[] = [
-  {
-    id: 'uk-1',
-    title: 'Карпатські полонини: 5 днів у горах без телефону',
-    channel: 'Мандруй Ближче',
-    meta: '412 тис. переглядів · 2 дні тому',
-    duration: '18:24',
-    tone: 0,
-  },
   {
     id: 'ru-1',
     title: 'Как приготовить идеальный борщ: секреты шефа',
@@ -170,6 +165,14 @@ const YT_VIDEOS: readonly FeedVideo[] = [
     meta: '1,2 млн просмотров · 3 дня назад',
     duration: '12:07',
     tone: 3,
+  },
+  {
+    id: 'uk-1',
+    title: 'Карпатські полонини: 5 днів у горах без телефону',
+    channel: 'Мандруй Ближче',
+    meta: '412 тис. переглядів · 2 дні тому',
+    duration: '18:24',
+    tone: 0,
   },
   {
     id: 'en-1',

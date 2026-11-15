@@ -34,6 +34,8 @@ export interface Shot {
    */
   readonly before: {
     readonly url: string;
+    /** The before pass's flow when it differs from the after's (no Movar UI to tap). */
+    readonly flow?: string;
     readonly expect: Record<Locale, ShotExpectation>;
   };
 }
@@ -54,6 +56,8 @@ const NEVER = String.raw`\u0000never`;
 /** First Russian result / tile titles of the mock Google and YouTube pages (`src/mock/pages.ts`). */
 const RU_RESULT = '.*Борщ классический.*';
 const RU_TILE = '.*Как приготовить идеальный борщ.*';
+/** The Ukrainian tile that follows it, and takes its slot once Movar hides it. */
+const UK_TILE = '.*Карпатські полонини.*';
 
 /** The same expectation for both locales. */
 const both = (e: ShotExpectation): Record<Locale, ShotExpectation> => ({ uk: e, en: e });
@@ -104,13 +108,17 @@ export const SHOTS: readonly Shot[] = [
   {
     id: 'youtube',
     url: SCENES.youtube.startUrl,
-    flow: 'shot-youtube',
+    // The after taps the curtain's own "Hide all": the Russian card leaves the
+    // feed and the Ukrainian one moves into its slot. That persists the hide
+    // mode, so this shot stays last in the plan.
+    flow: 'shot-youtube-hide-all',
     expect: {
-      uk: { visible: CURTAIN.uk, absent: NEVER },
-      en: { visible: CURTAIN.en, absent: NEVER },
+      uk: { visible: UK_TILE, absent: `${RU_TILE}|${CURTAIN.uk}` },
+      en: { visible: UK_TILE, absent: `${RU_TILE}|${CURTAIN.en}` },
     },
     before: {
       url: SCENES.youtube.startUrl,
+      flow: 'shot-youtube',
       expect: {
         uk: { visible: RU_TILE, absent: CURTAIN.uk },
         en: { visible: RU_TILE, absent: CURTAIN.en },
@@ -147,7 +155,7 @@ export function beforePlan(locale: Locale): PlannedShot[] {
   return SHOTS.map((shot) => ({
     id: `${shot.id}-before`,
     url: shot.before.url,
-    flow: shot.flow,
+    flow: shot.before.flow ?? shot.flow,
     env: { V: shot.before.expect[locale].visible, A: shot.before.expect[locale].absent },
   }));
 }

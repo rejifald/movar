@@ -13,11 +13,7 @@ export interface ListingShot {
   capture: string;
   /** The same screen with Movar off (the bottom part): `<id>-before.png`. */
   before: string;
-  /**
-   * `tops` when the page's opening lines differ by language (each part from its
-   * own top); `region` when the top is the same in both states, cut through the
-   * card Movar conceals.
-   */
+  /** How the screen splits; every listing shot uses `HALF`. */
   split: SplitSpec;
   ground: GroundTone;
   /** Optional background image (path), cover-fit; flat token colour when absent. */
@@ -33,8 +29,8 @@ export const SPLIT_TAGS: Readonly<Record<Locale, SplitTagLabels>> = {
   en: { after: 'With Movar', before: 'Without Movar' },
 };
 
-/** Where `tops` shots put the seam: just under half, so the after page reads first. */
-const TOPS_CUT = 0.47;
+/** Every shot splits at exactly half, each part from its own page top (owner, 2026-11-15). */
+const HALF: SplitSpec = { mode: 'tops', cut: 0.5 };
 
 /** iPhone 6.9" App Store canvas. */
 export const APP_STORE_CANVAS = { width: 1320, height: 2868 } as const;
@@ -54,7 +50,7 @@ export const LISTING: readonly ListingShot[] = [
     id: 'search',
     capture: 'search.png',
     before: 'search-before.png',
-    split: { mode: 'tops', cut: TOPS_CUT },
+    split: HALF,
     ground: 'light',
     headline: { uk: 'Пошук — українською', en: 'Search in Ukrainian' },
   },
@@ -62,7 +58,7 @@ export const LISTING: readonly ListingShot[] = [
     id: 'site-no-modal',
     capture: 'site-no-modal.png',
     before: 'site-no-modal-before.png',
-    split: { mode: 'tops', cut: TOPS_CUT },
+    split: HALF,
     ground: 'dark',
     headline: {
       uk: 'Сайт — одразу українською, без вікна вибору мови',
@@ -73,7 +69,7 @@ export const LISTING: readonly ListingShot[] = [
     id: 'site-menu',
     capture: 'site-menu.png',
     before: 'site-menu-before.png',
-    split: { mode: 'tops', cut: TOPS_CUT },
+    split: HALF,
     ground: 'light',
     headline: { uk: 'Російську навіть не запропонує', en: "Russian isn't even offered" },
   },
@@ -81,9 +77,7 @@ export const LISTING: readonly ListingShot[] = [
     id: 'youtube',
     capture: 'youtube.png',
     before: 'youtube-before.png',
-    // The feed's top is the same either way; the cut runs under the curtain's
-    // buttons, so the Russian tile's title shows right below it.
-    split: { mode: 'region', cut: 0.705 },
+    split: HALF,
     ground: 'dark',
     headline: { uk: 'YouTube: російські відео сховано', en: 'YouTube: Russian videos hidden' },
   },

@@ -1,0 +1,23 @@
+# Gate for the "youtube" after shot. The curtain must come up on the Russian tile;
+# then the flow taps the curtain's own "Hide all", the Russian card leaves the
+# feed, and the Ukrainian tile behind it moves into its slot.
+# V = the Ukrainian tile that must then be visible, A = the Russian tile or a
+# curtain, neither of which may remain (full-match regexes).
+appId: com.apple.mobilesafari
+---
+- extendedWaitUntil:
+    visible: '.*(закладок|Bookmarks).*|.*(Мовар: приховано вміст|Movar: (Russian )?content hidden).*'
+    timeout: 60000
+- runFlow: _dismiss-tips.yaml
+- extendedWaitUntil:
+    visible: '.*(Мовар: приховано вміст|Movar: (Russian )?content hidden).*'
+    timeout: 60000
+- tapOn:
+    text: 'Приховати всі|Hide all'
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: ${V}
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible: ${A}
+    timeout: 60000

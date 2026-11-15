@@ -33,7 +33,11 @@ describe('shot plans', () => {
     const after = listingPlan('uk');
     const before = beforePlan('uk');
     expect(before.map((shot) => shot.id)).toEqual(after.map((shot) => `${shot.id}-before`));
-    expect(before.map((shot) => shot.flow)).toEqual(after.map((shot) => shot.flow));
+    // Same flow, except where the after taps Movar's own UI (YouTube's "Hide all").
+    expect(before.map((shot) => shot.flow)).toEqual(
+      after.map((shot) => (shot.flow === 'shot-youtube-hide-all' ? 'shot-youtube' : shot.flow)),
+    );
+    expect(after.at(-1)?.flow).toBe('shot-youtube-hide-all');
     expect(new Set([...before, ...after].map((shot) => shot.id)).size).toBe(after.length * 2);
   });
   it('the before pass opens the Movar-off states with page-content assertions', () => {
@@ -56,6 +60,15 @@ describe('shot plans', () => {
     expect(html(gate?.url ?? '')).toContain('Выберите язык');
     expect(html(menu?.url ?? '')).toContain('Русский');
     expect(html(youtube?.url ?? '')).toContain('Как приготовить идеальный борщ');
+  });
+  it('the youtube feed leads with the Russian tile, a Ukrainian one right after it', () => {
+    const body = html(SCENES.youtube.startUrl);
+    const ru = body.indexOf('Как приготовить идеальный борщ');
+    const uk = body.indexOf('Карпатські полонини');
+    expect(ru).toBeGreaterThan(-1);
+    expect(uk).toBeGreaterThan(ru);
+    // Only the Ukrainian tile's own title opens between the two: no tile in between.
+    expect(body.slice(ru, uk).match(/<h3>/g)).toHaveLength(1);
   });
   it('the smoke plan is one assertion-free shot of the given url', () => {
     expect(smokePlan('http://localhost:1/')).toEqual([

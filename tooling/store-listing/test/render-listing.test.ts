@@ -20,10 +20,8 @@ describe('the listing as a set', () => {
     }
   });
 
-  it('splits youtube through the curtain (region) and every other shot from its page tops', () => {
-    for (const shot of LISTING) {
-      expect(shot.split.mode).toBe(shot.id === 'youtube' ? 'region' : 'tops');
-    }
+  it('splits every shot at exactly half, each part from its own page top', () => {
+    for (const shot of LISTING) expect(shot.split).toEqual({ mode: 'tops', cut: 0.5 });
   });
 
   for (const locale of ['uk', 'en'] as const satisfies readonly Locale[]) {

@@ -795,3 +795,84 @@ is skipped") only stops Movar looping on its own output. It cannot see a second 
   **every** layer (content script and DNR)?
 - Could the redirect target be re-matched by somebody else's rule? The same-URL skip only
   protects against our own rule.
+
+---
+
+## 10. Two writers interleave a read-then-write on extension storage ("lost first-run write")
+
+> _Tags: storage, settings, safari, app-group, background, concurrency_
+
+**Signature.** A setting or log entry the user definitely made is gone, but only sometimes:
+the same steps work on one run and not the next. Typical shapes: on Safari, a choice made in
+the host app before Safari's first launch (content hiding on) is back to the default once
+the extension starts, and the host app now shows the default too; or two quick
+`movar:logCorrections` messages leave one batch out of the log. Tests that run each writer
+alone are green.
+
+**Blast radius.** Every place that reads extension storage, decides, then writes the key it
+read, while another async task in the same or another context can write that key in between:
+
+- the background worker: first-run init (`ensureSettingsInitialised`: "empty → write
+  defaults"), the Safari App Group reconcile (`reconcileNativeSettings`: adopt a newer
+  host-app blob) and the push-back (`pushSettingsToNative`), all of which start from
+  separate `void` chains (wake IIFE, `onInstalled`, `onStartup`, `onSettingsChange`);
+- the correction log (`appendCorrectionEventsSerialized`, `lib/events.ts`);
+- page contexts that write a whole `MovarSettings` blob from an earlier read: the popup and
+  options pages (snapshot read on mount) and the content script's "Hide all"
+  (`persistConcealHide`).
+
+**Root cause.** `browser.storage` has no compare-and-set or transaction: a `get` and the
+`set` that depends on it are two separate async steps. Anything that awaits between them —
+another storage call, a native message, a DNR update — gives a concurrent writer a window.
+The worst case is when a guard is recorded alongside the first write: the Safari adoption
+records the App Group `rev` as seen, so when first-run init then writes the defaults over
+the adopted blob, nothing ever re-adopts it, and the defaults write fires
+`onSettingsChange` → push, which overwrites the host app's copy at a higher rev.
+
+**Guard.**
+
+1. **One writer per key per context, through one promise chain.** Route every
+   read-then-write of a key in the background worker through a module-level queue: chain
+   each task onto `tail` (`run = tail.then(task)`), set `tail = run.catch(() => null)`, and
+   return `run`. The `catch` on the tail keeps one failure from wedging later tasks; callers
+   still see the rejection through `run`. Today: `lib/settings-bootstrap.ts` (settings +
+   App Group) and `lib/events.ts` (correction log).
+2. **Prefer the user's choice over the defaults by ORDER, not by luck.** First-run init
+   adopts any host-app blob before it fills gaps with defaults, so on that path no defaults
+   write exists to be pushed over the App Group.
+3. **Across contexts, move the write to the background.** A page context cannot join the
+   worker's queue; send a message and let the worker do the read-then-write (what
+   `logCorrections` does). Writing a whole blob from a snapshot read minutes ago is the
+   widest form of this window: read fresh right before the write, or send only the changed
+   field.
+4. **Test the interleaving, not each writer.** Hold the first writer's read (a spy on
+   `fakeBrowser.storage.*.get` that parks an empty read until the competing write lands,
+   with a short timeout fallback), start both writers, and assert the competing write
+   survives. Add a unit test that a second queued task does not start (no storage write,
+   no native message) while the first is gated.
+
+**Instances.**
+
+- **Correction log (#310).** Two `movar:logCorrections` messages each read the log, appended
+  and wrote it back; the later write dropped the earlier batch. Fixed by the background's
+  serialised writer (`appendCorrectionEventsSerialized`).
+- **Safari first run (2026-11-15).** The host app held `contentModification: true` at rev 1;
+  the extension's wake reconcile and `onInstalled` init ran concurrently. Init either read
+  an empty `storage.sync` before the adoption and wrote the defaults after it, or wrote the
+  defaults first and their push reached the App Group before the reconcile read it. Either
+  way the setting was lost in both places. Fixed by `lib/settings-bootstrap.ts`
+  (`initialiseSettings`, `syncFromNative`, `syncToNative` on one queue, adoption before
+  defaults). Tests: the "Safari first run" suite in
+  `entrypoints/__tests__/background.test.ts` and `lib/settings-bootstrap.test.ts`.
+- **Open:** popup and options write a whole blob from the snapshot they read on mount and
+  never refresh it, so a host-app adoption or a synced change from another device that lands
+  while the page is open is reverted by the next toggle. `persistConcealHide` reads fresh,
+  but its get→set window remains. Tracked in #629.
+
+**Review checklist.**
+
+- Does this code `get` a storage key and then `set` the same key? What else can write that
+  key between the two awaits, in this context and in others?
+- Does it record a guard (a seen rev, a flag) that makes a lost write permanent?
+- Is the write a whole blob built from a snapshot? How old can that snapshot be?
+- In the worker, does the task go through the existing queue for that key?

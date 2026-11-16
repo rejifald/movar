@@ -149,6 +149,22 @@ describe('diffListing / buildPatch', () => {
       [['support_url', 'uk']],
     );
   });
+  it('compares homepage against the nested url map, so a set homepage stays in sync', () => {
+    const withHome = { amo: { ...listing.amo, homepage: 'https://movar.fyi' } };
+    const live = liveInSync();
+    deep(
+      diffListing(buildDesired(withHome, copy), live).map((d) => [d.field, d.locale]),
+      [
+        ['homepage', 'uk'],
+        ['homepage', 'en-US'],
+      ],
+    );
+    live.homepage = {
+      url: { 'en-US': 'https://movar.fyi', uk: 'https://movar.fyi' },
+      outgoing: { 'en-US': 'https://out/h', uk: 'https://out/h' },
+    };
+    deep(diffListing(buildDesired(withHome, copy), live), []);
+  });
   it('detects tag changes and a missing translation', () => {
     const live = liveInSync();
     live.tags = [];

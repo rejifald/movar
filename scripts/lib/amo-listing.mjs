@@ -240,18 +240,20 @@ const sameSet = (a, b) =>
  */
 export function diffListing(desired, addon) {
   const diffs = [];
-  for (const field of ['name', 'summary', 'description', 'support_email', 'homepage']) {
+  for (const field of ['name', 'summary', 'description', 'support_email']) {
     if (!desired[field]) continue;
     for (const [locale, want] of Object.entries(desired[field])) {
       const have = addon[field]?.[locale] ?? null;
       if (norm(have) !== norm(want)) diffs.push({ field, locale, live: have, desired: want });
     }
   }
-  const liveUrls = linkMap(addon.support_url);
-  for (const [locale, want] of Object.entries(desired.support_url)) {
-    const have = liveUrls[locale] ?? null;
-    if (norm(have) !== norm(want))
-      diffs.push({ field: 'support_url', locale, live: have, desired: want });
+  // Link fields come back as `{url: {loc: ..}, outgoing: ..}`, not a plain translated map.
+  for (const field of ['homepage', 'support_url']) {
+    const liveUrls = linkMap(addon[field]);
+    for (const [locale, want] of Object.entries(desired[field] ?? {})) {
+      const have = liveUrls[locale] ?? null;
+      if (norm(have) !== norm(want)) diffs.push({ field, locale, live: have, desired: want });
+    }
   }
   if (desired.default_locale !== addon.default_locale) {
     diffs.push({

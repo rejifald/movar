@@ -10,7 +10,7 @@
     "categories": ["search-tools", "appearance", "language-support"],
     "$tags": "Must come from GET /api/v5/addons/tags/ (a closed list). Live listing has none.",
     "tags": [],
-    "homepage": null,
+    "homepage": "https://movar.fyi",
     "supportEmail": "support@movar.fyi",
     "supportUrl": "https://www.movar.fyi",
     "screenshots": {

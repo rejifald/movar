@@ -12,9 +12,17 @@ appId: com.apple.mobilesafari
 - extendedWaitUntil:
     visible: '.*(Мовар: приховано вміст|Movar: (Russian )?content hidden).*'
     timeout: 60000
-- tapOn:
-    text: 'Приховати всі|Hide all'
-    retryTapIfNoChange: true
+# A tap can report success and change nothing (CI run 15): confirm that the
+# curtain left, and tap again if it did not.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: 'Приховати всі|Hide all'
+          retryTapIfNoChange: true
+      - extendedWaitUntil:
+          notVisible: '.*(Мовар: приховано вміст|Movar: (Russian )?content hidden).*'
+          timeout: 15000
 - extendedWaitUntil:
     visible: ${V}
     timeout: 60000

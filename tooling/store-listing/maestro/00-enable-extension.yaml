@@ -37,9 +37,17 @@ appId: com.apple.Preferences
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
-- tapOn:
-    text: ${L_EXTENSIONS}
-    retryTapIfNoChange: true
+# A tap can report success and leave the page as it was (iPad, CI run 15):
+# confirm the Extensions page opened (its Movar row shows), else tap again.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: ${L_EXTENSIONS}
+          retryTapIfNoChange: true
+      - extendedWaitUntil:
+          visible: ${L_EXT_ROW}
+          timeout: 20000
 - tapOn: ${L_EXT_ROW}
 # The switch is a UISwitch right of its label: a tap on the label text does not
 # flip it, so tap the control's own position.

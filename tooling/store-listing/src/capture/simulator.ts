@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers, no-console, sonarjs/no-os-command-from-path -- orchestration script: shells out to xcrun/maestro/networksetup by name and prints progress; timeouts/buffers are inline on purpose */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { retrySync } from './retry';
@@ -127,6 +127,23 @@ export function terminate(sim: ThrowawaySim, bundleId: string): void {
  * own domain, not the group container, so it never sees what the host app wrote.
  * Returns why it could not, instead of throwing: this is diagnostics only.
  */
+/**
+ * Close every Safari tab: the tab database is removed while Safari is not running.
+ * iPad Safari shows all open tabs in a tab bar, and a background tab's page stays
+ * in the accessibility tree, so each shot must start from one tab. Call it after
+ * `terminate(sim, 'com.apple.mobilesafari')`.
+ */
+export function closeSafariTabs(sim: ThrowawaySim): void {
+  // Safari keeps its tabs in the simulator HOME's Library/Safari, not in its app
+  // container (iOS 26.3: SafariTabs.db plus its -wal/-shm).
+  const home = simctl('getenv', sim.udid, 'HOME').trim();
+  const safariDir = path.join(home, 'Library', 'Safari');
+  if (!existsSync(safariDir)) return; // Safari has never run: there are no tabs yet.
+  for (const file of readdirSync(safariDir)) {
+    if (file.startsWith('SafariTabs.db')) rmSync(path.join(safariDir, file), { force: true });
+  }
+}
+
 export function readAppGroupDefaults(sim: ThrowawaySim, bundleId: string, group: string): string {
   try {
     const containers = simctl('get_app_container', sim.udid, bundleId, 'groups');

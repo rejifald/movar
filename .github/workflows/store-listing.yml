@@ -96,12 +96,14 @@ jobs:
 
       # One build (universal app), every device and locale (--reuse-build). CI=true
       # is already set by Actions; it is what allows run.ts to change the runner's
-      # system proxy. Shots land in captures/<device>/<locale>/.
+      # system proxy. Shots land in captures/<device>/<locale>/. Each step runs even
+      # when an earlier one failed, so one run reports every device and locale.
       - name: Capture iPhone uk
         env:
           CI: 'true'
         run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --device iphone --locale uk --out "$GITHUB_WORKSPACE/captures"
       - name: Capture iPhone en
+        if: ${{ !cancelled() }}
         env:
           CI: 'true'
         run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --device iphone --locale en --reuse-build --out "$GITHUB_WORKSPACE/captures"

@@ -240,6 +240,7 @@ async function captureShot(
   log(`▸ shot ${shot.id}`);
   assertProxyAlive(proxy, `before shot "${shot.id}"`);
   sim.terminate(device, 'com.apple.mobilesafari');
+  sim.closeSafariTabs(device);
   sim.openUrl(device, shot.url);
   const reached = runFlow(device.udid, shot.flow, shot.env, debugDir);
   assertProxyAlive(proxy, `during shot "${shot.id}"`);

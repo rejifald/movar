@@ -4,7 +4,9 @@
  * throwaway simulator, enables the extension with Maestro, captures every shot
  * and gates the result. Usage:
  *
- *   tsx src/capture/run.ts --locale uk --out <dir> [--reuse-build]
+ *   tsx src/capture/run.ts --locale uk [--device iphone|ipad] --out <dir> [--reuse-build]
+ *
+ * Shots land in `<out>/<device>/<locale>/`.
  *   tsx src/capture/run.ts --smoke-localhost            # no proxy, no mock sites
  *
  * Never touches a pre-existing simulator, and changes the Mac's proxy ONLY when
@@ -35,12 +37,13 @@ import { activeService, manualProxyInstructions, parseProxyGet, planProxy } from
 import type { ProxyPlan } from './proxy-state';
 import { log, out } from './sh';
 import * as sim from './simulator';
-import { beforePlan, DEVICE_TYPE_NAME, listingPlan, SCREENSHOT_SIZE, smokePlan } from './shots';
-import type { Locale, PlannedShot } from './shots';
+import { beforePlan, CAPTURE_DEVICES, listingPlan, smokePlan } from './shots';
+import type { CaptureDevice, Locale, PlannedShot } from './shots';
 
 const { values } = parseArgs({
   options: {
     locale: { type: 'string', default: 'uk' },
+    device: { type: 'string', default: 'iphone' },
     out: { type: 'string' },
     'smoke-localhost': { type: 'boolean', default: false },
     'local-proxy-already-set': { type: 'boolean', default: false },
@@ -52,12 +55,16 @@ const { values } = parseArgs({
 
 const locale = values.locale as Locale;
 if (locale !== 'uk' && locale !== 'en') throw new Error('--locale must be uk or en');
+const deviceName = values.device as CaptureDevice;
+if (deviceName !== 'iphone' && deviceName !== 'ipad')
+  throw new Error('--device must be iphone or ipad');
+const profile = CAPTURE_DEVICES[deviceName];
 const smoke = values['smoke-localhost'];
 const isCI = process.env['CI'] === 'true';
 const runId = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, 'Z');
 const cache = path.join(PACKAGE_ROOT, '.cache');
 const derived = path.join(cache, 'derived');
-const runDir = path.join(cache, 'captures', runId, locale);
+const runDir = path.join(cache, 'captures', runId, deviceName, locale);
 const debugDir = path.join(cache, 'maestro-debug', runId);
 
 const cleanups: (() => Promise<void> | void)[] = [];
@@ -160,7 +167,7 @@ async function startProxy(port: number): Promise<MockProxy> {
 
 /** Throwaway simulator (deleted in cleanup, whatever happens next), ready with the app installed. */
 function prepareSimulator(app: string, proxy: MockProxy | null): sim.ThrowawaySim {
-  const device = sim.createThrowaway(DEVICE_TYPE_NAME, runId);
+  const device = sim.createThrowaway(profile.typeName, runId);
   cleanups.push(() => {
     if (values['keep-sim']) {
       log(`▸ --keep-sim: leaving ${device.name} (${device.udid}); delete it yourself`);
@@ -179,7 +186,7 @@ function prepareSimulator(app: string, proxy: MockProxy | null): sim.ThrowawaySi
 }
 
 function runSetupFlow(device: sim.ThrowawaySim, flow: string): void {
-  if (!runFlow(device.udid, flow, LABELS[locale], debugDir)) {
+  if (!runFlow(device.udid, flow, { ...LABELS[locale], ...profile.env }, debugDir)) {
     throw new Error(`setup flow ${flow} failed`);
   }
 }
@@ -278,7 +285,8 @@ function writeManifest(
     appVersion: first?.appVersion,
     appBuild: first?.appBuild,
     sha: times.sha,
-    simulator: { device: DEVICE_TYPE_NAME, runtime: device.runtimeName, runtimeId: device.runtime },
+    device: deviceName,
+    simulator: { device: profile.typeName, runtime: device.runtimeName, runtimeId: device.runtime },
     startedAt: times.started,
     finishedAt: new Date().toISOString(),
     proxy: summary,
@@ -289,7 +297,7 @@ function writeManifest(
 }
 
 function copyOut(captured: readonly Captured[], outDir: string): void {
-  const dest = path.resolve(outDir, locale);
+  const dest = path.resolve(outDir, deviceName, locale);
   mkdirSync(dest, { recursive: true });
   for (const { file } of captured) copyFileSync(file, path.join(dest, path.basename(file)));
   cpSync(path.join(runDir, 'manifest.json'), path.join(dest, 'manifest.json'));
@@ -317,7 +325,7 @@ function finish(
     proxy: summary,
     shots: captured.map((c) => c.record),
     expectedIds: plan.map((shot) => shot.id),
-    size: SCREENSHOT_SIZE,
+    size: profile.size,
   });
   writeManifest(captured, device, summary, failures, times);
   if (failures.length > 0) {

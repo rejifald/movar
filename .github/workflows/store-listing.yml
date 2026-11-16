@@ -33,7 +33,7 @@ jobs:
     # device type) and is what the repo's other Safari jobs already use. The run
     # needs the iOS 26 Settings layout, so the Xcode floor below is 26.
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
@@ -94,16 +94,27 @@ jobs:
           echo "maestro $actual"
           [ "$actual" = "$MAESTRO_VERSION" ] || { echo "::error::Maestro $actual != pinned $MAESTRO_VERSION"; exit 1; }
 
-      # One build, both locales (--reuse-build). CI=true is already set by Actions;
-      # it is what allows run.ts to change the runner's system proxy.
-      - name: Capture uk
+      # One build (universal app), every device and locale (--reuse-build). CI=true
+      # is already set by Actions; it is what allows run.ts to change the runner's
+      # system proxy. Shots land in captures/<device>/<locale>/.
+      - name: Capture iPhone uk
         env:
           CI: 'true'
-        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --locale uk --out "$GITHUB_WORKSPACE/captures"
-      - name: Capture en
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --device iphone --locale uk --out "$GITHUB_WORKSPACE/captures"
+      - name: Capture iPhone en
         env:
           CI: 'true'
-        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --locale en --reuse-build --out "$GITHUB_WORKSPACE/captures"
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --device iphone --locale en --reuse-build --out "$GITHUB_WORKSPACE/captures"
+      - name: Capture iPad uk
+        if: ${{ !cancelled() }}
+        env:
+          CI: 'true'
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --device ipad --locale uk --reuse-build --out "$GITHUB_WORKSPACE/captures"
+      - name: Capture iPad en
+        if: ${{ !cancelled() }}
+        env:
+          CI: 'true'
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/run.ts --device ipad --locale en --reuse-build --out "$GITHUB_WORKSPACE/captures"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
@@ -135,10 +146,12 @@ jobs:
       - name: Frame
         run: |
           set -euo pipefail
-          for locale in uk en; do
-            pnpm --filter @movar/store-listing exec tsx src/render/cli.ts \
-              --captures "$GITHUB_WORKSPACE/artifact/captures/$locale" \
-              --out "$GITHUB_WORKSPACE/framed" --locale "$locale"
+          for device in iphone ipad; do
+            for locale in uk en; do
+              pnpm --filter @movar/store-listing exec tsx src/render/cli.ts \
+                --captures "$GITHUB_WORKSPACE/artifact/captures/$device/$locale" \
+                --out "$GITHUB_WORKSPACE/framed/$device/$locale" --locale "$locale" --canvas "$device"
+            done
           done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

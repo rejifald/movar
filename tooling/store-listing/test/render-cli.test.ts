@@ -7,7 +7,14 @@ describe('parseCliOptions', () => {
       captures: 'c',
       out: 'o',
       locale: 'en',
+      canvas: 'iphone',
     });
+    expect(parseCliOptions({ captures: 'c', out: 'o', locale: 'uk', canvas: 'ipad' }).canvas).toBe(
+      'ipad',
+    );
+    expect(() => parseCliOptions({ captures: 'c', out: 'o', locale: 'uk', canvas: 'tv' })).toThrow(
+      /iphone or ipad/,
+    );
   });
   it('asks for --captures and --out', () => {
     expect(() => parseCliOptions({ out: 'o', locale: 'uk' })).toThrow(/Usage/);

@@ -16,6 +16,8 @@ export interface DeviceProfile {
   rimMm: number;
   /** Display corner radius, mm. */
   cornerRadiusMm: number;
+  /** The status bar as a share of the capture height, where it differs from the iPhone's. */
+  statusBarShare?: number;
 }
 
 /** The default edge rule: body edge = 3.5 % of the screen width on every side. */
@@ -46,7 +48,26 @@ export const ANDROID_GENERIC: DeviceProfile = {
   cornerRadiusMm: 7,
 };
 
-export const DEVICE_PROFILES: readonly DeviceProfile[] = [IPHONE_17_PRO_MAX, ANDROID_GENERIC];
+/**
+ * iPad Pro 13-inch (M5): body 215.5 x 281.6 mm. Display from its 2064 x 2752 px
+ * capture at 264 ppi (198.6 x 264.8 mm), so the edge is ~8.4 mm all round.
+ */
+export const IPAD_PRO_13_M5: DeviceProfile = {
+  id: 'ipad-pro-13-m5',
+  label: 'iPad Pro 13-inch (M5)',
+  bodyMm: { w: 215.5, h: 281.6 },
+  displayMm: { w: 198.58, h: 264.77 },
+  rimMm: 0.6,
+  cornerRadiusMm: 18,
+  // 64 px (32 pt at 2x) of a 2752 px capture; to be checked against the first real CI capture.
+  statusBarShare: 0.023_26,
+};
+
+export const DEVICE_PROFILES: readonly DeviceProfile[] = [
+  IPHONE_17_PRO_MAX,
+  IPAD_PRO_13_M5,
+  ANDROID_GENERIC,
+];
 
 /** Profile for a capture of unknown origin: default 3.5 % rule around its own ratio. */
 export function unknownDevice(captureWidth: number, captureHeight: number): DeviceProfile {

@@ -1,6 +1,6 @@
 # @movar/store-listing — agent guide
 
-The iPhone App Store listing, made from **real app screens**: real Safari on a throwaway
+The iPhone and iPad App Store listing, made from **real app screens**: real Safari on a throwaway
 simulator, the real Movar extension acting on curated mock sites, framed by a browser-free
 renderer. Private build tooling, never shipped in a product.
 
@@ -9,14 +9,20 @@ renderer. Private build tooling, never shipped in a product.
 | Stage      | Code           | Runs on                    | Output                                           |
 | ---------- | -------------- | -------------------------- | ------------------------------------------------ |
 | Mock sites | `src/mock/`    | anywhere                   | an HTTPS MITM proxy serving fictional pages      |
-| Capture    | `src/capture/` | macOS + Xcode 26 + Maestro | raw 1320×2868 PNGs from one gated run            |
+| Capture    | `src/capture/` | macOS + Xcode 26 + Maestro | raw PNGs (iPhone 1320×2868, iPad 2064×2752)      |
 | Frame      | `src/render/`  | anywhere (CI: Linux)       | framed listing PNGs, contact sheet, measurements |
 
 ```sh
 pnpm --filter @movar/store-listing check:mock-scenes         # real extension (Chromium) vs the mock pages
 pnpm --filter @movar/store-listing capture --smoke-localhost --locale uk   # local mechanics check
-pnpm --filter @movar/store-listing frame --captures <dir> --out <dir> --locale uk
+pnpm --filter @movar/store-listing frame --captures <dir> --out <dir> --locale uk [--canvas ipad]
 ```
+
+Devices: `capture --device iphone|ipad` (default iphone; `CAPTURE_DEVICES` in
+`src/capture/shots.ts`) writes `<out>/<device>/<locale>/`. The setup flows tap two UISwitches
+by screen position (a tap on the label doesn't flip one, and iPad Settings is a split view), so
+each device carries its own `P_EXT_SWITCH` / `P_HOST_TOGGLE` points; every scroll centres its row
+(iOS 26 floats a search bar over a list's bottom edge — a test holds the flows to it).
 
 The full capture (`capture --locale uk`) needs the mock proxy set as the system proxy, which
 the script does **only when `CI=true`** (the `store-listing` workflow on an ephemeral macOS
@@ -50,9 +56,10 @@ machine you own, then pass `--local-proxy-already-set`.
   styled after the Storybook backdrops. A request to a mocked host with no route is a miss, and
   a miss fails the capture. The proxy log is JSON lines appended as each request happens (the
   run reads it while the proxy still runs); a proxied run with zero recorded requests fails too.
-  A frame run with a capture missing fails (pass the locale folder, `captures/uk`).
+  A frame run with a capture missing fails (pass the device/locale folder, `captures/iphone/uk`).
 - **Phone:** `phoneShape(screenWidth, device)` in `src/render/devices.ts` is the only source of
-  rim, bezel and radii (edge ≈ 3.5 % of screen width; iPhone 17 Pro Max body 78.0 × 163.4 mm).
+  rim, bezel and radii (phones: edge ≈ 3.5 % of screen width, iPhone 17 Pro Max body 78.0 ×
+  163.4 mm; the iPad Pro 13" (M5) keeps its physical ~8.4 mm edge and its own status-bar height).
   Shrink the screen to fit, never thin the bezel. The renderer draws no Dynamic Island on App
   Store shots, but iOS 26 bakes the real island into the simulator capture, and that one stays:
   it is real UI, and removing it would be an edited screenshot (owner, 2026-11-15).

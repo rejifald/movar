@@ -32,8 +32,18 @@ export const SPLIT_TAGS: Readonly<Record<Locale, SplitTagLabels>> = {
 /** Every shot splits at exactly half, each part from its own page top (owner, 2026-11-15). */
 const HALF: SplitSpec = { cut: 0.5 };
 
+export type ListingCanvas = 'iphone' | 'ipad';
+
+/** App Store canvases: the iPhone 6.9" and iPad 13" slots, each the size of its capture. */
+export const APP_STORE_CANVASES: Readonly<
+  Record<ListingCanvas, { readonly width: number; readonly height: number }>
+> = {
+  iphone: { width: 1320, height: 2868 },
+  ipad: { width: 2064, height: 2752 },
+};
+
 /** iPhone 6.9" App Store canvas. */
-export const APP_STORE_CANVAS = { width: 1320, height: 2868 } as const;
+export const APP_STORE_CANVAS = APP_STORE_CANVASES.iphone;
 
 /**
  * The listing's grounds (owner pick, 2026-11-15): concrete with a kalyna sprig,

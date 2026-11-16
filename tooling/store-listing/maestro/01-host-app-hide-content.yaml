@@ -19,7 +19,7 @@ appId: fyi.movar.safari
     visible: ${L_TOGGLE_LABEL}
     timeout: 60000
 - tapOn:
-    point: '84%,20%'
+    point: ${P_HOST_TOGGLE}
 - extendedWaitUntil:
     visible: ${L_CONCEAL_HOW}
     timeout: 60000

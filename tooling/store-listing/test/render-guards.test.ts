@@ -15,6 +15,7 @@ import {
 
 const captures = {
   iphone: { width: 1320, height: 2868 },
+  ipad: { width: 2064, height: 2752 },
   android: { width: 1080, height: 2400 },
   unknown: { width: 1000, height: 1700 },
   wide: { width: 1800, height: 3900 },
@@ -23,6 +24,7 @@ const canvases = [
   { width: 1320, height: 2868 },
   { width: 1080, height: 1920 },
   { width: 1080, height: 1350 },
+  { width: 2064, height: 2752 },
 ] as const;
 
 interface Extra {
@@ -60,13 +62,19 @@ function codeOf(run: () => void): string | undefined {
   return undefined;
 }
 
-function expectTruePhone(placement: PhonePlacement, capture: { width: number; height: number }) {
+function expectTruePhone(
+  placement: PhonePlacement,
+  capture: { width: number; height: number },
+  device: Layout['device'],
+) {
   const { screen, phone, shape } = placement;
   expect(
     Math.abs(screen.width / screen.height / (capture.width / capture.height) - 1),
   ).toBeLessThan(0.005);
   expect(Math.abs(phone.height / phone.width / shape.bodyRatio - 1)).toBeLessThan(0.005);
-  expect((shape.edge / shape.screenWidth) * 100).toBeCloseTo(3.5, 0);
+  // The edge is the device's own (iPhone ≈ 3.5 %, iPad ≈ 4.3 % of the screen width).
+  const edgeShare = (device.bodyMm.w - device.displayMm.w) / 2 / device.displayMm.w;
+  expect(shape.edge / shape.screenWidth).toBeCloseTo(edgeShare, 3);
 }
 
 describe('halves layout across captures and canvases', () => {
@@ -76,7 +84,7 @@ describe('halves layout across captures and canvases', () => {
         const layout = layoutFor(capture, canvas);
         expect(codeOf(() => assertLayout(layout))).toBeUndefined();
         const { phone, minSideGap } = layout;
-        expectTruePhone(phone, capture);
+        expectTruePhone(phone, capture, layout.device);
         // One phone: whole, centred, the minimum gap off the bottom.
         const left = phone.phone.x;
         const right = canvas.width - phone.phone.x - phone.phone.width;
@@ -151,6 +159,18 @@ describe('halves layout across captures and canvases', () => {
     expect(
       codeOf(() => assertLayout(layoutFor(captures.iphone, canvases[1], { headlineLines: 3 }))),
     ).toBe(undefined);
+  });
+
+  it('iPad: its own profile, and the before part starts under the iPad status bar', () => {
+    const layout = layoutFor(captures.ipad, canvases[3]);
+    expect(layout.device.id).toBe('ipad-pro-13-m5');
+    expect(codeOf(() => assertLayout(layout))).toBeUndefined();
+    const { split, phone, capture } = layout;
+    const halfLineRows =
+      ((split.seam.y + split.seam.height - (phone.screen.y + phone.screen.height * 0.47)) *
+        capture.height) /
+      phone.screen.height;
+    expect(Math.abs(split.beforeSlice.y + halfLineRows - 64)).toBeLessThanOrEqual(3); // 0.02326 × 2752
   });
 
   it('scales the side gap with the canvas', () => {

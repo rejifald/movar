@@ -1,5 +1,5 @@
 /**
- * `tsx src/render/cli.ts --captures <dir> --out <dir> --locale uk|en`
+ * `tsx src/render/cli.ts --captures <dir> --out <dir> --locale uk|en [--canvas iphone|ipad]`
  * Renders every listing shot whose capture exists, then a contact sheet and
  * measurements.json (pixel-measured, not layout-derived).
  */
@@ -11,8 +11,8 @@ import { contactSheet } from './contact-sheet.js';
 import type { SheetItem } from './contact-sheet.js';
 import { assertCapturesPresent, parseCliOptions, shotMeasurement } from './cli-options.js';
 import { assertLayout, assertSameLogo } from './layout.js';
-import { APP_STORE_CANVAS, LISTING, LISTING_GROUNDS, SPLIT_TAGS } from './listing.config.js';
-import type { ListingShot, Locale } from './listing.config.js';
+import { APP_STORE_CANVASES, LISTING, LISTING_GROUNDS, SPLIT_TAGS } from './listing.config.js';
+import type { ListingCanvas, ListingShot, Locale } from './listing.config.js';
 import { measurePhone } from './measure.js';
 import { planShot, renderLayout } from './render.js';
 import type { ShotSpec } from './render.js';
@@ -21,6 +21,7 @@ interface CliOptions {
   readonly capturesDir: string;
   readonly outDir: string;
   readonly locale: Locale;
+  readonly canvas: ListingCanvas;
 }
 
 function readOptions(): CliOptions {
@@ -29,6 +30,7 @@ function readOptions(): CliOptions {
       captures: { type: 'string' },
       out: { type: 'string' },
       locale: { type: 'string', default: 'uk' },
+      canvas: { type: 'string', default: 'iphone' },
     },
   });
   const options = parseCliOptions(values);
@@ -36,12 +38,13 @@ function readOptions(): CliOptions {
     capturesDir: path.resolve(options.captures),
     outDir: path.resolve(options.out),
     locale: options.locale,
+    canvas: options.canvas,
   };
 }
 
 function specFor(shot: ListingShot, options: CliOptions): ShotSpec {
   return {
-    canvas: APP_STORE_CANVAS,
+    canvas: APP_STORE_CANVASES[options.canvas],
     capture: path.join(options.capturesDir, shot.capture),
     before: path.join(options.capturesDir, shot.before),
     split: shot.split,

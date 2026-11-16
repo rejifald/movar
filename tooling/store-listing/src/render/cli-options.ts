@@ -1,30 +1,36 @@
 /** Pure parts of the `frame` CLI: option validation and the per-shot measurement record. */
 import path from 'node:path';
 import type { Layout } from './layout.js';
-import type { Locale } from './listing.config.js';
+import type { ListingCanvas, Locale } from './listing.config.js';
 import type { PhoneMeasurement } from './measure.js';
 
 export interface RawCliValues {
   readonly captures?: string | undefined;
   readonly out?: string | undefined;
   readonly locale?: string | undefined;
+  readonly canvas?: string | undefined;
 }
 
 export interface ParsedCliOptions {
   readonly captures: string;
   readonly out: string;
   readonly locale: Locale;
+  readonly canvas: ListingCanvas;
 }
 
 /** Throws the CLI's usage errors; returns the validated options. */
 export function parseCliOptions(values: RawCliValues): ParsedCliOptions {
   if (values.captures === undefined || values.out === undefined) {
-    throw new Error('Usage: cli.ts --captures <dir> --out <dir> --locale uk|en');
+    throw new Error(
+      'Usage: cli.ts --captures <dir> --out <dir> --locale uk|en [--canvas iphone|ipad]',
+    );
   }
   if (values.locale !== 'uk' && values.locale !== 'en') {
     throw new Error('--locale must be uk or en');
   }
-  return { captures: values.captures, out: values.out, locale: values.locale };
+  const canvas = values.canvas ?? 'iphone';
+  if (canvas !== 'iphone' && canvas !== 'ipad') throw new Error('--canvas must be iphone or ipad');
+  return { captures: values.captures, out: values.out, locale: values.locale, canvas };
 }
 
 /**

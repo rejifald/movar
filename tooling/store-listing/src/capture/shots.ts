@@ -127,10 +127,34 @@ export const SHOTS: readonly Shot[] = [
   },
 ];
 
-/** Exact App Store pixel size of the 6.9" iPhone slot. */
-export const SCREENSHOT_SIZE = { width: 1320, height: 2868 } as const;
+export type CaptureDevice = 'iphone' | 'ipad';
 
-export const DEVICE_TYPE_NAME = 'iPhone 17 Pro Max';
+export interface CaptureDeviceProfile {
+  /** Simulator device type, as `simctl create` takes it. */
+  readonly typeName: string;
+  /** Exact App Store pixel size of the device's screenshot slot. */
+  readonly size: { readonly width: number; readonly height: number };
+  /**
+   * Screen points the setup flows tap: a UISwitch flips only on its own control,
+   * not its label, and iPad Settings is a split view, so the position differs.
+   */
+  readonly env: Readonly<Record<'P_EXT_SWITCH' | 'P_HOST_TOGGLE', string>>;
+}
+
+/** The captured devices: the 6.9" iPhone slot and the 13" iPad slot. */
+export const CAPTURE_DEVICES: Readonly<Record<CaptureDevice, CaptureDeviceProfile>> = {
+  iphone: {
+    typeName: 'iPhone 17 Pro Max',
+    size: { width: 1320, height: 2868 },
+    env: { P_EXT_SWITCH: '84%,39%', P_HOST_TOGGLE: '84%,20%' },
+  },
+  ipad: {
+    typeName: 'iPad Pro 13-inch (M5)',
+    size: { width: 2064, height: 2752 },
+    // Verified on iOS 26.3 (en): Settings' detail pane, and the host app's centred column.
+    env: { P_EXT_SWITCH: '93%,26%', P_HOST_TOGGLE: '75%,11%' },
+  },
+};
 
 /** One shot as the runner drives it: open `url`, run `flow` with `env`. */
 export interface PlannedShot {

@@ -3,6 +3,7 @@ import {
   ANDROID_GENERIC,
   DEFAULT_EDGE_FRACTION,
   DEVICE_PROFILES,
+  IPAD_PRO_13_M5,
   IPHONE_17_PRO_MAX,
   phoneShape,
   readPngSize,
@@ -14,9 +15,18 @@ import { PALETTE, ACCENT } from '../src/render/palette.js';
 import sharp from 'sharp';
 
 const profiles = [...DEVICE_PROFILES, unknownDevice(1000, 1700)];
+/** The 3.5 % edge is a phone rule; the iPad keeps its own physical edge. */
+const phones = profiles.filter((p) => p !== IPAD_PRO_13_M5);
 
 describe('phoneShape', () => {
-  it.each(profiles.map((p) => [p.id, p] as const))(
+  it('the iPad keeps its physical edge (~8.4 mm, ~4.3 % of the screen width)', () => {
+    for (const screenWidth of [300, 1470, 2000]) {
+      const shape = phoneShape(screenWidth, IPAD_PRO_13_M5);
+      expect((shape.edge / screenWidth) * 100).toBeCloseTo(4.26, 1);
+    }
+  });
+
+  it.each(phones.map((p) => [p.id, p] as const))(
     'edge is 3.5 % (+-0.1) of the screen width for %s at any size',
     (_id, profile) => {
       for (const screenWidth of [300, 761, 1076, 2000]) {

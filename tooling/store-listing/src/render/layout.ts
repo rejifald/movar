@@ -49,6 +49,7 @@ const CAPTION_OFFSET = ref(44);
 /**
  * The iOS status bar (with the Dynamic Island) as a share of the capture height:
  * 186 px of a 2868 px iPhone 6.9" capture. The before part starts below it.
+ * A device profile with its own `statusBarShare` (the iPad) overrides it.
  */
 export const STATUS_BAR_SHARE = 186 / 2868;
 /** Each part must keep at least this share of the screen, or it stops reading as a page. */
@@ -184,6 +185,7 @@ function placePhone(
 function placeSplit(
   split: SplitSpec,
   capture: PixelSize,
+  statusBarShare: number,
   placement: PhonePlacement,
   px: (f: number) => number,
 ): SplitPlacement {
@@ -195,7 +197,7 @@ function placeSplit(
   // The before part starts under its status bar; the line's lower half falls on
   // status-bar rows, so it covers none of the before page.
   const halfLineRows = Math.round(((seamY - lineTop) * capture.height) / screen.height);
-  const statusBar = Math.round(capture.height * STATUS_BAR_SHARE);
+  const statusBar = Math.round(capture.height * statusBarShare);
   const fontSize = px(CAPTION_SIZE);
   const column = Math.round(fontSize * CAPTION_LEADING);
   const columnX = phone.x - px(CAPTION_OFFSET) - Math.round(column / 2);
@@ -250,7 +252,7 @@ export function computeLayout(input: LayoutInput): Layout {
       lines: headlineLines,
     },
     phone,
-    split: placeSplit(input.split, capture, phone, px),
+    split: placeSplit(input.split, capture, device.statusBarShare ?? STATUS_BAR_SHARE, phone, px),
     cta: input.cta,
   };
 }

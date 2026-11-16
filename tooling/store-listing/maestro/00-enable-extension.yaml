@@ -44,7 +44,7 @@ appId: com.apple.Preferences
 # The switch is a UISwitch right of its label: a tap on the label text does not
 # flip it, so tap the control's own position.
 - tapOn:
-    point: '84%,39%'
+    point: ${P_EXT_SWITCH}
 - extendedWaitUntil:
     visible: ${L_ALL_SITES_ROW}
     timeout: 60000

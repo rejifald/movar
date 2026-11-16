@@ -1063,19 +1063,19 @@ const en: Strings = {
     slides: {
       search: {
         label: 'Search',
-        alt: 'Google search: on top, with Movar, the results are in Ukrainian; below, without Movar, they are in Russian',
+        alt: 'Google search: on top, with Movar, the results are in your language; below, without Movar, they are in another language',
       },
       'site-no-modal': {
         label: 'No language pop-up',
-        alt: 'A website: on top, with Movar, it opens straight in Ukrainian; below, without Movar, a language-choice pop-up covers a Russian page',
+        alt: 'A website: on top, with Movar, it opens straight in your language; below, without Movar, a language-choice pop-up covers a page in another language',
       },
       'site-menu': {
         label: 'Language switcher',
-        alt: "A site's language switcher: on top, with Movar, it offers only Ukrainian and English; below, without Movar, it offers Russian too",
+        alt: "A site's language switcher: on top, with Movar, it offers only your languages; below, without Movar, it offers other languages too",
       },
       youtube: {
         label: 'YouTube',
-        alt: 'YouTube feed: on top, with Movar, the Russian video is hidden and a Ukrainian one is in its place; below, without Movar, the Russian video is in the feed',
+        alt: 'YouTube feed: on top, with Movar, a video in another language is hidden and one in your language is in its place; below, without Movar, that video is in the feed',
       },
     },
   },
@@ -1967,19 +1967,19 @@ const uk: Strings = {
     slides: {
       search: {
         label: 'Пошук',
-        alt: 'Пошук Google: вгорі з Моваром — результати українською, внизу без Мовара — російською',
+        alt: 'Пошук Google: вгорі з Моваром — результати вашою мовою, внизу без Мовара — іншою',
       },
       'site-no-modal': {
         label: 'Сайт без вікна мови',
-        alt: 'Сайт: вгорі з Моваром — одразу відкривається українською, внизу без Мовара — вікно вибору мови поверх російської сторінки',
+        alt: 'Сайт: вгорі з Моваром — одразу відкривається вашою мовою, внизу без Мовара — вікно вибору мови поверх сторінки іншою мовою',
       },
       'site-menu': {
         label: 'Перемикач мов',
-        alt: 'Перемикач мов на сайті: вгорі з Моваром — лише українська й англійська, внизу без Мовара — ще й російська',
+        alt: 'Перемикач мов на сайті: вгорі з Моваром — лише ваші мови, внизу без Мовара — ще й інші',
       },
       youtube: {
         label: 'YouTube',
-        alt: 'Стрічка YouTube: вгорі з Моваром — російське відео приховано, на його місці українське, внизу без Мовара — російське відео у стрічці',
+        alt: 'Стрічка YouTube: вгорі з Моваром — відео іншою мовою приховано, на його місці — відео вашою мовою, внизу без Мовара — те саме відео у стрічці',
       },
     },
   },

@@ -1,6 +1,8 @@
 /**
  * The App Store listing, in order. Headlines are WORKING COPY pending owner
- * sign-off — they live here and nowhere else.
+ * sign-off — they live here and nowhere else. They never name a language Movar
+ * hides: "your language" for what is shown, "other languages" for what is hidden
+ * (docs/copy.md, store listing).
  */
 import { fileURLToPath } from 'node:url';
 import type { SplitSpec } from './layout.js';
@@ -62,7 +64,7 @@ export const LISTING: readonly ListingShot[] = [
     before: 'search-before.png',
     split: HALF,
     ground: 'light',
-    headline: { uk: 'Пошук — українською', en: 'Search in Ukrainian' },
+    headline: { uk: 'Пошук — вашою мовою', en: 'Search in your language' },
   },
   {
     id: 'site-no-modal',
@@ -71,8 +73,8 @@ export const LISTING: readonly ListingShot[] = [
     split: HALF,
     ground: 'dark',
     headline: {
-      uk: 'Сайт — одразу українською, без вікна вибору мови',
-      en: 'Sites open in Ukrainian, no language pop-up',
+      uk: 'Сайти — одразу вашою мовою, без вікна вибору',
+      en: 'Sites open in your language, no language pop-up',
     },
   },
   {
@@ -81,7 +83,7 @@ export const LISTING: readonly ListingShot[] = [
     before: 'site-menu-before.png',
     split: HALF,
     ground: 'light',
-    headline: { uk: 'Російську навіть не запропонує', en: "Russian isn't even offered" },
+    headline: { uk: 'У перемикачі — лише ваші мови', en: 'Only your languages in the switcher' },
   },
   {
     id: 'youtube',
@@ -89,6 +91,9 @@ export const LISTING: readonly ListingShot[] = [
     before: 'youtube-before.png',
     split: HALF,
     ground: 'dark',
-    headline: { uk: 'YouTube: російські відео сховано', en: 'YouTube: Russian videos hidden' },
+    headline: {
+      uk: 'YouTube: відео іншими мовами сховано',
+      en: 'YouTube: videos in other languages hidden',
+    },
   },
 ];

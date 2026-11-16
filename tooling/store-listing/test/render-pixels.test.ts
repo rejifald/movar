@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   measurePhone,
   planShot,
+  renderScreen,
   renderShot,
   RenderGuardError,
   type ShotSpec,
@@ -186,6 +187,32 @@ describe('rendered pixels', () => {
       // The line itself is the dark seam colour.
       const [r = 0] = await pixel(split.seam.y + Math.round(split.seam.height / 2));
       expect(r).toBeLessThan(40);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'web screen: after above the seam line, before below it, at the asked width',
+    async () => {
+      const spec: ShotSpec = {
+        canvas: { width: 1320, height: 2868 },
+        capture: await capture(1320, 2868, '#3b82f6'),
+        before: await capture(1320, 2868, '#ef4444'),
+        ...SPLIT,
+        ground: 'light',
+        headline: 'Пошук — українською',
+      };
+      const webp = await renderScreen(await planShot(spec), 660);
+      const { data, info } = await sharp(webp).raw().toBuffer({ resolveWithObject: true });
+      expect([info.width, info.height]).toEqual([660, 1434]);
+      const at = (y: number): number[] => {
+        const o = (y * info.width + 330) * info.channels;
+        return [data[o] ?? 0, data[o + 1] ?? 0, data[o + 2] ?? 0];
+      };
+      const seam = Math.round(1434 * 0.47);
+      expect(at(seam - 40)[2]).toBeGreaterThan(200); // blue: after
+      expect(at(seam + 40)[0]).toBeGreaterThan(200); // red: before
+      expect(Math.max(...at(seam))).toBeLessThan(60); // the dark seam line
     },
     TIMEOUT,
   );

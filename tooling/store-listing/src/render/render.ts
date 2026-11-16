@@ -146,6 +146,33 @@ async function splitScreen(layout: Layout, after: Uint8Array, before: Uint8Array
     .toBuffer();
 }
 
+/** The seam line's colour, as the framed shot draws it. */
+const SCREEN_SEAM = { r: 0x1c, g: 0x19, b: 0x17, alpha: 1 } as const;
+
+/**
+ * The bare split screen for the website: both parts and the seam line, at
+ * capture resolution scaled to `width`, as WebP. No ground, headline or
+ * phone: the page draws the device frame and the captions as real text.
+ */
+export async function renderScreen(plan: ShotPlan, width: number): Promise<Buffer> {
+  const { layout, captureBytes, beforeBytes } = plan;
+  const { capture, split, phone } = layout;
+  const lineRows = Math.max(
+    1,
+    Math.round((split.seam.height * capture.height) / phone.screen.height),
+  );
+  const line = await sharp({
+    create: { width: capture.width, height: lineRows, channels: 4, background: SCREEN_SEAM },
+  })
+    .png()
+    .toBuffer();
+  const composed = await sharp(await splitScreen(layout, captureBytes, beforeBytes))
+    .composite([{ input: line, left: 0, top: split.afterSlice.height - Math.round(lineRows / 2) }])
+    .png()
+    .toBuffer();
+  return sharp(composed).resize({ width }).webp({ quality: 82 }).toBuffer();
+}
+
 /** Draws an already-planned (and checked) layout. */
 export async function renderLayout(
   plan: ShotPlan,

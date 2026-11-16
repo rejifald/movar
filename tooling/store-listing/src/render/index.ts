@@ -6,5 +6,5 @@ export * from './measure.js';
 export * from './palette.js';
 export * from './pieces.js';
 export * from './png.js';
-export { planShot, renderShot } from './render.js';
+export { planShot, renderScreen, renderShot } from './render.js';
 export type { ShotSpec } from './render.js';

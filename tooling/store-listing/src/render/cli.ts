@@ -1,7 +1,8 @@
 /**
  * `tsx src/render/cli.ts --captures <dir> --out <dir> --locale uk|en [--canvas iphone|ipad]`
  * Renders every listing shot whose capture exists, then a contact sheet and
- * measurements.json (pixel-measured, not layout-derived).
+ * measurements.json (pixel-measured, not layout-derived), and `screens/<id>.webp`:
+ * each shot's bare split screen for the website, which draws its own frame.
  */
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -14,8 +15,11 @@ import { assertLayout, assertSameLogo } from './layout.js';
 import { APP_STORE_CANVASES, LISTING, LISTING_GROUNDS, SPLIT_TAGS } from './listing.config.js';
 import type { ListingCanvas, ListingShot, Locale } from './listing.config.js';
 import { measurePhone } from './measure.js';
-import { planShot, renderLayout } from './render.js';
+import { planShot, renderLayout, renderScreen } from './render.js';
 import type { ShotSpec } from './render.js';
+
+/** Website screen widths: 2x the CSS width the page draws each device at, at most. */
+const WEB_SCREEN_WIDTH: Readonly<Record<ListingCanvas, number>> = { iphone: 720, ipad: 1200 };
 
 interface CliOptions {
   readonly capturesDir: string;
@@ -70,12 +74,18 @@ async function main(): Promise<void> {
   for (const { plan } of planned) assertLayout(plan.layout);
   assertSameLogo(planned.map(({ plan }) => plan.layout));
 
+  const screensDir = path.join(options.outDir, 'screens');
+  await mkdir(screensDir, { recursive: true });
   const sheet: SheetItem[] = [];
   const measurements: Record<string, unknown> = {};
   for (const { shot, spec, plan } of planned) {
     const png = await renderLayout(plan, spec);
     await writeFile(path.join(options.outDir, `${shot.id}.png`), png);
     sheet.push({ label: `${shot.id} (${shot.ground})`, png });
+    await writeFile(
+      path.join(screensDir, `${shot.id}.webp`),
+      await renderScreen(plan, WEB_SCREEN_WIDTH[options.canvas]),
+    );
     measurements[shot.id] = shotMeasurement(plan.layout, await measurePhone(png));
     process.stdout.write(`ok   ${shot.id}\n`);
   }

@@ -470,36 +470,25 @@ interface BeforeAfterStrings {
   };
 }
 
-interface ExampleEntry {
-  site: string;
-  scenario: string;
-  without: string;
-  withMovar: string;
-  /**
-   * Alt text for this entry's before/after screenshot pair (see
-   * `imagePairs` in ExampleDrum.astro, keyed by the same entry index). Only
-   * entries with a captured screenshot pair need this — the rest render
-   * text-only and never read it.
-   */
-  alt?: {
-    without: string;
-    withMovar: string;
-  };
+/** The hero drum's slides, in display order (see ExampleDrum.astro). Each id is
+ * also the capture's file name under `public/listing/<device>/<locale>/`. */
+export type DrumSlideId = 'search' | 'site-no-modal' | 'site-menu' | 'youtube';
+
+interface DrumSlideStrings {
+  /** Tab label. */
+  label: string;
+  /** Alt text for the split capture: names both halves, top (with Movar) first. */
+  alt: string;
 }
 
-interface ExamplesStrings {
-  sectionTitle: string;
-  sectionLead: string;
-  entries: ExampleEntry[];
-  /**
-   * One line per slide under the hero's drum (ExampleDrum.astro), same order
-   * as `entries`, index 0-3. Says what Movar *did* on this site, in that
-   * site's own canonical verb (docs/copy.md §1.5) — the two screenshots
-   * already show the before and after, so naming them again would only
-   * repeat what the reader can see. Falls back to the entry's `scenario`
-   * where a locale is missing one.
-   */
-  captions: string[];
+interface DrumStrings {
+  /** Accessible name of the drum's tab list. */
+  tablistLabel: string;
+  /** Caption beside the capture's top half. */
+  withMovar: string;
+  /** Caption beside the capture's bottom half. */
+  withoutMovar: string;
+  slides: Record<DrumSlideId, DrumSlideStrings>;
 }
 
 interface OgStrings {
@@ -833,7 +822,7 @@ export interface Strings {
   problem: ProblemStrings;
   stakes: StakesStrings;
   howItWorks: HowItWorksStrings;
-  examples: ExamplesStrings;
+  drum: DrumStrings;
   beforeAfter: BeforeAfterStrings;
   limitations: LimitationsStrings;
   privacy: PrivacyStrings;
@@ -1066,69 +1055,29 @@ const en: Strings = {
       sourceLink: 'Source code — check it yourself, or have an AI scan it',
     },
   },
-  examples: {
-    sectionTitle: 'Examples',
-    sectionLead:
-      "The same applies to every country version of Google. And on multilingual sites Movar finds the site's own language switcher and uses it — so it works on a site it has never seen.",
-    entries: [
-      {
-        site: 'Google',
-        scenario: 'You type a Cyrillic search like "політика" or "новини".',
-        without:
-          "The top results are in Russian. Google sees Cyrillic and falls back to whatever language has more pages on the open web — and that's Russian.",
-        withMovar:
-          'Movar adds a Ukrainian-language hint to your search before it leaves your browser. Ukrainian articles come back to the top.',
-        alt: {
-          without:
-            'Google search results for a Cyrillic query, with Russian-language pages dominating',
-          withMovar: 'Same Google search, now returning Ukrainian-language pages',
-        },
+  // Working copy, pending the owner's sign-off (2026-11-16).
+  drum: {
+    tablistLabel: 'Examples',
+    withMovar: 'With Movar',
+    withoutMovar: 'Without Movar',
+    slides: {
+      search: {
+        label: 'Search',
+        alt: 'Google search: on top, with Movar, the results are in Ukrainian; below, without Movar, they are in Russian',
       },
-      {
-        site: 'Summary card',
-        scenario: 'You search by name for a game, film, or person — say, "God of War".',
-        without:
-          "The summary card next to the results comes back in English. Your browser is set to Ukrainian, but Google's instant answer doesn't follow.",
-        withMovar:
-          'Movar tells Google to localise that card too — title, plot, ratings, release info, all in Ukrainian.',
-        alt: {
-          without:
-            'Google search for "God of War" with the summary card on the right rendered in English',
-          withMovar: 'Same Google search, summary card now rendered in Ukrainian',
-        },
+      'site-no-modal': {
+        label: 'No language pop-up',
+        alt: 'A website: on top, with Movar, it opens straight in Ukrainian; below, without Movar, a language-choice pop-up covers a Russian page',
       },
-      {
-        site: 'YouTube',
-        scenario: 'You search YouTube in Ukrainian, e.g. "новини" or "інтервʼю".',
-        without:
-          "Both search and recommendations lean Russian. The interface matches your browser language, but what YouTube *recommends* doesn't.",
-        withMovar:
-          'Movar tells YouTube your language and country — so the same Cyrillic search returns Ukrainian creators and Ukrainian recommendations.',
-        alt: {
-          without:
-            'YouTube results for a Ukrainian-language query, recommendations dominated by Russian-language channels',
-          withMovar: 'Same YouTube search, now recommending Ukrainian creators',
-        },
+      'site-menu': {
+        label: 'Language switcher',
+        alt: "A site's language switcher: on top, with Movar, it offers only Ukrainian and English; below, without Movar, it offers Russian too",
       },
-      {
-        site: 'Marketplace',
-        scenario: 'You find a product through a Ukrainian Google search and click through.',
-        without:
-          'The shop opens in Russian by default — even though it has a full Ukrainian version at a different address.',
-        withMovar:
-          'Movar asks the shop to show its Ukrainian version, and you read in Ukrainian for the rest of your visit.',
-        alt: {
-          without: 'A Ukrainian online shop product page opened in Russian by default',
-          withMovar: 'The same shop product page showing its Ukrainian version',
-        },
+      youtube: {
+        label: 'YouTube',
+        alt: 'YouTube feed: on top, with Movar, the Russian video is hidden and a Ukrainian one is in its place; below, without Movar, the Russian video is in the feed',
       },
-    ],
-    captions: [
-      'Movar added your language to the query.',
-      'Movar asked Google for the card in Ukrainian.',
-      'Movar told YouTube your language and country.',
-      'Movar switched the shop to its Ukrainian version.',
-    ],
+    },
   },
   beforeAfter: {
     sectionTitle: 'See it in action',
@@ -2010,69 +1959,29 @@ const uk: Strings = {
       sourceLink: 'Вихідний код — перевірте самі або попросіть ШІ просканувати',
     },
   },
-  examples: {
-    sectionTitle: 'Приклади',
-    sectionLead:
-      'Так само це працює для Google будь-якої країни. А на багатомовних сайтах Мовар знаходить власний перемикач мови сайту й користується ним — тож працює й там, де ніколи не був.',
-    entries: [
-      {
-        site: 'Google',
-        scenario: 'Ви шукаєте щось кирилицею, наприклад «політика» або «новини».',
-        without:
-          'Перші результати — російською. Google бачить кирилицю — і за замовчуванням показує те, чого більше: російські сторінки.',
-        withMovar:
-          'Мовар додає до запиту підказку про українську — ще в браузері. Українські статті повертаються нагору.',
-        alt: {
-          without:
-            'Результати пошуку Google за кириличним запитом, де переважають російськомовні сторінки',
-          withMovar: 'Той самий пошук Google, тепер повертає україномовні сторінки',
-        },
+  // Робочий текст, чекає на погодження власника (2026-11-16).
+  drum: {
+    tablistLabel: 'Приклади',
+    withMovar: 'З Моваром',
+    withoutMovar: 'Без Мовара',
+    slides: {
+      search: {
+        label: 'Пошук',
+        alt: 'Пошук Google: вгорі з Моваром — результати українською, внизу без Мовара — російською',
       },
-      {
-        site: 'Картка-довідка',
-        scenario: 'Ви шукаєте за назвою — гру, фільм, людину. Скажімо, «God of War».',
-        without:
-          'Картка-довідка поряд із результатами повертається англійською. Браузер налаштовано на українську, але швидка відповідь Google це не враховує.',
-        withMovar:
-          'Мовар просить Google локалізувати й цю картку — назва, опис, оцінки, дата виходу, усе українською.',
-        alt: {
-          without: 'Пошук Google за запитом «God of War», де картка-довідка праворуч — англійською',
-          withMovar: 'Той самий пошук Google, картка-довідка тепер українською',
-        },
+      'site-no-modal': {
+        label: 'Сайт без вікна мови',
+        alt: 'Сайт: вгорі з Моваром — одразу відкривається українською, внизу без Мовара — вікно вибору мови поверх російської сторінки',
       },
-      {
-        site: 'YouTube',
-        scenario: 'Ви шукаєте на YouTube українською, наприклад «новини» чи «інтервʼю».',
-        without:
-          'І пошук, і рекомендації йдуть переважно російською. Мова сайту збігається з вашим браузером, а от що YouTube вам радить — ні.',
-        withMovar:
-          'Мовар каже YouTube вашу мову й країну — і той самий кириличний пошук повертає українських авторів і українські рекомендації.',
-        alt: {
-          without:
-            'Результати YouTube за україномовним запитом, у рекомендаціях переважають російськомовні канали',
-          withMovar: 'Той самий пошук YouTube, тепер рекомендує українських авторів',
-        },
+      'site-menu': {
+        label: 'Перемикач мов',
+        alt: 'Перемикач мов на сайті: вгорі з Моваром — лише українська й англійська, внизу без Мовара — ще й російська',
       },
-      {
-        site: 'Маркетплейс',
-        scenario: 'Ви знайшли товар через український Google і відкрили його.',
-        without:
-          'Магазин за замовчуванням відкриває російську версію — хоча українська теж є, просто за іншою адресою.',
-        withMovar:
-          'Мовар просить магазин показати українську версію — і ви читаєте українською до кінця візиту.',
-        alt: {
-          without:
-            'Сторінка товару українського інтернет-магазину, відкрита російською за замовчуванням',
-          withMovar: 'Та сама сторінка товару — тепер показує українську версію',
-        },
+      youtube: {
+        label: 'YouTube',
+        alt: 'Стрічка YouTube: вгорі з Моваром — російське відео приховано, на його місці українське, внизу без Мовара — російське відео у стрічці',
       },
-    ],
-    captions: [
-      'Мовар додав до запиту вашу мову.',
-      'Мовар попросив Google показати картку українською.',
-      'Мовар назвав YouTube вашу мову й країну.',
-      'Мовар перемкнув магазин на українську версію.',
-    ],
+    },
   },
   beforeAfter: {
     sectionTitle: 'Подивіться, як це працює',

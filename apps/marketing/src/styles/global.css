@@ -151,6 +151,19 @@
   --plate-mark: #a8a29e; /* the loop diagram plate's corner marks */
   --figure-aspect: 16 / 10;
 
+  /* -- Device frames ---------------------------------------------------- *
+   * The hero drum's CSS phone and tablet around the real captures. Each outer
+   * radius is the screen radius plus the bezel padding (8px phone, 12px
+   * tablet — `p-2` / `p-3`), so the two curves stay concentric. */
+  --device-bezel: #0a0a0a; /* near-black in both themes, like the hardware */
+  --device-phone-w: 260px;
+  --device-phone-w-sm: 288px; /* from `sm:` */
+  --device-phone-r: 40px;
+  --device-phone-screen-r: 32px;
+  --device-tablet-w: 420px; /* cap; the tablet fills the hero column up to it */
+  --device-tablet-r: 30px;
+  --device-tablet-screen-r: 18px;
+
   /* -- Motion ----------------------------------------------------------- */
   --drum-fill: 4500ms; /* the example drum's progress fill, = one slide */
 }

@@ -1055,7 +1055,7 @@ const en: Strings = {
       sourceLink: 'Source code — check it yourself, or have an AI scan it',
     },
   },
-  // Working copy, pending the owner's sign-off (2026-11-16).
+  // Signed off by the owner on 2026-11-16.
   drum: {
     tablistLabel: 'Examples',
     withMovar: 'With Movar',

@@ -25,7 +25,7 @@ export interface ListingShot {
 
 export type Locale = 'uk' | 'en';
 
-/** The seam captions. WORKING COPY pending owner sign-off. */
+/** The seam captions. Signed off by the owner on 2026-11-16. */
 export const SPLIT_TAGS: Readonly<Record<Locale, SplitTagLabels>> = {
   uk: { after: 'З Моваром', before: 'Без Мовара' },
   en: { after: 'With Movar', before: 'Without Movar' },

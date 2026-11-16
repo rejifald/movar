@@ -54,13 +54,24 @@ describe('shot plans', () => {
     expect(before[3]?.env).toEqual({ V: '.*Как приготовить идеальный борщ.*', A: CURTAIN.en });
     expect(beforePlan('uk')[0]?.env['A']).toBe(CURTAIN.uk);
   });
-  it("the site-no-modal gate check flags the gate, not Movar's note about what it hid", () => {
+  it('the gate check flags the gate and the bare Russian option', () => {
     const absent = listingPlan('uk').find((shot) => shot.id === 'site-no-modal')?.env['A'] ?? '';
-    const matches = (text: string): boolean => new RegExp(`^(?:${absent})$`, 'u').test(text);
-    expect(matches('Оберіть мову / Выберите язык')).toBe(true);
-    expect(matches('Русский')).toBe(true);
-    expect(matches('Мовар приховав: Русский.')).toBe(false);
+    expect(fullMatch(absent, 'Оберіть мову / Выберите язык')).toBe(true);
+    expect(fullMatch(absent, 'Русский')).toBe(true);
   });
+  it.each([
+    ['uk', contentStringsUk],
+    ['en', contentStringsEn],
+  ] as const)(
+    "no %s after-shot's absent check matches Movar's own note about what it hid",
+    (locale, strings) => {
+      // iPad Safari keeps the note in the accessibility tree (CI runs 17 and 19).
+      const note = strings.pickerSurvivor.body.replace('{languages}', 'Русский');
+      for (const shot of listingPlan(locale)) {
+        expect(fullMatch(shot.env['A'] ?? '', note), `${shot.id} vs "${note}"`).toBe(false);
+      }
+    },
+  );
 
   it('the Russian assertions are on the pages the mock serves for those urls', () => {
     const [search, gate, menu, youtube] = beforePlan('uk');

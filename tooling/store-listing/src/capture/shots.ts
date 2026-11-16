@@ -54,9 +54,10 @@ const RU_MODAL = '.*(Выберите язык|Русский).*';
  * The gate itself, for "must be gone": its Russian title, or an element that is
  * exactly the Russian option. Not any text containing «Русский»: Movar's own
  * screen-reader note «Мовар приховав: Русский.» says it removed that option, and
- * iPad Safari keeps it in the accessibility tree (CI run 17).
+ * iPad Safari keeps it in the accessibility tree (CI runs 17 and 19).
  */
-const RU_GATE = '.*Выберите язык.*|Русский';
+const RU_OPTION = 'Русский';
+const RU_GATE = `.*Выберите язык.*|${RU_OPTION}`;
 /** Matches nothing on screen: for flows with no "must be visible" claim. */
 const ANY = '.*';
 const NEVER = String.raw`\u0000never`;
@@ -104,8 +105,9 @@ export const SHOTS: readonly Shot[] = [
     url: SCENES.tochka24.startUrl,
     flow: 'shot-site-menu',
     expect: {
-      uk: { visible: '.*Українська.*', absent: '.*Русский.*' },
-      en: { visible: '.*Українська.*', absent: '.*Русский.*' },
+      // The option itself, exactly: Movar's note about hiding it stays (CI run 19).
+      uk: { visible: '.*Українська.*', absent: RU_OPTION },
+      en: { visible: '.*Українська.*', absent: RU_OPTION },
     },
     before: {
       url: SCENES.tochka24.finalUrl,

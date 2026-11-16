@@ -1,0 +1,87 @@
+name: AMO listing
+
+# Sync the Firefox listing on addons.mozilla.org from the repo: name, summary,
+# description (copy/*.md), categories, tags, support contact (listing.json) and
+# the screenshot previews with per-locale captions.
+#
+# Why a workflow of its own: `release-firefox` ships a version, not a listing.
+# Listing text and screenshots change on their own schedule, and AMO has no
+# "publish listing" step in `web-ext sign`.
+#
+# Every run first prints a PLAN to the job summary. It reads only AMO's PUBLIC
+# add-on endpoint, so the plan job carries no secrets and needs no approval.
+# The write (`apply`) is behind the `production` environment gate, like every
+# other store job.
+#
+# Screenshots come from apps/extension/store-assets/screenshots/desktop/<locale>/
+# (1280x800 PNG). A missing folder skips screenshots; metadata still syncs.
+# Existing previews are deleted only after every new one is uploaded.
+#
+# Not here: the Chrome Web Store, whose API cannot set listing metadata or
+# screenshots. `pnpm listing:chrome` builds the hand-off bundle for that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'plan = read-only diff. apply = write the listing to AMO.'
+        type: choice
+        options: [plan, apply]
+        default: plan
+      force_screenshots:
+        description: 'Re-upload previews even when count and captions already match.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two runs rewrite the same listing at once.
+  group: amo-listing
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      # Fail here rather than against AMO.
+      - run: node scripts/lib/amo-listing.test.mjs
+
+      # No `pnpm install`: dependency-free ESM, run bare like the release jobs.
+      - name: Plan (public reads only)
+        env:
+          MODE: plan
+          FORCE_SCREENSHOTS: ${{ inputs.force_screenshots && '1' || '' }}
+        # `shell: bash` is not cosmetic: the default shell has no pipefail, so
+        # `node … | tee` would report tee's status and hide a failure.
+        shell: bash
+        run: node scripts/amo-listing.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    needs: plan
+    # The event check is load-bearing: on any trigger that is not
+    # workflow_dispatch, `inputs.mode` is empty and `'' != 'plan'` is TRUE,
+    # which would arm the writing job on every such event.
+    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'plan'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Sync AMO listing
+        env:
+          MODE: apply
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          FORCE_SCREENSHOTS: ${{ inputs.force_screenshots && '1' || '' }}
+        shell: bash
+        run: node scripts/amo-listing.mjs | tee -a "$GITHUB_STEP_SUMMARY"

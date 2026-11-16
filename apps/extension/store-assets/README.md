@@ -315,3 +315,32 @@ something we don't ship.
 - `firefox/icon-{32,64,128}.png` → AMO listing pictograms.
 - `chrome/promo-tile-440x280.png` → Chrome Web Store promo tile,
   rendered from the `Marketplace/Promo/ChromeTile` Storybook story.
+
+## Listing sync (non-prose metadata, AMO, Chrome hand-off)
+
+The prose lives in `copy/*.md`. Everything else about a listing lives in
+[`listing.json`](./listing.json), one block per store:
+
+- `amo`: name per AMO locale, categories (Firefox slugs), tags (must be on AMO's
+  allowed list), support email/URL, homepage, and the screenshot captions keyed by file
+  name without its `NN-` prefix. Seeded from the live listing, so a first sync only
+  changes what the repo copy says differently.
+- `chrome`: name, category, URLs. Fields listed under `unverified` come from
+  `REQUIREMENTS.md`, not from the live dashboard.
+
+**AMO** is synced by [`scripts/amo-listing.mjs`](../../../scripts/amo-listing.mjs), run from
+the **AMO listing** workflow (`mode: plan | apply`; `apply` is behind the `production`
+environment). `plan` prints the live-vs-repo diff to the job summary and writes nothing.
+`apply` PATCHes the changed fields, then replaces the previews: new images are uploaded
+and captioned first, old ones deleted only after all succeed. Locally:
+`node scripts/amo-listing.mjs` (plan), `MODE=apply` with `AMO_JWT_ISSUER` /
+`AMO_JWT_SECRET`. Screenshots come from `screenshots/desktop/<locale>/NN-name.png`
+(1280x800 PNG; override with `SCREENSHOTS_PATH`); AMO previews are not per-locale, so the
+images come from `AMO_SCREENSHOT_LOCALE` (default `uk`) with captions in both locales.
+A missing folder skips screenshots. Image content is not compared, so re-upload an
+unchanged count with `FORCE_SCREENSHOTS=1`.
+
+**Chrome Web Store** cannot be synced (its API sets neither listing text nor screenshots).
+`pnpm listing:chrome` builds `dist/chrome-listing/` with, per locale, `name.txt`,
+`summary.txt` (fails over 132 chars), plain-text `description.txt` and the screenshots,
+plus the shared icon and promo tile and a `README.md` with the dashboard steps.

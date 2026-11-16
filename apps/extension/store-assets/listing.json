@@ -1,0 +1,62 @@
+{
+  "$comment": "Non-prose listing source of truth for the store listings. Summary and description prose live in copy/*.md (not duplicated here). Read by scripts/amo-listing.mjs (AMO sync) and scripts/chrome-listing-bundle.mjs (Chrome Web Store hand-off). amo block seeded from the live AMO listing 2026-11-16 so a first sync of these fields changes nothing; chrome block seeded from REQUIREMENTS.md and the Chrome docs in this folder, fields under `unverified` have not been checked against the live dashboard.",
+  "amo": {
+    "slug": "movar",
+    "defaultLocale": "uk",
+    "$localeMap": "repo copy locale -> AMO locale code",
+    "localeMap": { "uk": "uk", "en": "en-US" },
+    "name": { "en-US": "Movar", "uk": "Movar" },
+    "$categories": "AMO category slugs for Firefox extensions (GET /api/v5/addons/categories/). Max 2 recommended by Mozilla, live listing has 3.",
+    "categories": ["search-tools", "appearance", "language-support"],
+    "$tags": "Must come from GET /api/v5/addons/tags/ (a closed list). Live listing has none.",
+    "tags": [],
+    "homepage": null,
+    "supportEmail": "support@movar.fyi",
+    "supportUrl": "https://www.movar.fyi",
+    "screenshots": {
+      "$comment": "AMO previews are not per-locale: images come from the AMO_SCREENSHOT_LOCALE folder (default uk), captions are set in both locales. Keyed by the file name without its NN- prefix. DRAFT wording, pending copy sign-off.",
+      "locale": "uk",
+      "captions": {
+        "popup-on-news": {
+          "uk": "Спливне вікно Мовар на сторінці новин",
+          "en": "The Movar popup on a news page"
+        },
+        "correction-applied": {
+          "uk": "Сайт відкрився вашою мовою: до і після",
+          "en": "The site opens in your language: before and after"
+        },
+        "search-rewrite": {
+          "uk": "Пошук Google вашою мовою: до і після",
+          "en": "Google search in your language: before and after"
+        },
+        "language-dialog": {
+          "uk": "Вікно вибору мови: до і після",
+          "en": "The language dialog: before and after"
+        },
+        "knowledge-panel": {
+          "uk": "Картка-довідка Google вашою мовою",
+          "en": "Google's summary card in your language"
+        },
+        "youtube": {
+          "uk": "YouTube: результати вашою мовою",
+          "en": "YouTube results in your language"
+        },
+        "shop": {
+          "uk": "Багатомовний магазин відкривається вашою мовою",
+          "en": "A multilingual shop opens in your language"
+        }
+      }
+    }
+  },
+  "chrome": {
+    "defaultLanguage": "en",
+    "name": { "en": "Movar", "uk": "Movar" },
+    "category": "Productivity",
+    "homepageUrl": "https://movar.fyi",
+    "supportEmail": "support@movar.fyi",
+    "privacyPolicyUrl": "https://movar.fyi/privacy",
+    "maxScreenshots": 5,
+    "unverified": ["category", "homepageUrl", "supportEmail", "defaultLanguage"],
+    "$unverified": "Taken from REQUIREMENTS.md section 3, not read back from the live Developer Dashboard. CWS has no public read API for listing metadata."
+  }
+}

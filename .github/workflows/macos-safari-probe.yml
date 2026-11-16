@@ -41,6 +41,17 @@ jobs:
           system_profiler SPDisplaysDataType | tee "$OUT/displays.txt"
           screencapture -x "$OUT/1-desktop.png"
           sips -g pixelWidth -g pixelHeight "$OUT/1-desktop.png"
+          # Round 1: the runner's screen is 1024x768 and system_profiler lists no display.
+          # Can the mode be raised? (Mac App Store minimum is 1280x800.)
+          brew install jakehilborn/jakehilborn/displayplacer || true
+          displayplacer list | tee "$OUT/1-displayplacer.txt" || true
+          id="$(displayplacer list | awk '/Persistent screen id:/{print $4; exit}')"
+          for mode in 'res:2880x1800 hz:60 color_depth:8 scaling:on' 'res:1440x900 scaling:on' 'res:2560x1600' 'res:1920x1200' 'res:1280x800'; do
+            displayplacer "id:$id $mode" && { echo "set: $mode" | tee -a "$OUT/1-displayplacer.txt"; break; } || echo "failed: $mode" | tee -a "$OUT/1-displayplacer.txt"
+          done
+          sleep 3
+          screencapture -x "$OUT/1-desktop-after.png"
+          sips -g pixelWidth -g pixelHeight "$OUT/1-desktop-after.png" | tee -a "$OUT/1-displayplacer.txt"
 
       - name: 2 · trust a root CA
         continue-on-error: true
@@ -106,24 +117,40 @@ jobs:
           osascript -e 'tell application "System Events" to tell process "Safari" to return entire contents of front window' \
             > "$OUT/4f-extensions-tree.txt" 2>&1 || true
           grep -io 'checkbox[^,]*' "$OUT/4f-extensions-tree.txt" | head -20 || true
-          # Try the obvious target: the checkbox whose name mentions Movar, anywhere in the window.
+          # Round 1 found the exact path: Installed list, row "Movar", checkbox 1.
           osascript > "$OUT/4g-tick.txt" 2>&1 <<'OSA' || true
           tell application "System Events" to tell process "Safari"
-            set hits to {}
-            repeat with c in (every checkbox of (entire contents of front window))
+            set t to table 1 of scroll area 1 of group 2 of group 1 of group 1 of window "Extensions"
+            repeat with r in rows of t
               try
-                set n to (name of c) as text
-                set hits to hits & {n & " = " & ((value of c) as text)}
-                if n contains "Movar" and (value of c) is 0 then click c
+                set el to UI element "Movar" of r
+                set c to checkbox 1 of el
+                set before to value of c
+                click c
+                delay 2
+                return "Movar checkbox: " & before & " -> " & (value of c)
               end try
             end repeat
-            return hits
+            return "no Movar row"
           end tell
           OSA
           cat "$OUT/4g-tick.txt"
-          sleep 3
+          sleep 2
           screencapture -x "$OUT/4h-after-tick.png"
-          defaults read com.apple.Safari 2>/dev/null | grep -i -A2 extension | head -40 > "$OUT/4i-safari-defaults.txt" || true
+          # Any sheet/dialog the tick raised.
+          osascript -e 'tell application "System Events" to tell process "Safari" to return {name of every window, entire contents of front window}' \
+            > "$OUT/4h-windows.txt" 2>&1 || true
+          # Website access: Websites pane, Movar, "Other websites" → Allow.
+          osascript -e 'tell application "System Events" to tell process "Safari" to click button "Websites" of toolbar 1 of front window' || true
+          sleep 3
+          screencapture -x "$OUT/4j-websites.png"
+          osascript -e 'tell application "System Events" to tell process "Safari" to return entire contents of front window' \
+            > "$OUT/4k-websites-tree.txt" 2>&1 || true
+          tr ',' '\n' < "$OUT/4k-websites-tree.txt" | grep -i -E 'movar|pop up|popup|other websites' | head -20 || true
+          # Then load a page and show the toolbar (the extension's button appears when enabled).
+          osascript -e 'tell application "Safari" to open location "https://example.com/"' || true
+          sleep 6
+          screencapture -x "$OUT/4l-page.png"
 
       - name: 5 · safaridriver
         continue-on-error: true

@@ -480,7 +480,7 @@ done
    Screenshots: **macOS shows the macOS app
    itself** (`store-assets/screenshots/macos/{uk,en}/`, 2560×1600), captured from
    the built app by `pnpm --filter @movar/extension capture:macos-screenshots`;
-   iOS/iPadOS use the portrait `store-assets/screenshots/{ios,ipad}/` sets, and
+   iOS/iPadOS use the simulator captures in `store-assets/screenshots/app-store/`, and
    the landscape 1280×800 `{en,uk}` storyboards remain the Chrome / Edge / Firefox
    set (regenerate those with `capture:storybook-assets`; see
    [store-assets/REQUIREMENTS.md](../apps/extension/store-assets/REQUIREMENTS.md) §5).

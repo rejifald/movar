@@ -1,6 +1,6 @@
 /**
- * The App Store listing, in order. Headlines are WORKING COPY pending owner
- * sign-off — they live here and nowhere else. They never name a language Movar
+ * The App Store listing, in order. Headlines signed off by the owner on
+ * 2026-11-16 — they live here and nowhere else. They never name a language Movar
  * hides: "your language" for what is shown, "other languages" for what is hidden
  * (docs/copy.md, store listing).
  */
@@ -25,7 +25,7 @@ export interface ListingShot {
 
 export type Locale = 'uk' | 'en';
 
-/** The seam captions. WORKING COPY pending owner sign-off, like the headlines. */
+/** The seam captions. WORKING COPY pending owner sign-off. */
 export const SPLIT_TAGS: Readonly<Record<Locale, SplitTagLabels>> = {
   uk: { after: 'З Моваром', before: 'Без Мовара' },
   en: { after: 'With Movar', before: 'Without Movar' },

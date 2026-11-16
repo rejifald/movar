@@ -5,6 +5,9 @@
 # a bare assertVisible after a navigation, never a scroll budget under 90 s.
 # After a scroll, wait for the list to come to rest before tapping: a tap during
 # scroll momentum only stops the list, and the next step then times out.
+# Every scroll centres its row: iOS 26 floats the "Search Apps" bar over the
+# list's bottom ~90 pt, and a row that stops under it counts as visible but a
+# tap lands on the search bar instead (en run 13: Safari stopped at y 862-891).
 appId: com.apple.Preferences
 ---
 - launchApp:
@@ -13,6 +16,7 @@ appId: com.apple.Preferences
 - scrollUntilVisible:
     element: ${L_APPS}
     timeout: 90000
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn:
@@ -21,6 +25,7 @@ appId: com.apple.Preferences
 - scrollUntilVisible:
     element: ${L_SAFARI}
     timeout: 90000
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn:
@@ -29,6 +34,7 @@ appId: com.apple.Preferences
 - scrollUntilVisible:
     element: ${L_EXTENSIONS}
     timeout: 90000
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn:

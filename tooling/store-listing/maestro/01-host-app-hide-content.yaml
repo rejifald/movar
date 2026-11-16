@@ -9,6 +9,7 @@ appId: fyi.movar.safari
 - scrollUntilVisible:
     element: ${L_HIDE_CONTENT}
     timeout: 90000
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
 - tapOn:

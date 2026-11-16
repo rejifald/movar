@@ -14,7 +14,7 @@
     "supportEmail": "support@movar.fyi",
     "supportUrl": "https://www.movar.fyi",
     "screenshots": {
-      "$comment": "AMO previews are not per-locale: images come from the AMO_SCREENSHOT_LOCALE folder (default uk), captions are set in both locales. Keyed by the file name without its NN- prefix. DRAFT wording, pending copy sign-off.",
+      "$comment": "AMO previews are not per-locale: images come from the AMO_SCREENSHOT_LOCALE folder (default uk), captions are set in both locales. Keyed by the file name without its NN- prefix. Signed off by the owner on 2026-11-16.",
       "locale": "uk",
       "captions": {
         "popup-on-news": {

@@ -68,17 +68,9 @@ const CAPTURE_SIZE: Record<Device, { width: number; height: number }> = {
 
 const onDisk = (src: string): boolean => existsSync(path.join(publicDir, src.replace(/^\//, '')));
 
-/*
- * TEMPORARY: only the `uk` captures exist so far, so a locale missing its own
- * capture falls back to the `uk` one. Drop the fallback once every locale's
- * set has landed.
- */
 const captureSrc = (device: Device, id: DrumSlideId): string | null => {
-  for (const locale of [lang, 'uk'] as const) {
-    const src = `/listing/${device}/${locale}/${id}.webp`;
-    if (onDisk(src)) return src;
-  }
-  return null;
+  const src = `/listing/${device}/${lang}/${id}.webp`;
+  return onDisk(src) ? src : null;
 };
 
 /**

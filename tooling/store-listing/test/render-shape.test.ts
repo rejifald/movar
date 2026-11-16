@@ -26,6 +26,15 @@ describe('phoneShape', () => {
     }
   });
 
+  it('the iPad screen corner leaves the status-bar clock uncut', () => {
+    // iPadOS draws the clock from (52, 22) px of a 2064 px wide capture (CI run 20).
+    const r = phoneShape(2064, IPAD_PRO_13_M5).screenRadius;
+    const [x, y] = [52, 22];
+    // Outside the corner square the arc can't reach it; inside, it must be within the arc.
+    const cut = x < r && y < r && Math.hypot(r - x, r - y) > r;
+    expect(cut).toBe(false);
+  });
+
   it.each(phones.map((p) => [p.id, p] as const))(
     'edge is 3.5 % (+-0.1) of the screen width for %s at any size',
     (_id, profile) => {

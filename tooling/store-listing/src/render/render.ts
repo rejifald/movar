@@ -210,7 +210,9 @@ export async function renderLayout(
   })
     .render()
     .asPng();
-  return Buffer.from(png);
+  // The set is committed for the App Store upload: re-encode losslessly at full
+  // effort (the concrete ground makes resvg's PNG ~1.5x larger, same pixels).
+  return sharp(png).png({ compressionLevel: 9, adaptiveFiltering: true, effort: 10 }).toBuffer();
 }
 
 /** Plans, runs every guard, and draws one shot. Throws `RenderGuardError` on a breach. */

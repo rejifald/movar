@@ -58,8 +58,10 @@ export const IPAD_PRO_13_M5: DeviceProfile = {
   bodyMm: { w: 215.5, h: 281.6 },
   displayMm: { w: 198.58, h: 264.77 },
   rimMm: 0.6,
-  cornerRadiusMm: 18,
-  // 64 px (32 pt at 2x) of a 2752 px capture; to be checked against the first real CI capture.
+  // ~30 pt at 2x (60 px at 264 ppi). 18 mm clipped the clock, which iPadOS draws
+  // from (52, 22) px of the capture (CI run 20).
+  cornerRadiusMm: 5.8,
+  // 64 px (32 pt at 2x) of a 2752 px capture; the clock's glyphs end at y 42 (CI run 20).
   statusBarShare: 0.023_26,
 };
 

@@ -70,8 +70,10 @@ lane** that is planned now but built later.
   "What's New" entry **per localization** on every version after the first — so each
   release needs a uk + en block in
   [`apps/extension/store-assets/RELEASE-NOTES.md`](../apps/extension/store-assets/RELEASE-NOTES.md).
-  **Screenshots are still hand-uploaded** in App Store Connect: `scripts/apple-submit.mjs`
-  handles versions, notes, compliance and submission, and no screenshots at all.
+  `scripts/apple-submit.mjs` handles versions, notes, screenshots, compliance and
+  submission: it replaces each localization's screenshot sets from the committed PNGs in
+  [`store-assets/screenshots/app-store/`](../apps/extension/store-assets/screenshots/app-store/README.md)
+  (iPhone 6.9″ first; iPad and Mac sets publish once their folders exist).
   **macOS and iOS/iPadOS are both live** on one listing
   ([id6779282071](https://apps.apple.com/app/id6779282071); macOS since 2026-06-30),
   with **v1.9.2 in review** on both platforms (submitted from CI 2026-10-24) — as

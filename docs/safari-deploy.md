@@ -182,8 +182,9 @@ pin silently goes stale and fails at the last step of a release. Raise
 ## Submitting for review
 
 `altool --upload-app` only _delivers a build_. Creating the version, attaching
-the build, writing "What's New" per localization, answering export compliance
-and submitting are separate API calls. The
+the build, writing "What's New" per localization, replacing the screenshot sets
+(from [`store-assets/screenshots/app-store/`](../apps/extension/store-assets/screenshots/app-store/README.md)),
+answering export compliance and submitting are separate API calls. The
 [Review Submissions API](https://developer.apple.com/documentation/appstoreconnectapi)
 covers all of it, and [apple-submit.mjs](../scripts/apple-submit.mjs) drives
 it — for a build uploaded by CI _or_ by Organizer.
@@ -472,7 +473,11 @@ done
    the other stores. Paste the **App Review notes** and the **App Privacy /
    export-compliance** answers from
    [`apps/extension/store-assets/apple/`](../apps/extension/store-assets/apple/)
-   (`REVIEW-NOTES.md` + `APP-PRIVACY.md`). Screenshots: **macOS shows the macOS app
+   (`REVIEW-NOTES.md` + `APP-PRIVACY.md`). After the first submission, the release
+   job's `scripts/apple-submit.mjs` replaces the screenshot sets on every version from
+   [`store-assets/screenshots/app-store/`](../apps/extension/store-assets/screenshots/app-store/README.md)
+   (`SCREENSHOTS=0` skips it); the sets below are what was hand-uploaded before that.
+   Screenshots: **macOS shows the macOS app
    itself** (`store-assets/screenshots/macos/{uk,en}/`, 2560×1600), captured from
    the built app by `pnpm --filter @movar/extension capture:macos-screenshots`;
    iOS/iPadOS use the portrait `store-assets/screenshots/{ios,ipad}/` sets, and

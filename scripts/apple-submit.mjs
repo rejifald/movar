@@ -9,10 +9,16 @@
 //
 // `altool --upload-app` only delivers a build. Everything after it — creating
 // the version, attaching the build once it finishes processing, filling in
-// "What's New" for every localization, answering export compliance, and
-// actually submitting — used to be hand-work in the App Store Connect UI, and
-// docs/safari-deploy.md described it as such. The Review Submissions API
-// covers all of it, so the pipeline no longer stops half way.
+// "What's New" for every localization, uploading the screenshots, answering
+// export compliance, and actually submitting — used to be hand-work in the App
+// Store Connect UI, and docs/safari-deploy.md described it as such. The App
+// Store Connect API covers all of it, so the pipeline no longer stops half way.
+//
+// Screenshots come from the committed PNGs under
+// apps/extension/store-assets/screenshots/app-store/<display>/<locale>/ (see the
+// README there and lib/asc-screenshots.mjs). Each localization's set for each
+// display folder present is replaced to match them exactly; a set that already
+// matches is left alone, and a display folder that does not exist is skipped.
 //
 // SAFETY MODEL — three levels, because this is the most irreversible thing in
 // the repo. It follows the same ordering rule as release.yml: every reversible
@@ -22,9 +28,12 @@
 //               and existing submissions, and prints exactly what it would do.
 //               Touches nothing.
 //   (default)   Performs the REVERSIBLE writes: create/reuse the version,
-//               attach the build, set the release notes, set export
+//               attach the build, set the release notes, replace the
+//               screenshot sets (unless SCREENSHOTS=0), set export
 //               compliance. All of it is editable in App Store Connect
-//               afterwards, and none of it reaches a reviewer.
+//               afterwards, and none of it reaches a reviewer. Screenshots
+//               are only ever written on an EDITABLE version — the same gate
+//               the notes sit behind — and never in RESUME mode.
 //   SUBMIT=1    Additionally submits for review. This is the point of no
 //               return: a submitted version can be cancelled, but it has been
 //               seen, and repeated submit/cancel cycles are visible to Apple.
@@ -45,11 +54,14 @@
 //   RELEASE_NOTES_PATH     default apps/extension/store-assets/RELEASE-NOTES.md
 //   BUILD_TIMEOUT_MIN  how long to wait for Apple to finish processing the
 //                      upload; default 45
+//   SCREENSHOTS        set to 0 to leave the App Store screenshots untouched
+//   SCREENSHOTS_PATH   default apps/extension/store-assets/screenshots/app-store
 
 import { readFileSync } from 'node:fs';
 import nodePath from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { clientFromEnv, request, requireOk } from './lib/asc-api.mjs';
+import { discoverScreenshots, localeFolder, replaceScreenshotSet } from './lib/asc-screenshots.mjs';
 import { openSubmissionDecision, resumeDecision, stagedVersionIds } from './lib/review-resume.mjs';
 import { parseReleaseNotes, noteForLocale, withChangelogLink } from './lib/release-notes.mjs';
 import { versionsToAnnounce, composeNote } from './lib/release-span.mjs';
@@ -63,6 +75,8 @@ const SUBMIT = env('SUBMIT') === '1';
  *  because the final PATCH failed on Apple's side. See lib/review-resume.mjs
  *  for what that state is and why the normal path cannot get out of it. */
 const RESUME = env('RESUME') === '1';
+/** On by default; `SCREENSHOTS=0` leaves the listing's screenshots as they are. */
+const SCREENSHOTS = env('SCREENSHOTS') !== '0';
 
 /**
  * App Store version states that still accept edits. Anything else means the
@@ -112,6 +126,23 @@ async function write(token, description, path, options) {
   log(`  ${description}`);
   return body;
 }
+
+/**
+ * The I/O the screenshot sync needs: ASC reads with this token, raw uploads to
+ * Apple's pre-signed blob URLs (which take no JWT), and the poll delay.
+ */
+const screenshotApi = (token) => ({
+  request: (path, options) => request(token, path, options),
+  upload: async (url, { method, headers, body }) => {
+    try {
+      const res = await fetch(url, { method, headers, body });
+      return { status: res.status };
+    } catch {
+      return { status: 0 };
+    }
+  },
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+});
 
 /** Wait for Apple to finish processing an uploaded build. */
 async function waitForBuild(token, appId, platform, version, buildNumber, timeoutMin) {
@@ -195,7 +226,7 @@ async function declareExportCompliance(token, build) {
 
 async function submitPlatform(
   token,
-  { appId, platform, version, allNotes, buildNumber, timeoutMin },
+  { appId, platform, version, allNotes, buildNumber, timeoutMin, screenshots },
 ) {
   step(`${platform} — ${version}`);
 
@@ -352,6 +383,29 @@ async function submitPlatform(
         },
       },
     );
+
+    // --- screenshots, same localization ------------------------------------
+    // Only reached for an editable version (the gate above), so a live or
+    // in-review listing is never touched.
+    for (const display of screenshots.filter((d) => d.platform === platform)) {
+      const files = display.locales.get(localeFolder(locale));
+      if (!files) {
+        log(
+          `  ⚠ ${locale}: no ${display.folder} screenshots committed — leaving that set as it is`,
+        );
+        continue;
+      }
+      log(`  ${locale}: ${display.folder} (${files.length} screenshots)`);
+      await replaceScreenshotSet({
+        api: screenshotApi(token),
+        write: (description, path, options) =>
+          write(token, `${description} (${locale})`, path, options),
+        log,
+        localizationId: localization.id,
+        displayType: display.displayType,
+        files,
+      });
+    }
   }
 
   // ===== IRREVERSIBLE — kept last, and separately opted into ================
@@ -565,6 +619,31 @@ async function main() {
   }
   log(`release notes: ${[...targetNotes.keys()].join(', ')}`);
 
+  // Read and validate every screenshot before the first write, so a wrong-size
+  // PNG fails the run up front instead of half way through a listing.
+  let screenshots = [];
+  if (SCREENSHOTS && !RESUME) {
+    const screenshotsPath = env(
+      'SCREENSHOTS_PATH',
+      'apps/extension/store-assets/screenshots/app-store',
+    );
+    try {
+      screenshots = discoverScreenshots(nodePath.resolve(repoRoot, screenshotsPath));
+    } catch (error) {
+      console.error(`✗ screenshots: ${error.message}`);
+      process.exit(1);
+    }
+    log(
+      screenshots.length > 0
+        ? `screenshots: ${screenshots
+            .map((d) => `${d.folder} [${[...d.locales.keys()].join(', ')}]`)
+            .join('; ')}`
+        : `screenshots: none committed under ${screenshotsPath} — sets left as they are`,
+    );
+  } else if (!RESUME) {
+    log('screenshots: SCREENSHOTS=0 — sets left as they are');
+  }
+
   const apps = await requireOk(
     token,
     `/v1/apps?${new URLSearchParams({ 'filter[bundleId]': bundleId, limit: '10' })}`,
@@ -594,6 +673,7 @@ async function main() {
               allNotes,
               buildNumber,
               timeoutMin,
+              screenshots,
             }),
       );
     } catch (error) {

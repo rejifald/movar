@@ -50,6 +50,13 @@ export const CURTAIN: Record<Locale, string> = {
   en: '.*Movar: (Russian )?content hidden.*',
 };
 const RU_MODAL = '.*(Выберите язык|Русский).*';
+/**
+ * The gate itself, for "must be gone": its Russian title, or an element that is
+ * exactly the Russian option. Not any text containing «Русский»: Movar's own
+ * screen-reader note «Мовар приховав: Русский.» says it removed that option, and
+ * iPad Safari keeps it in the accessibility tree (CI run 17).
+ */
+const RU_GATE = '.*Выберите язык.*|Русский';
 /** Matches nothing on screen: for flows with no "must be visible" claim. */
 const ANY = '.*';
 const NEVER = String.raw`\u0000never`;
@@ -84,8 +91,8 @@ export const SHOTS: readonly Shot[] = [
     url: SCENES.tochka24.startUrl,
     flow: 'shot-site-no-modal',
     expect: {
-      uk: { visible: ANY, absent: RU_MODAL },
-      en: { visible: ANY, absent: RU_MODAL },
+      uk: { visible: ANY, absent: RU_GATE },
+      en: { visible: ANY, absent: RU_GATE },
     },
     before: {
       url: SCENES.tochka24.startUrl,

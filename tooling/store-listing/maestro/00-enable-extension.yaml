@@ -19,22 +19,31 @@ appId: com.apple.Preferences
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
-- tapOn:
-    text: ${L_APPS}
-    retryTapIfNoChange: true
-- scrollUntilVisible:
-    element: ${L_SAFARI}
-    timeout: 90000
-    centerElement: true
+# Every hop is tapped, then confirmed by finding the next page's row, and tapped
+# again if it is not there: a tap can report success and change nothing (iPad,
+# CI runs 15 and 17).
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: ${L_APPS}
+          retryTapIfNoChange: true
+      - scrollUntilVisible:
+          element: ${L_SAFARI}
+          timeout: 60000
+          centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
-- tapOn:
-    text: ${L_SAFARI}
-    retryTapIfNoChange: true
-- scrollUntilVisible:
-    element: ${L_EXTENSIONS}
-    timeout: 90000
-    centerElement: true
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: ${L_SAFARI}
+          retryTapIfNoChange: true
+      - scrollUntilVisible:
+          element: ${L_EXTENSIONS}
+          timeout: 60000
+          centerElement: true
 - waitForAnimationToEnd:
     timeout: 5000
 # A tap can report success and leave the page as it was (iPad, CI run 15):

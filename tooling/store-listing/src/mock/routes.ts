@@ -94,11 +94,23 @@ function youtubeRoute(url: URL): MockResponse | null {
   return url.pathname === '/' ? html(youtubeFeedPage()) : null;
 }
 
+/**
+ * Requests Safari makes on its own for a mocked host, not for a page: site icons,
+ * and the Start Page's Favourites fetching a bookmarked home page
+ * (`/?client=safari…`, CI run 17). Answered empty, so they are neither content
+ * nor a miss; anything else unrouted still fails the run.
+ */
+function isBrowserChrome(url: URL): boolean {
+  if (url.pathname === '/favicon.ico') return true;
+  if (/^\/apple-touch-icon[\w.-]*\.png$/u.test(url.pathname)) return true;
+  return url.pathname === '/' && url.searchParams.get('client') === 'safari';
+}
+
 /** Pure route table: (host, path+query) → response, or null when unrouted. */
 export const resolveRoute: RouteTable = (host, target) => {
   if (!MOCK_HOSTS.includes(host)) return null;
   const url = new URL(target, `https://${host}`);
-  if (url.pathname === '/favicon.ico') return EMPTY;
+  if (isBrowserChrome(url)) return EMPTY;
   if (host.endsWith('google.com')) return googleRoute(host, url);
   if (host === 'tochka24.example') return tochka24Route(url);
   return youtubeRoute(url);

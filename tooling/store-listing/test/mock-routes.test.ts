@@ -92,6 +92,20 @@ describe('route table', () => {
     for (const host of MOCK_HOSTS) expect(resolveRoute(host, '/favicon.ico')?.status).toBe(204);
   });
 
+  it("answers Safari's own icon and Start Page fetches quietly, nothing broader", () => {
+    for (const target of [
+      '/apple-touch-icon.png',
+      '/apple-touch-icon-precomposed.png',
+      '/apple-touch-icon-120x120.png',
+      '/apple-touch-icon-120x120-precomposed.png',
+      '/?client=safari&channel=iphone_bm',
+    ]) {
+      expect(resolveRoute('www.google.com', target)?.status).toBe(204);
+    }
+    expect(resolveRoute('www.google.com', '/')).toBeNull();
+    expect(resolveRoute('www.google.com', '/apple-touch-icon.png/../secret')).toBeNull();
+  });
+
   it('keeps every rendered page free of external resources and banned strings', () => {
     const urls = [
       `${SCENES.google.startUrl}`,

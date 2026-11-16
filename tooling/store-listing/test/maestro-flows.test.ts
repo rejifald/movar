@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 const FLOWS = path.resolve(import.meta.dirname, '../maestro');
 
-/** The `scrollUntilVisible:` blocks of a flow: each runs until the next top-level `- ` step. */
+/** The `scrollUntilVisible:` blocks of a flow, nested ones (inside `retry`) included: each runs until the next `- ` step. */
 function scrollBlocks(yaml: string): string[] {
-  return yaml.split(/^- /mu).filter((step) => step.startsWith('scrollUntilVisible:'));
+  return yaml.split(/^\s*- /mu).filter((step) => step.startsWith('scrollUntilVisible:'));
 }
 
 describe('maestro flows', () => {

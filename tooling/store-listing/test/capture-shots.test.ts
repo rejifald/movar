@@ -54,6 +54,14 @@ describe('shot plans', () => {
     expect(before[3]?.env).toEqual({ V: '.*Как приготовить идеальный борщ.*', A: CURTAIN.en });
     expect(beforePlan('uk')[0]?.env['A']).toBe(CURTAIN.uk);
   });
+  it("the site-no-modal gate check flags the gate, not Movar's note about what it hid", () => {
+    const absent = listingPlan('uk').find((shot) => shot.id === 'site-no-modal')?.env['A'] ?? '';
+    const matches = (text: string): boolean => new RegExp(`^(?:${absent})$`, 'u').test(text);
+    expect(matches('Оберіть мову / Выберите язык')).toBe(true);
+    expect(matches('Русский')).toBe(true);
+    expect(matches('Мовар приховав: Русский.')).toBe(false);
+  });
+
   it('the Russian assertions are on the pages the mock serves for those urls', () => {
     const [search, gate, menu, youtube] = beforePlan('uk');
     expect(html(search?.url ?? '')).toContain('Борщ классический');

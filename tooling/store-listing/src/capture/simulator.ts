@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers, no-console, sonarjs/no-os-command-from-path -- orchestration script: shells out to xcrun/maestro/networksetup by name and prints progress; timeouts/buffers are inline on purpose */
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { retrySync } from './retry';
@@ -128,20 +128,25 @@ export function terminate(sim: ThrowawaySim, bundleId: string): void {
  * Returns why it could not, instead of throwing: this is diagnostics only.
  */
 /**
- * Close every Safari tab: the tab database is removed while Safari is not running.
- * iPad Safari shows all open tabs in a tab bar, and a background tab's page stays
- * in the accessibility tree, so each shot must start from one tab. Call it after
- * `terminate(sim, 'com.apple.mobilesafari')`.
+ * Close every Safari tab. iPad Safari shows all open tabs in a tab bar, and a
+ * background tab's page stays in the accessibility tree, so each shot must start
+ * from one tab. Call it after `terminate(sim, 'com.apple.mobilesafari')`.
+ *
+ * Safari keeps tabs in the simulator HOME's `Library/Safari/SafariTabs.db`, beside
+ * its profiles and tab groups. Only the tab rows (`type = 0`) of each window's
+ * local tab group are deleted: removing the whole file also recreates the default
+ * profile, and after that Movar no longer acted on pages (CI run 16, iPad).
  */
 export function closeSafariTabs(sim: ThrowawaySim): void {
-  // Safari keeps its tabs in the simulator HOME's Library/Safari, not in its app
-  // container (iOS 26.3: SafariTabs.db plus its -wal/-shm).
   const home = simctl('getenv', sim.udid, 'HOME').trim();
-  const safariDir = path.join(home, 'Library', 'Safari');
-  if (!existsSync(safariDir)) return; // Safari has never run: there are no tabs yet.
-  for (const file of readdirSync(safariDir)) {
-    if (file.startsWith('SafariTabs.db')) rmSync(path.join(safariDir, file), { force: true });
-  }
+  const db = path.join(home, 'Library', 'Safari', 'SafariTabs.db');
+  if (!existsSync(db)) return; // Safari has never run: there are no tabs yet.
+  out('sqlite3', [
+    db,
+    'DELETE FROM bookmarks WHERE type = 0 AND parent IN (SELECT local_tab_group_id FROM windows); ' +
+      'UPDATE bookmarks SET num_children = 0, last_selected_child = NULL ' +
+      'WHERE id IN (SELECT local_tab_group_id FROM windows);',
+  ]);
 }
 
 export function readAppGroupDefaults(sim: ThrowawaySim, bundleId: string, group: string): string {

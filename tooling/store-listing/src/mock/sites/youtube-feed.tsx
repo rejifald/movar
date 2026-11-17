@@ -35,7 +35,7 @@ const TONES: readonly (readonly [string, string, string])[] = [
   ['#0e7490', '#67e8f9', '#cffafe'],
 ];
 
-function Thumb({ tone, seed }: Readonly<{ tone: number; seed: number }>): JSX.Element {
+export function Thumb({ tone, seed }: Readonly<{ tone: number; seed: number }>): JSX.Element {
   const [a, b, c] = TONES[tone % TONES.length] ?? TONES[0] ?? ['#333', '#666', '#999'];
   const gid = `g${seed}`;
   const shift = (seed * 37) % 120;
@@ -106,7 +106,7 @@ export interface YouTubeFeedProps {
   tabs: readonly string[];
 }
 
-const CH_COLORS = [
+export const CH_COLORS = [
   '#0f766e',
   '#7c3aed',
   '#b45309',

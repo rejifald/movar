@@ -3,6 +3,7 @@ import {
   googleFinalPage,
   googleInitialPage,
   tochka24Page,
+  youtubeDesktopPage,
   youtubeFeedPage,
 } from './pages';
 
@@ -36,6 +37,9 @@ export const SCENES = {
   },
   youtube: {
     startUrl: 'https://m.youtube.com/',
+  },
+  youtubeDesktop: {
+    startUrl: 'https://www.youtube.com/',
   },
 } as const;
 
@@ -90,18 +94,23 @@ function tochka24Route(url: URL): MockResponse | null {
   }
 }
 
-function youtubeRoute(url: URL): MockResponse | null {
-  return url.pathname === '/' ? html(youtubeFeedPage()) : null;
+function youtubeRoute(host: string, url: URL): MockResponse | null {
+  if (url.pathname !== '/') return null;
+  return html(host === 'm.youtube.com' ? youtubeFeedPage() : youtubeDesktopPage());
 }
 
 /**
- * Requests Safari makes on its own for a mocked host, not for a page: site icons,
- * and the Start Page's Favourites fetching a bookmarked home page
+ * Requests a browser makes on its own for a mocked host, not for a page: site icons
+ * (Safari, Chrome and Firefox ask for `/favicon.ico`, some for `.png`/`.svg`
+ * variants), manifests Windows/Chromium probe for, DevTools' well-known probe, and
+ * the Start Page's Favourites fetching a bookmarked home page
  * (`/?client=safari…`, CI run 17). Answered empty, so they are neither content
  * nor a miss; anything else unrouted still fails the run.
  */
 function isBrowserChrome(url: URL): boolean {
-  if (url.pathname === '/favicon.ico') return true;
+  if (/^\/favicon(?:-\w+)?\.(?:ico|png|svg)$/u.test(url.pathname)) return true;
+  if (['/browserconfig.xml', '/site.webmanifest'].includes(url.pathname)) return true;
+  if (url.pathname.startsWith('/.well-known/appspecific/')) return true;
   if (/^\/apple-touch-icon[\w.-]*\.png$/u.test(url.pathname)) return true;
   return url.pathname === '/' && url.searchParams.get('client') === 'safari';
 }
@@ -113,7 +122,7 @@ export const resolveRoute: RouteTable = (host, target) => {
   if (isBrowserChrome(url)) return EMPTY;
   if (host.endsWith('google.com')) return googleRoute(host, url);
   if (host === 'tochka24.example') return tochka24Route(url);
-  return youtubeRoute(url);
+  return youtubeRoute(host, url);
 };
 
 /** The route table plus the hosts it answers for — what the proxy consumes. */

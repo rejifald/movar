@@ -79,12 +79,11 @@ function parseBaselines(svg: string): number {
  * Counts the lines a headline wraps to by rendering it with Satori (glyphs left
  * as `<text>`) and counting distinct text baselines in the SVG it emits.
  */
-async function measureHeadlineLines(text: string, canvasWidth: number): Promise<number> {
-  const metrics = {
-    fontSize: headlineFontSize(canvasWidth),
-    lineHeight: Math.round(headlineFontSize(canvasWidth) * HEADLINE_LINE_HEIGHT),
-  };
-  const width = headlineWidth(canvasWidth);
+export async function measureHeadlineLinesAt(
+  text: string,
+  metrics: { fontSize: number; lineHeight: number },
+  width: number,
+): Promise<number> {
   const svg = await satori(h('div', { style: { ...headlineStyle(metrics), width } }, text), {
     width,
     height: metrics.lineHeight * (MAX_HEADLINE_LINES + MEASURE_SPARE_LINES),
@@ -94,6 +93,15 @@ async function measureHeadlineLines(text: string, canvasWidth: number): Promise<
   const lines = parseBaselines(svg);
   if (lines === 0) throw new Error('Headline produced no text; is the font loaded?');
   return lines;
+}
+
+async function measureHeadlineLines(text: string, canvasWidth: number): Promise<number> {
+  const fontSize = headlineFontSize(canvasWidth);
+  return measureHeadlineLinesAt(
+    text,
+    { fontSize, lineHeight: Math.round(fontSize * HEADLINE_LINE_HEIGHT) },
+    headlineWidth(canvasWidth),
+  );
 }
 
 /** Everything needed to draw a shot, without drawing it. Does not run the guards. */

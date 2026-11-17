@@ -10,7 +10,10 @@ export type GuardCode =
   | 'split-cut'
   | 'caption-room'
   | 'headline-overlap'
-  | 'logo-drift';
+  | 'logo-drift'
+  | 'window-clipped'
+  | 'window-overlap'
+  | 'chrome-top';
 
 /** Thrown when a layout (or the rendered headline) breaks a hard rule. */
 export class RenderGuardError extends Error {

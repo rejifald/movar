@@ -52,7 +52,7 @@ const SHADOW = { dy: 0.03, blur: 0.09 } as const;
 
 /** Drop shadow under one phone: its own layer, deterministic. */
 export function ShadowLayer(props: {
-  placement: PhonePlacement;
+  placement: { phone: Rect; shape: { bodyRadius: number } };
   canvasWidth: number;
   tone: GroundTone;
 }): ReactElement {
@@ -116,6 +116,12 @@ export function Phone(props: {
 /** The seam line: the ink of the light palette, dark on any page. */
 const SEAM_COLOR = '#1c1917';
 
+/** What `Seam` reads: shared by the portrait and the landscape layouts. */
+export interface SeamLayout {
+  canvas: { width: number; height: number };
+  split: { seam: Rect; captions: { after: Rect; before: Rect; fontSize: number } };
+}
+
 export interface SplitTagLabels {
   /** Above the seam: the after part (Movar on). */
   after: string;
@@ -124,7 +130,7 @@ export interface SplitTagLabels {
 }
 
 /** One caption, rotated to read bottom-up, centred in its footprint on the ground. */
-function Caption(props: {
+export function Caption(props: {
   rect: Rect;
   fontSize: number;
   label: string;
@@ -170,7 +176,7 @@ function Caption(props: {
 
 /** The seam line across the screen, and the two captions on the ground beside their parts. */
 export function Seam(props: {
-  layout: Layout;
+  layout: SeamLayout;
   labels: SplitTagLabels;
   tone: GroundTone;
 }): ReactElement {
@@ -216,7 +222,7 @@ function BrandMark(props: { size: number; tone: GroundTone }): ReactElement {
   );
 }
 
-export function LogoRow(props: { layout: Layout; tone: GroundTone }): ReactElement {
+export function LogoRow(props: { layout: Pick<Layout, 'logo'>; tone: GroundTone }): ReactElement {
   const { logo } = props.layout;
   const palette = PALETTE[props.tone];
   return h(
@@ -262,7 +268,11 @@ export function headlineStyle(metrics: { fontSize: number; lineHeight: number })
   };
 }
 
-export function Headline(props: { layout: Layout; text: string; tone: GroundTone }): ReactElement {
+export function Headline(props: {
+  layout: Pick<Layout, 'headline'>;
+  text: string;
+  tone: GroundTone;
+}): ReactElement {
   const { layout, text, tone } = props;
   return h(
     'div',

@@ -390,7 +390,7 @@ export function assertLayout(layout: Layout): void {
 }
 
 /** Set-level guard: the logo sits at the same place on every shot of a set. */
-export function assertSameLogo(layouts: readonly Layout[]): void {
+export function assertSameLogo(layouts: readonly Pick<Layout, 'logo'>[]): void {
   const first = layouts[0];
   if (!first) return;
   const drifted = layouts.find(

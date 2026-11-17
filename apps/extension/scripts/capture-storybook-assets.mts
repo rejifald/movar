@@ -7,15 +7,9 @@
  *   - `capture-marketing-before-after.mts` (real google.com.ua SERPs)
  *
  * Story → output routing is driven by the story's title prefix and a
- * per-story `parameters.captureOutput` declaration. Three prefixes are
- * recognised:
- *
- *   `Marketplace/Screenshots/*` — per-locale store-listing screenshots.
- *     Uses the existing `{locale}/{NN}-{slug}.png` convention under
- *     `store-assets/screenshots/`; locale comes from the story name
- *     (`English` / `Ukrainian`), `NN` from `parameters.screenshotIndex`,
- *     `slug` from kebab-casing the scene title. No `captureOutput`
- *     needed.
+ * per-story `parameters.captureOutput` declaration. Two prefixes are
+ * recognised (marketplace screenshots are no longer produced here — they
+ * come from real captures in `tooling/store-listing`):
  *
  *   `Marketplace/Promo/*` — single-PNG marketplace assets (promo tiles,
  *     etc.). Requires `parameters.captureOutput.path` relative to
@@ -71,7 +65,6 @@ const storybookStaticDir = path.resolve(extensionRoot, 'storybook-static');
 const indexJsonPath = path.resolve(storybookStaticDir, 'index.json');
 
 const STORE_ASSETS_DIR = path.resolve(extensionRoot, 'store-assets');
-const MARKETPLACE_SCREENSHOTS_DIR = path.resolve(STORE_ASSETS_DIR, 'screenshots');
 const MARKETING_SCREENSHOTS_DIR = path.resolve(
   extensionRoot,
   '..',
@@ -80,20 +73,9 @@ const MARKETING_SCREENSHOTS_DIR = path.resolve(
   'screenshots',
 );
 
-const PREFIX_MARKETPLACE_SCREENSHOTS = 'Marketplace/Screenshots/';
 const PREFIX_MARKETPLACE_PROMO = 'Marketplace/Promo/';
 const PREFIX_MARKETING_SCREENSHOTS = 'Marketing/Screenshots/';
-const RECOGNISED_PREFIXES = [
-  PREFIX_MARKETPLACE_SCREENSHOTS,
-  PREFIX_MARKETPLACE_PROMO,
-  PREFIX_MARKETING_SCREENSHOTS,
-] as const;
-
-/** Locale-mapped screenshot prefixes → their output root (the
- *  `{locale}/{NN}-{slug}.png` convention). */
-const LOCALE_SCREENSHOT_ROOTS: Partial<Record<string, string>> = {
-  [PREFIX_MARKETPLACE_SCREENSHOTS]: MARKETPLACE_SCREENSHOTS_DIR,
-};
+const RECOGNISED_PREFIXES = [PREFIX_MARKETPLACE_PROMO, PREFIX_MARKETING_SCREENSHOTS] as const;
 
 const STATIC_PORT = 4325;
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 } as const;
@@ -101,7 +83,7 @@ const SKIP_CAPTURE_TAG = 'skip-capture';
 
 const shouldBuild = !process.argv.includes('--no-build');
 /** `--only=<title-prefix>` restricts the capture to stories whose title
- *  starts with the given string (e.g. `Marketplace/Screenshots/`), so
+ *  starts with the given string (e.g. `Marketing/Screenshots/`), so
  *  iterating on one scene doesn't rewrite every committed PNG. */
 const ONLY_PREFIX = (process.argv.find((a) => a.startsWith('--only=')) ?? '').slice(
   '--only='.length,
@@ -131,7 +113,6 @@ interface ViewportParam {
 }
 
 interface StoryParameters {
-  screenshotIndex?: number;
   viewport?: ViewportParam;
   captureOutput?: CaptureOutputParam;
   /** Capture a second `-dark` PNG under prefers-color-scheme: dark. */
@@ -139,18 +120,6 @@ interface StoryParameters {
   /** Capture at natural content height instead of clipping to the
    *  viewport (opt-in; for the before/after website single-halves). */
   naturalHeight?: boolean;
-}
-
-const LOCALE_BY_STORY_NAME: Record<string, 'en' | 'uk'> = {
-  English: 'en',
-  Ukrainian: 'uk',
-};
-
-function kebabCase(input: string): string {
-  return input
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
-    .toLowerCase();
 }
 
 /** Dark-variant sibling of a PNG path: `foo.png` → `foo-dark.png`. */
@@ -399,9 +368,6 @@ async function getStoryParameters(
     const raw = (await handle.jsonValue()) as Record<string, unknown> | null;
     if (!raw) return {};
     const result: StoryParameters = {};
-    if (typeof raw['screenshotIndex'] === 'number') {
-      result.screenshotIndex = raw['screenshotIndex'];
-    }
     const vp = raw['viewport'];
     if (
       vp &&
@@ -441,35 +407,7 @@ function resolveTarget(
   prefix: (typeof RECOGNISED_PREFIXES)[number],
   params: StoryParameters,
 ): ResolvedTarget {
-  const sceneTitle = entry.title.slice(prefix.length);
-
-  const localeRoot = LOCALE_SCREENSHOT_ROOTS[prefix];
-  if (localeRoot) {
-    // Shared convention across the landscape + iOS + iPad screenshot
-    // prefixes: `{locale}/{NN}-{slug}.png`, sourced from the story name
-    // (English/Ukrainian) and `screenshotIndex` on meta.
-    const locale = LOCALE_BY_STORY_NAME[entry.name];
-    if (!locale) {
-      throw new Error(
-        `Story "${entry.title} / ${entry.name}" under ${prefix} ` +
-          'has no locale mapping — story name must be "English" or "Ukrainian".',
-      );
-    }
-    if (params.screenshotIndex === undefined) {
-      throw new Error(
-        `Story "${entry.id}" has no parameters.screenshotIndex — set one ` +
-          'on the meta-level parameters so the PNG filename has a stable prefix.',
-      );
-    }
-    const slug = kebabCase(sceneTitle);
-    const filename = `${String(params.screenshotIndex).padStart(2, '0')}-${slug}.png`;
-    const outPath = path.resolve(localeRoot, locale, filename);
-    return { outPath, display: path.relative(extensionRoot, outPath) };
-  }
-
-  // Marketplace/Promo and Marketing/Screenshots both require an
-  // explicit captureOutput.path — they don't follow the locale-mapped
-  // screenshots layout.
+  // Both prefixes require an explicit captureOutput.path.
   const co = params.captureOutput;
   if (!co) {
     throw new Error(

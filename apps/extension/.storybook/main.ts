@@ -21,9 +21,8 @@ import { sharedStorybookConfig } from '../../../packages/ui/.storybook/shared-ma
  *
  * Capture pipeline: `scripts/capture-storybook-assets.mts` reads
  * `storybook-static/index.json` after `pnpm build-storybook`, filters
- * entries under `Marketplace/Screenshots/*`, `Marketplace/Promo/*`, and
- * `Marketing/Screenshots/*`, then screenshots each via a Playwright
- * Chromium driver. See `store-assets/STORYBOOK-PIPELINE-PLAN.md` for
+ * entries under `Marketplace/Promo/*` and `Marketing/Screenshots/*`, then
+ * screenshots each via a Playwright Chromium driver. See `store-assets/STORYBOOK-PIPELINE-PLAN.md` for
  * the original design discussion.
  */
 const config: StorybookConfig = {

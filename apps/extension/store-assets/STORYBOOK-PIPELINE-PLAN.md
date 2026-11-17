@@ -1,5 +1,7 @@
 # Marketplace screenshot pipeline — implementation plan
 
+> **Retired:** the `Marketplace/Screenshots/*` stories and their capture branch are gone; marketplace screenshots now come from real captures in `tooling/store-listing`. Kept as design history; `Marketplace/Promo/*` and `Marketing/Screenshots/*` still use this pipeline.
+
 Implementation spec for the Storybook + Playwright pipeline that produces
 the per-locale screenshots and per-marketplace pictograms shipped to AMO
 and the Chrome Web Store.
@@ -261,7 +263,7 @@ export const Ukrainian: Story = {
 3. Read `storybook-static/index.json`; filter entries whose `title` starts with `Marketplace/Screenshots/`.
 4. For each entry: launch Playwright Chromium at `viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1`, navigate to `http://localhost:4325/iframe.html?viewMode=story&id=${entry.id}`, `await page.evaluate(() => document.fonts.ready)`, wait for network idle, screenshot.
 5. Filename derivation:
-   - `Marketplace/Screenshots/PopupOnNews` story `English` → `screenshots/en/01-popup-on-news.png`
+   - `Marketplace/Screenshots/PopupOnNews` story `English` → `screenshots/en/01-popup-on-news.png` (retired output folder: `screenshots/{uk,en}/` was removed in favour of `tooling/store-listing` captures)
    - The numeric prefix comes from `parameters.screenshotIndex` on the scene's `meta`.
    - The slug comes from the scene title kebab-cased: `PopupOnNews` → `popup-on-news`.
    - The locale comes from the story name (`English` → `en`, `Ukrainian` → `uk`).

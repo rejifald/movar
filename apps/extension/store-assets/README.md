@@ -9,15 +9,11 @@ for what ships to each marketplace.
 ```
 store-assets/
   screenshots/
-    en/                       # English marketplace screenshots
-    uk/                       # Ukrainian marketplace screenshots
-      01-popup-on-news.png       # Popup composed over a news article
-      02-correction-applied.png  # Site language: before / after diptych
-      03-search-rewrite.png      # Google SERP: before / after diptych
-      04-language-dialog.png     # Language-selection modal: before / after diptych
+    # marketplace screenshots: real captures from `tooling/store-listing`
+    # (the Storybook `Marketplace/Screenshots/*` pipeline is retired)
   storyboards/                # React backdrops + scene stories (Storybook)
     backdrops/                # one .tsx per fictitious site (marketplace + marketing)
-    stories/                  # Marketplace/Screenshots/* scenes
+    stories/                  # shared scene seed (_seed.ts); marketplace screenshot scenes retired
     promo/                    # Marketplace/Promo/* — Chrome promo tile
     marketing/                # Marketing/Screenshots/* — movar.fyi assets
   chrome/                     # CWS pictogram + promo tile
@@ -40,11 +36,10 @@ that ship to `apps/marketing/public/screenshots/` — comes through one
 script: [`../scripts/capture-storybook-assets.mts`](../scripts/capture-storybook-assets.mts).
 Stories are routed to outputs by their title prefix:
 
-| Prefix                      | Output root                                | Story directory          |
-| --------------------------- | ------------------------------------------ | ------------------------ |
-| `Marketplace/Screenshots/*` | `store-assets/screenshots/{en,uk}/`        | `storyboards/stories/`   |
-| `Marketplace/Promo/*`       | `store-assets/` (path via `captureOutput`) | `storyboards/promo/`     |
-| `Marketing/Screenshots/*`   | `apps/marketing/public/screenshots/`       | `storyboards/marketing/` |
+| Prefix                    | Output root                                | Story directory          |
+| ------------------------- | ------------------------------------------ | ------------------------ |
+| `Marketplace/Promo/*`     | `store-assets/` (path via `captureOutput`) | `storyboards/promo/`     |
+| `Marketing/Screenshots/*` | `apps/marketing/public/screenshots/`       | `storyboards/marketing/` |
 
 See [`STORYBOOK-PIPELINE-PLAN.md`](./STORYBOOK-PIPELINE-PLAN.md) for the
 original design discussion (the script has since generalised beyond
@@ -89,16 +84,9 @@ checklist):
    Two stories per pair (with / without). `naturalHeight` captures the
    whole page instead of a fixed 800px crop; `darkVariant` emits the
    `-dark` sibling. Output → `apps/marketing/public/screenshots/`.
-3. Add the marketplace diptych story under `storyboards/stories/` with
-   title `Marketplace/Screenshots/<Scene>` and the next free
-   `screenshotIndex`. Compose the two backdrops inside
-   `BeforeAfterFrameWithFrame`, passing `hideChrome` on each. Set
-   `darkVariant: true` when the backdrops have a dark theme (the website
-   scenes do — the diptych frame repaints under
-   `prefers-color-scheme: dark`); leave it off for the fixed light
-   scenes. Export `English` and `Ukrainian` stories — or document, in
-   the file header, why one locale is intentionally skipped and use
-   `tags: ['skip-capture']` (or omit the export entirely).
+3. Marketplace screenshots are not a Storybook step any more: the
+   `Marketplace/Screenshots/*` stories are retired; real captures live in
+   `tooling/store-listing`.
 4. Wire the pair into `ExampleDrum.astro`'s `imagePairs` (keyed by the
    matching `examples.entries` index in `i18n.ts`), gated on PNG
    existence; the `-dark` siblings are picked up automatically. The drum
@@ -154,9 +142,9 @@ pnpm --filter @movar/extension storybook
 # open http://localhost:6008
 ```
 
-The four marketplace scenes live under
-`Marketplace/Screenshots/*` in the Storybook sidebar. Each scene
-file exports both `English` and `Ukrainian` stories.
+Marketplace screenshots are no longer Storybook scenes (the
+`Marketplace/Screenshots/*` stories are retired); they come from real
+captures in `tooling/store-listing`.
 
 ### Pictograms
 
@@ -308,9 +296,9 @@ something we don't ship.
 
 ## When ready to submit
 
-- `screenshots/uk/*.png` → AMO + CWS upload UIs (until PR2 adds EN
-  variants; same files cover both stores' UA-locale fallback).
-- `screenshots/en/*.png` → AMO + CWS upload UIs (after PR2).
+- `screenshots/{firefox,chrome}/<locale>/` → AMO + CWS screenshots, real
+  captures from `tooling/store-listing` (the old Storybook-made
+  `screenshots/{uk,en}/` sets are retired).
 - `chrome/icon-128.png` → Chrome Web Store listing pictogram.
 - `firefox/icon-{32,64,128}.png` → AMO listing pictograms.
 - `chrome/promo-tile-440x280.png` → Chrome Web Store promo tile,

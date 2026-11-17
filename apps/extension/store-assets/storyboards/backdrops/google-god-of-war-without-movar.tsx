@@ -14,7 +14,7 @@ import {
  *     captured at 1280×800 with built-in chrome). Composed at runtime
  *     into the second pair of `apps/marketing/src/components/BeforeAfter.astro`.
  *     Use `GoogleGodOfWarWithoutMovarBackdrop` (chrome built in).
- *   - Marketplace diptych half (`Marketplace/Screenshots/KnowledgePanel`),
+ *   - Marketplace diptych half (retired `Marketplace/Screenshots/KnowledgePanel`),
  *     rendered inside `BeforeAfterFrameWithFrame` which supplies its own
  *     browser chrome at the half level. Use
  *     `GoogleGodOfWarWithoutMovarContent` (chrome suppressed).

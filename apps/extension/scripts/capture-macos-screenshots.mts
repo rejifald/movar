@@ -40,8 +40,8 @@
  * sunset produced a half-light, half-dark listing. Switch appearance in System
  * Settings, or set MOVAR_SHOT_APPEARANCE=Dark.
  *
- * Uploading is manual too — `scripts/apple-submit.mjs` handles versions, notes,
- * compliance and submission, and no screenshots at all.
+ * Output lands in `store-assets/screenshots/app-store/mac/<locale>/` as 05-07, after
+ * the 01-04 Safari shots; `scripts/apple-submit.mjs` uploads the whole folder.
  *
  * Usage (macOS only, needs Xcode and the Apple Developer account the wrapper
  * already builds against):
@@ -56,7 +56,18 @@ import { fileURLToPath } from 'node:url';
 const extensionRoot = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), '..');
 const projectDir = nodePath.join(extensionRoot, 'safari', 'Movar');
 const derivedData = nodePath.join(extensionRoot, 'safari', 'build-uitest');
-const outRoot = nodePath.join(extensionRoot, 'store-assets', 'screenshots', 'macos');
+const outRoot = nodePath.join(extensionRoot, 'store-assets', 'screenshots', 'app-store', 'mac');
+
+// The Mac App Store set is 01-04 Safari before/after shots (captured by
+// tooling/store-listing in CI) followed by these host-app scenes, so the test's
+// 01-03 scene prefixes are shifted to 05-07 on the way out.
+const SCENE_NUMBER_OFFSET = 4;
+function listingName(scene: string): string {
+  return scene.replace(
+    /^(\d+)-/,
+    (_, n: string) => `${String(Number(n) + SCENE_NUMBER_OFFSET).padStart(2, '0')}-`,
+  );
+}
 
 /** Locale code -> the directory the listing reads. Ukrainian leads, as ever. */
 const LOCALES = ['uk', 'en'] as const;
@@ -157,7 +168,7 @@ for (const locale of locales) {
         process.exit(1);
       }
 
-      const target = nodePath.join(outDir, `${scene.replace(`${locale}-`, '')}.png`);
+      const target = nodePath.join(outDir, `${listingName(scene.replace(`${locale}-`, ''))}.png`);
       writeFileSync(target, readFileSync(source));
       console.log(`   ${nodePath.relative(extensionRoot, target)}  ${size}`);
       written += 1;
@@ -175,7 +186,7 @@ for (const locale of locales) {
 }
 
 console.log(`\n✓ macOS screenshots written under ${nodePath.relative(extensionRoot, outRoot)}/`);
-console.log('  Upload them by hand in App Store Connect — apple-submit.mjs does not.');
+console.log('  apple-submit.mjs uploads them with the rest of the Mac App Store set.');
 
 // The exported bundles are large and reproducible; leave the tree clean.
 for (const locale of locales) {

@@ -11,7 +11,7 @@ export interface Rows {
  * dimmed, washed or blurred, so it reads as "the other state" while its text
  * stays as crisp as the capture. Applied by the frame, never to the capture.
  */
-export const BEFORE_SATURATION = 0;
+const BEFORE_SATURATION = 0;
 
 async function rowsOf(bytes: Uint8Array, width: number, rows: Rows): Promise<Buffer> {
   return sharp(bytes)

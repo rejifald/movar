@@ -1,0 +1,73 @@
+# Settings > Apps > Safari > Extensions > Movar (iOS 26 layout): switch the
+# extension on and set its website access to Allow for all websites.
+# Labels are device-language text, passed per locale from src/capture/labels.ts.
+# Budgets are sized for a CI runner, where one hierarchy read takes ~10 s: never
+# a bare assertVisible after a navigation, never a scroll budget under 90 s.
+# After a scroll, wait for the list to come to rest before tapping: a tap during
+# scroll momentum only stops the list, and the next step then times out.
+# Every scroll centres its row: iOS 26 floats the "Search Apps" bar over the
+# list's bottom ~90 pt, and a row that stops under it counts as visible but a
+# tap lands on the search bar instead (en run 13: Safari stopped at y 862-891).
+appId: com.apple.Preferences
+---
+- launchApp:
+    appId: com.apple.Preferences
+    stopApp: true
+- scrollUntilVisible:
+    element: ${L_APPS}
+    timeout: 90000
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 5000
+# Every hop is tapped, then confirmed by finding the next page's row, and tapped
+# again if it is not there: a tap can report success and change nothing (iPad,
+# CI runs 15 and 17).
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: ${L_APPS}
+          retryTapIfNoChange: true
+      - scrollUntilVisible:
+          element: ${L_SAFARI}
+          timeout: 60000
+          centerElement: true
+- waitForAnimationToEnd:
+    timeout: 5000
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: ${L_SAFARI}
+          retryTapIfNoChange: true
+      - scrollUntilVisible:
+          element: ${L_EXTENSIONS}
+          timeout: 60000
+          centerElement: true
+- waitForAnimationToEnd:
+    timeout: 5000
+# A tap can report success and leave the page as it was (iPad, CI run 15):
+# confirm the Extensions page opened (its Movar row shows), else tap again.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: ${L_EXTENSIONS}
+          retryTapIfNoChange: true
+      - extendedWaitUntil:
+          visible: ${L_EXT_ROW}
+          timeout: 20000
+- tapOn: ${L_EXT_ROW}
+# The switch is a UISwitch right of its label: a tap on the label text does not
+# flip it, so tap the control's own position.
+- tapOn:
+    point: ${P_EXT_SWITCH}
+- extendedWaitUntil:
+    visible: ${L_ALL_SITES_ROW}
+    timeout: 60000
+- tapOn: ${L_ALL_SITES_ROW}
+- tapOn: ${L_ALLOW}
+# The list stays open with a checkmark on the chosen row.
+- extendedWaitUntil:
+    visible: checkmark
+    timeout: 60000

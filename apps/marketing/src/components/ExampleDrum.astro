@@ -1,149 +1,158 @@
 ---
 /**
- * The hero's before/after "drum" — a tabbed card cycling four scenarios:
- * Google search, Google's summary card, YouTube, and a Ukrainian shop. Same
- * four scenarios and the same screenshots as the full Examples section
- * further down the page (`strings[lang].examples.entries`, keyed 0-3), so
- * copy, alt text and images stay one source of truth instead of a second
- * copy that can drift.
+ * The hero's example "drum" — four tabs, each a real device capture whose
+ * screen is split in half: the top half the page WITH Movar, the bottom half
+ * the same page WITHOUT it, divided by a thin seam baked into the image at
+ * exactly 50% height. The device is drawn in CSS around the bare screen: a
+ * phone below `lg`, a tablet from `lg` (the breakpoint where the hero's drum
+ * column first reaches ~340px; at `md` it is ~310px, too narrow for a tablet
+ * to read as more than a smaller phone). The whole device is shown, never
+ * cropped — the bottom half carries the "without" state.
+ *
+ * Captures live at `public/listing/<device>/<locale>/<slide id>.webp` and
+ * arrive in stages, so every lookup goes through the `existsSync` on-disk
+ * guard and degrades instead of breaking:
+ *   - per slide, the tablet capture is used from `lg` when it exists (one
+ *     <img> with a <picture> <source>, so only one file downloads); without
+ *     it the phone capture sits in the phone frame at every width;
+ *   - a slide with a tablet capture but no phone one shows the tablet frame
+ *     at every width;
+ *   - a slide with neither is dropped, and with no slides at all the drum
+ *     renders nothing.
  *
  * Auto-advances every 4500ms; a click on a tab selects it and restarts the
  * timer. Never auto-advances at all under `prefers-reduced-motion: reduce`
  * (checked in the client script below) — that is a hard requirement, not a
- * "slower" mode. The active tab's 2px underline doubles as a 4500ms
- * progress bar, built from two Tailwind width classes (`w-0` → `w-full`)
- * plus a `transition-[width]` on the fill bar, so a plain class toggle is
- * what animates it; `motion-reduce:transition-none` drops that transition
- * automatically for reduced-motion visitors without any extra JS branch.
+ * "slower" mode. The active tab's 2px underline doubles as a 4500ms progress
+ * bar, built from two Tailwind width classes (`w-0` → `w-full`) plus a
+ * `transition-[width]` on the fill bar, so a plain class toggle is what
+ * animates it; `motion-reduce:transition-none` drops that transition for
+ * reduced-motion visitors without any extra JS branch.
  *
- * Progressive enhancement: all four tab labels and the first slide's full
- * before/after pair render at build time; slides 2-4 are `hidden` until the
- * client script runs, so a no-JS visitor still sees one complete example.
+ * Progressive enhancement: all tab labels and the first slide render at build
+ * time; slides 2-4 are `hidden` until the client script runs, so a no-JS
+ * visitor still sees one complete example.
  *
- * Screenshot sourcing is lifted from the retired Examples.astro: the same `existsSync`
- * on-disk guard (a missing capture degrades to no image rather than a
- * broken one) and the same dark-mode swap via <picture> +
- * prefers-color-scheme. Duplicated rather than imported — Astro components
- * don't export plain data to one another, and this file owns nothing else
- * in that one.
+ * The "With Movar" / "Without Movar" captions sit beside the halves they name
+ * — vertical, left of the device from `md` (the drum column is too narrow for
+ * a horizontal label rail beside a device there), and above / below the
+ * device on a phone. They are `aria-hidden`: each slide's alt text already
+ * names both halves, top first.
  *
- * Crop height per screenshot steps down at narrower widths (see `frame*`
- * below): the drum itself gets much narrower on a phone, and a 208px-tall
- * slice of a screenshot scaled down that far reads as a grey smear rather
- * than a legible result.
+ * `data-drum-tab` / `aria-selected` are read by apps/e2e's visual suite
+ * (`assertDrumPinned`) to prove the drum is pinned to slide 1 when it shoots.
  */
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { strings, type Locale } from '../i18n';
+import { strings, type DrumSlideId, type Locale } from '../i18n';
 
 interface Props {
   lang?: Locale;
 }
 
 const { lang = 'en' } = Astro.props;
-const t = strings[lang].examples;
+const t = strings[lang].drum;
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public');
 
-interface ExampleImage {
-  src: string;
-}
-interface ExampleImagePair {
-  without: ExampleImage;
-  with: ExampleImage;
-}
+const SLIDE_IDS: readonly DrumSlideId[] = ['search', 'site-no-modal', 'site-menu', 'youtube'];
 
-// The four pairs, keyed by index as the retired Examples.astro did — kept here, not
-// imported (see file doc above).
-const imagePairs: Record<number, ExampleImagePair> = {
-  0: {
-    without: { src: '/screenshots/google-without-movar.png' },
-    with: { src: '/screenshots/google-with-movar.png' },
-  },
-  1: {
-    without: { src: '/screenshots/google-god-of-war-without-movar.png' },
-    with: { src: '/screenshots/google-god-of-war-with-movar.png' },
-  },
-  2: {
-    without: { src: '/screenshots/youtube-without-movar.png' },
-    with: { src: '/screenshots/youtube-with-movar.png' },
-  },
-  3: {
-    without: { src: '/screenshots/shop-without-movar.png' },
-    with: { src: '/screenshots/shop-with-movar.png' },
-  },
+type Device = 'iphone' | 'ipad';
+
+/** Pixel size of each device's capture, for `width`/`height` (no layout shift). */
+const CAPTURE_SIZE: Record<Device, { width: number; height: number }> = {
+  iphone: { width: 720, height: 1564 },
+  ipad: { width: 1200, height: 1600 },
 };
 
 const onDisk = (src: string): boolean => existsSync(path.join(publicDir, src.replace(/^\//, '')));
 
-const darkSrc = (src: string): string => src.replace(/\.png$/, '-dark.png');
-
-interface ResolvedImage {
-  src: string;
-  alt: string;
-  /** Dark-theme sibling, present only when the `-dark` PNG is on disk. */
-  dark?: string;
-}
-interface ResolvedPair {
-  without: ResolvedImage;
-  with: ResolvedImage;
-}
-
-const resolveImage = (img: ExampleImage, alt: string): ResolvedImage => {
-  const dark = darkSrc(img.src);
-  return onDisk(dark) ? { src: img.src, alt, dark } : { src: img.src, alt };
+const captureSrc = (device: Device, id: DrumSlideId): string | null => {
+  const src = `/listing/${device}/${lang}/${id}.webp`;
+  return onDisk(src) ? src : null;
 };
 
-const filesReady = (pair: ExampleImagePair): boolean =>
-  onDisk(pair.without.src) && onDisk(pair.with.src);
-
-const imagesFor = (i: number): ResolvedPair | null => {
-  const pair = imagePairs[i];
-  const alt = t.entries[i]?.alt;
-  if (!pair || !alt || !filesReady(pair)) return null;
-  return {
-    without: resolveImage(pair.without, alt.without),
-    with: resolveImage(pair.with, alt.withMovar),
-  };
-};
+/**
+ * `both`: phone frame below `lg`, tablet frame from `lg`.
+ * `phone` / `tablet`: that frame at every width.
+ */
+type FrameMode = 'both' | 'phone' | 'tablet';
 
 interface Slide {
   label: string;
-  caption: string;
-  images: ResolvedPair | null;
+  alt: string;
+  mode: FrameMode;
+  /** The <img> fallback — the phone capture, or the tablet one in `tablet` mode. */
+  img: { src: string; width: number; height: number };
+  /** The tablet capture as a `lg` <source>, in `both` mode only. */
+  tabletSource?: { src: string; width: number; height: number };
 }
 
-/*
- * `t.captions` is the four-line summary shown under the card — one per
- * slide (see `ExamplesStrings.captions` in i18n.ts). Tab labels reuse each
- * entry's own `site` name rather than inventing new copy: short for
- * Google/YouTube, longer for the other two, which is fine since the tab
- * row wraps rather than truncating (see the tablist below).
- */
-const slides: Slide[] = [0, 1, 2, 3].map((i) => ({
-  label: t.entries[i]?.site ?? '',
-  caption: t.captions[i] ?? t.entries[i]?.scenario ?? '',
-  images: imagesFor(i),
-}));
+const slides: Slide[] = SLIDE_IDS.flatMap((id): Slide[] => {
+  const phone = captureSrc('iphone', id);
+  const tablet = captureSrc('ipad', id);
+  const { label, alt } = t.slides[id];
+  if (phone && tablet) {
+    return [
+      {
+        label,
+        alt,
+        mode: 'both',
+        img: { src: phone, ...CAPTURE_SIZE.iphone },
+        tabletSource: { src: tablet, ...CAPTURE_SIZE.ipad },
+      },
+    ];
+  }
+  if (phone) return [{ label, alt, mode: 'phone', img: { src: phone, ...CAPTURE_SIZE.iphone } }];
+  if (tablet) return [{ label, alt, mode: 'tablet', img: { src: tablet, ...CAPTURE_SIZE.ipad } }];
+  return [];
+});
 
-// Crop window per breakpoint — shorter at mobile/tablet, where the drum is
-// much narrower and a tall crop would just show more of the page at a
-// smaller, less legible scale rather than the same legible slice.
-const frameBefore = 'h-36 overflow-hidden rounded-lg border border-border md:h-40 lg:h-52';
-const frameAfter =
-  'h-36 overflow-hidden rounded-lg border border-accent/40 ring-4 ring-accent-surface md:h-40 lg:h-52';
+/*
+ * Frame geometry. Bezel padding is uniform (`p-2` phone, `p-3` tablet) so the
+ * seam stays at exactly half the device's height — which is what lets the
+ * captions centre on each half. Radii and widths are tokens in global.css.
+ */
+const bezel = 'border border-border bg-[var(--device-bezel)] shadow-2xl';
+const phoneFrame =
+  'w-[var(--device-phone-w)] max-w-full rounded-[var(--device-phone-r)] p-2 sm:w-[var(--device-phone-w-sm)]';
+const tabletFrame = 'w-full max-w-[var(--device-tablet-w)] rounded-[var(--device-tablet-r)] p-3';
+const tabletFrameLg =
+  'lg:w-full lg:max-w-[var(--device-tablet-w)] lg:rounded-[var(--device-tablet-r)] lg:p-3';
+const phoneScreen = 'rounded-[var(--device-phone-screen-r)]';
+const tabletScreen = 'rounded-[var(--device-tablet-screen-r)]';
+const tabletScreenLg = 'lg:rounded-[var(--device-tablet-screen-r)]';
+
+const frameClass = (mode: FrameMode): string[] =>
+  mode === 'tablet'
+    ? [bezel, tabletFrame]
+    : mode === 'both'
+      ? [bezel, phoneFrame, tabletFrameLg]
+      : [bezel, phoneFrame];
+
+const screenClass = (mode: FrameMode): string[] =>
+  mode === 'tablet' ? [tabletScreen] : mode === 'both' ? [phoneScreen, tabletScreenLg] : [phoneScreen];
+
+// A tablet anywhere means the device cell should grow to the column (up to
+// the tablet cap) rather than hug a fixed-width phone.
+const anyTablet = slides.some((slide) => slide.mode !== 'phone');
+const allTablet = slides.length > 0 && slides.every((slide) => slide.mode === 'tablet');
+
+/* One caption: a dot, then the label. Vertical (read bottom-to-top) from `md`. */
+const captionClass =
+  'flex items-center gap-2 whitespace-nowrap text-xs font-semibold tracking-tight md:rotate-180 md:[writing-mode:vertical-rl]';
 ---
 
-<div data-example-drum>
-  <div class="overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
-    <div
-      role="tablist"
-      aria-label={t.sectionTitle}
-      class="flex flex-wrap gap-x-5 gap-y-3 border-b border-border px-4 pt-3 md:px-5 md:pt-4"
-    >
-      {
-        slides.map((slide, i) => (
+{
+  slides.length > 0 && (
+    <div data-example-drum class="flex flex-col items-center gap-6">
+      <div
+        role="tablist"
+        aria-label={t.tablistLabel}
+        class="flex flex-wrap justify-center gap-x-5 gap-y-3"
+      >
+        {slides.map((slide, i) => (
           <button
             type="button"
             role="tab"
@@ -151,7 +160,7 @@ const frameAfter =
             aria-controls={`drum-panel-${i}`}
             aria-selected={i === 0 ? 'true' : 'false'}
             data-drum-tab
-            class="flex flex-col items-start gap-2.5 pb-3 text-left"
+            class="flex flex-col items-start gap-2.5 pb-1 text-left"
           >
             <span
               data-drum-label
@@ -162,7 +171,7 @@ const frameAfter =
             >
               {slide.label}
             </span>
-            <span class="h-0.5 overflow-hidden rounded-full">
+            <span class="h-0.5 w-full overflow-hidden rounded-full">
               <span
                 data-drum-fill
                 class:list={[
@@ -172,83 +181,77 @@ const frameAfter =
               />
             </span>
           </button>
-        ))
-      }
-    </div>
+        ))}
+      </div>
 
-    <div class="p-3 md:p-4 lg:p-5">
-      {
-        slides.map((slide, i) => (
-          <div
-            data-drum-panel
-            role="tabpanel"
-            id={`drum-panel-${i}`}
-            aria-labelledby={`drum-tab-${i}`}
-            hidden={i !== 0}
-          >
-            {slide.images && (
-              <div class={frameBefore}>
+      {/*
+       * Phone: caption, device, caption — one column. From `md`: a caption
+       * rail left of the device, two equal rows so each caption centres on
+       * its half (the device spans both).
+       */}
+      <div
+        class:list={[
+          'grid w-full justify-items-center gap-3 md:grid-rows-2 md:gap-x-4 md:gap-y-0',
+          allTablet
+            ? 'md:grid-cols-[auto_minmax(0,1fr)]'
+            : anyTablet
+              ? 'md:grid-cols-[auto_auto] md:justify-center lg:grid-cols-[auto_minmax(0,1fr)]'
+              : 'md:grid-cols-[auto_auto] md:justify-center',
+        ]}
+      >
+        <p
+          aria-hidden="true"
+          class:list={[captionClass, 'text-ink-strong md:col-start-1 md:row-start-1 md:self-center']}
+        >
+          <span class="size-2 shrink-0 rounded-full bg-accent" />
+          {t.withMovar}
+        </p>
+
+        <div class="w-full md:col-start-2 md:row-span-2 md:row-start-1">
+          {slides.map((slide, i) => (
+            <div
+              data-drum-panel
+              role="tabpanel"
+              id={`drum-panel-${i}`}
+              aria-labelledby={`drum-tab-${i}`}
+              hidden={i !== 0}
+            >
+              <div class:list={['mx-auto', ...frameClass(slide.mode)]}>
                 <picture>
-                  {slide.images.without.dark && (
-                    <source srcset={slide.images.without.dark} media="(prefers-color-scheme: dark)" />
+                  {slide.tabletSource && (
+                    <source
+                      media="(min-width: 64rem)"
+                      srcset={slide.tabletSource.src}
+                      width={slide.tabletSource.width}
+                      height={slide.tabletSource.height}
+                    />
                   )}
                   <img
-                    src={slide.images.without.src}
-                    alt={slide.images.without.alt}
+                    src={slide.img.src}
+                    width={slide.img.width}
+                    height={slide.img.height}
+                    alt={slide.alt}
                     loading={i === 0 ? 'eager' : 'lazy'}
-                    class="block h-full w-full object-cover object-top"
+                    decoding="async"
+                    class:list={['block h-auto w-full', ...screenClass(slide.mode)]}
                   />
                 </picture>
               </div>
-            )}
-
-            {/* What Movar did, set between the two frames — the sentence names
-               the action that separates them, so it belongs at the transition
-               rather than under the whole card. It is also the only thing
-               marking which panel is which: they are stacked before-then-after,
-               the order the pair is read in, and the second frame's accent
-               border marks it as the result. Alt text keeps the two
-               distinguishable for anyone not seeing them.
-
-               Rendered per panel rather than swapped by script — each panel
-               owns its own line, so there is no shared node to keep in sync
-               with the visible slide. */}
-            <div class="my-4 flex justify-center">
-              {/* Same branded claim as HowItWorks' step 1: the Movar mark, then
-                 what Movar did. `rounded-2xl` rather than `rounded-full`
-                 because these lines run to ~50 characters and wrap inside the
-                 pill at phone width, where a full radius would read as a
-                 lozenge instead of a pill. */}
-              <span class="inline-flex min-w-0 items-center gap-2 rounded-2xl border border-accent/30 bg-accent-surface py-1 pl-1 pr-3">
-                <img src="/icon.svg" alt="" width="18" height="18" class="shrink-0 rounded-[var(--corner-badge)]" />
-                <span class="min-w-0 text-xs font-semibold leading-relaxed text-accent-deep">
-                  {slide.caption}
-                </span>
-              </span>
             </div>
+          ))}
+        </div>
 
-            {slide.images && (
-              <div class={frameAfter}>
-                <picture>
-                  {slide.images.with.dark && (
-                    <source srcset={slide.images.with.dark} media="(prefers-color-scheme: dark)" />
-                  )}
-                  <img
-                    src={slide.images.with.src}
-                    alt={slide.images.with.alt}
-                    loading="lazy"
-                    class="block h-full w-full object-cover object-top"
-                  />
-                </picture>
-              </div>
-            )}
-          </div>
-        ))
-      }
+        <p
+          aria-hidden="true"
+          class:list={[captionClass, 'text-ink-soft md:col-start-1 md:row-start-2 md:self-center']}
+        >
+          <span class="size-2 shrink-0 rounded-full bg-ink-faint" />
+          {t.withoutMovar}
+        </p>
+      </div>
     </div>
-  </div>
-
-</div>
+  )
+}
 
 <script>
   const root = document.querySelector<HTMLElement>('[data-example-drum]');

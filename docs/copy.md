@@ -174,6 +174,10 @@ Content-script curtain for non-RU blocked languages, where the language could be
 
 Not the enemy losing, not the nation winning. _"Correction applied"_, never _"Russian removed"_, never _"Ukrainian restored"_. The footer credits say _"Movar community · MIT license"_, not _"Movar resistance"_.
 
+### 3.12 Store screenshots name no language Movar hides
+
+The owner's rule (2026-11-16), an exception to §3.3 and §3.8: copy on the store screenshots, and on the before/after example drum on the marketing home that shows the same images, never says a hidden language by name. What is shown is _"your language"_ / «ваша мова»; what is hidden is _"other languages"_ / «інші мови». _"Search in your language"_ ✓, _"YouTube: videos in other languages hidden"_ ✓; _"Russian isn't even offered"_ ✗. The pictures may still show Russian; only the words around them stay generic. Source of truth for the screenshot headlines: `tooling/store-listing/src/render/listing.config.ts`.
+
 ---
 
 ## 4. Ukrainian mechanics and language hygiene

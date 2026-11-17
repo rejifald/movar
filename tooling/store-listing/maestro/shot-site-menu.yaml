@@ -1,0 +1,25 @@
+# "site-menu": the redirected Ukrainian page with its language menu open and the
+# Russian entry gone. TODO(owner): align the button label with the mock page's
+# `#lang-menu-button` accessibility label (src/mock) if it differs.
+appId: com.apple.mobilesafari
+---
+- extendedWaitUntil:
+    visible: '.*(закладок|Bookmarks|Мова|Language|Українська).*'
+    timeout: 60000
+- runFlow: _dismiss-tips.yaml
+- extendedWaitUntil:
+    visible: '.*(Мова|Language|Українська).*'
+    timeout: 60000
+- runFlow: _dismiss-tips.yaml
+# A tap can report success and leave the menu shut (CI run 16): confirm the
+# menu opened (V shows), else tap again.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: '.*(Мова|Language).*'
+          retryTapIfNoChange: true
+      - extendedWaitUntil:
+          visible: ${V}
+          timeout: 20000
+- assertNotVisible: ${A}

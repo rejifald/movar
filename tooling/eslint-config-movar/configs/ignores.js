@@ -20,6 +20,9 @@ export const workspaceIgnores = {
     // third-party code inside trips every modernisation rule in
     // unicorn / no-undef and is not lintable.
     '**/storybook-static/**',
+    // Tool caches, e.g. store-listing capture runs (Xcode derived data with
+    // bundled extension JS, raw captures). Gitignored, never source.
+    '**/.cache/**',
     // Demo-video pipeline output — captured WebM and ffmpeg derivations.
     'apps/e2e/demo-results/**',
     'apps/e2e/src/demo/out/**',

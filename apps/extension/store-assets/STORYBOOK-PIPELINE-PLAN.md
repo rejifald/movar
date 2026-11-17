@@ -26,16 +26,11 @@ per-scene design.
 > backdrops + pipeline plumbing) and PR2 (EN backdrops) have both
 > landed — see [`README.md`](./README.md) for the current-state recipe.
 >
-> **2026-06 update** — the pipeline now also produces the **iOS + iPad
-> App Store** screenshots (the Safari listing) in portrait at Apple's
-> fixed sizes (iPhone 1320×2868, iPad 2048×2732). New title prefixes
-> `Marketplace/IOSScreenshots/*` and `Marketplace/IPadScreenshots/*` route
-> to `store-assets/screenshots/{ios,ipad}/{en,uk}/`; two portrait frames
-> (`portrait-before-after-frame.tsx`, `portrait-single-panel-frame.tsx`)
-> plus shared scene specs under `storyboards/scenes/` re-lay-out the same
-> seven scenes vertically. A new `--only=<title-prefix>` capture flag
-> scopes a run to one prefix. See [`REQUIREMENTS.md`](./REQUIREMENTS.md) §5
-> "iOS / iPad App Store portrait set".
+> **2026-11 update** — the Storybook-built portrait iOS/iPad App Store sets
+> (the `Marketplace/IOS*` and `Marketplace/IPad*` story prefixes) are
+> retired: the App Store sets are real simulator captures. See
+> [`screenshots/app-store/README.md`](./screenshots/app-store/README.md).
+> The `--only=<title-prefix>` capture flag stays.
 
 ---
 

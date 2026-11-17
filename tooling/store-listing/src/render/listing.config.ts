@@ -1,0 +1,99 @@
+/**
+ * The App Store listing, in order. Headlines signed off by the owner on
+ * 2026-11-16 — they live here and nowhere else. They never name a language Movar
+ * hides: "your language" for what is shown, "other languages" for what is hidden
+ * (docs/copy.md, store listing).
+ */
+import { fileURLToPath } from 'node:url';
+import type { SplitSpec } from './layout.js';
+import type { GroundTone } from './palette.js';
+import type { SplitTagLabels } from './pieces.js';
+
+export interface ListingShot {
+  id: string;
+  /** Capture with Movar on (the top part), relative to the captures dir. */
+  capture: string;
+  /** The same screen with Movar off (the bottom part): `<id>-before.png`. */
+  before: string;
+  /** How the screen splits; every listing shot uses `HALF`. */
+  split: SplitSpec;
+  ground: GroundTone;
+  /** Optional background image (path), cover-fit; flat token colour when absent. */
+  background?: string;
+  headline: { uk: string; en: string };
+}
+
+export type Locale = 'uk' | 'en';
+
+/** The seam captions. Signed off by the owner on 2026-11-16. */
+export const SPLIT_TAGS: Readonly<Record<Locale, SplitTagLabels>> = {
+  uk: { after: 'З Моваром', before: 'Без Мовара' },
+  en: { after: 'With Movar', before: 'Without Movar' },
+};
+
+/** Every shot splits at exactly half, each part from its own page top (owner, 2026-11-15). */
+const HALF: SplitSpec = { cut: 0.5 };
+
+export type ListingCanvas = 'iphone' | 'ipad';
+
+/** App Store canvases: the iPhone 6.9" and iPad 13" slots, each the size of its capture. */
+export const APP_STORE_CANVASES: Readonly<
+  Record<ListingCanvas, { readonly width: number; readonly height: number }>
+> = {
+  iphone: { width: 1320, height: 2868 },
+  ipad: { width: 2064, height: 2752 },
+};
+
+/** iPhone 6.9" App Store canvas. */
+export const APP_STORE_CANVAS = APP_STORE_CANVASES.iphone;
+
+/**
+ * The listing's grounds (owner pick, 2026-11-15): concrete with a kalyna sprig,
+ * light and dark. AI-generated, upscaled to the canvas; provenance in
+ * `assets/grounds/README.md`. A shot's own `background` wins over these.
+ */
+export const LISTING_GROUNDS: Readonly<Record<GroundTone, string>> = {
+  light: fileURLToPath(new URL('../../assets/grounds/concrete-light.jpg', import.meta.url)),
+  dark: fileURLToPath(new URL('../../assets/grounds/concrete-dark.jpg', import.meta.url)),
+};
+
+export const LISTING: readonly ListingShot[] = [
+  {
+    id: 'search',
+    capture: 'search.png',
+    before: 'search-before.png',
+    split: HALF,
+    ground: 'light',
+    headline: { uk: 'Пошук — вашою мовою', en: 'Search in your language' },
+  },
+  {
+    id: 'site-no-modal',
+    capture: 'site-no-modal.png',
+    before: 'site-no-modal-before.png',
+    split: HALF,
+    ground: 'dark',
+    headline: {
+      uk: 'Сайти — одразу вашою мовою, без вікна вибору',
+      en: 'Sites open in your language, no language pop-up',
+    },
+  },
+  {
+    id: 'site-menu',
+    capture: 'site-menu.png',
+    before: 'site-menu-before.png',
+    split: HALF,
+    ground: 'light',
+    headline: { uk: 'У перемикачі — лише ваші мови', en: 'Only your languages in the switcher' },
+  },
+  {
+    id: 'youtube',
+    capture: 'youtube.png',
+    before: 'youtube-before.png',
+    split: HALF,
+    ground: 'dark',
+    headline: {
+      uk: 'YouTube: відео іншими мовами сховано',
+      en: 'YouTube: videos in other languages hidden',
+    },
+  },
+];

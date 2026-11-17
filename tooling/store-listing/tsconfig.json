@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src", "test"],
+  "exclude": ["test/**/*.e2e.mts"]
+}

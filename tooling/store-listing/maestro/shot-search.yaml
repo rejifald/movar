@@ -1,0 +1,15 @@
+# Gate for the "search" shot. run.ts opens the URL in Safari first, then this flow
+# waits for the expected state and asserts it; any failure fails the whole run.
+# V = text that must be visible, A = text that must not be (full-match regex).
+appId: com.apple.mobilesafari
+---
+# Safari's first-run tip bubble hides the page from the accessibility tree (and
+# would be in the shot), so wait for page OR tip, close the tip, then assert.
+- extendedWaitUntil:
+    visible: '.*(закладок|Bookmarks).*|${V}'
+    timeout: 60000
+- runFlow: _dismiss-tips.yaml
+- extendedWaitUntil:
+    visible: ${V}
+    timeout: 60000
+- assertNotVisible: ${A}

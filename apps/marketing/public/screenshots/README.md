@@ -26,12 +26,10 @@ without being stretched) with **height following the rendered content**;
 the marketing layout then scales each shot to fit its column. `popup.png`
 and `options.png` keep their fixed framing.
 
-[`ExampleDrum.astro`](../../src/components/ExampleDrum.astro) renders
-these in the homepage hero — a tabbed drum cycling one before/after
-pair at a time. A pair's images appear only when both of its light PNGs
-exist on disk; the `-dark` sibling is optional and
-swapped in via a `<picture>` element so the shots track the visitor's
-theme. Entries whose PNGs are missing degrade to a text-only breakdown.
+No page renders the before/after website shots any more: the homepage
+hero's drum ([`ExampleDrum.astro`](../../src/components/ExampleDrum.astro))
+now shows real device captures from `public/listing/` instead. The
+`google-*` pair is still drawn by `BeforeAfter.stories.tsx`.
 
 ## Regenerating
 

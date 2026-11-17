@@ -1,0 +1,5 @@
+# Capture run output: derived data, per-run captures, logs. Never committed.
+.cache/
+
+# check:mock-scenes screenshots.
+.mock-check/

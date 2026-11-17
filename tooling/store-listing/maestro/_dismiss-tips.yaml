@@ -1,0 +1,22 @@
+# Safari's first-run tip bubble ("bookmarks, share and tabs now live in the ...
+# menu") floats over the page, hides the page from the accessibility tree and
+# would end up in the screenshot. Close it by its ✕ (id, not position) until it
+# is gone: one tap during its entry animation can miss, and it may present
+# again. Absent on later pages, so this is a no-op then.
+appId: com.apple.mobilesafari
+---
+- waitForAnimationToEnd:
+    timeout: 3000
+- repeat:
+    times: 5
+    while:
+      visible:
+        id: 'TipView'
+    commands:
+      - tapOn:
+          id: 'xmark.circle.fill'
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 3000
+- assertNotVisible:
+    id: 'TipView'

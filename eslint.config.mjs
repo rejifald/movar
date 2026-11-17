@@ -13,6 +13,10 @@ import { workspaceIgnores, base, quality, scripts, tests, ukrainian } from '@mov
 /** @type {import("eslint").Linter.Config[]} */
 export default [
   workspaceIgnores,
+  // Members under tooling/ that carry their own eslint.config.mjs are linted by
+  // `nx run-many -t lint` with their own presets (and plugins); linting them again
+  // here with the root presets only reports their disable comments as unknown rules.
+  { ignores: ['tooling/store-listing/**'] },
   ...base,
   ...quality,
   ...scripts,

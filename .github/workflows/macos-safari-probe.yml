@@ -1,0 +1,179 @@
+# PROBE (temporary): can a GitHub-hosted macOS runner show real Safari with Movar
+# enabled, unattended? Answers the open questions before a macOS listing capture is
+# built (see tooling/store-listing/AGENTS.md). Every step records evidence and keeps
+# going; the artifact is the answer. Delete this workflow once it has answered.
+#
+# 1. display: resolution / HiDPI of the runner's screen
+# 2. trust: can a fresh root CA be made trusted non-interactively (the mock proxy needs it)
+# 3. install: the notarized Developer ID build from the latest public release
+# 4. enable: tick Safari ▸ Settings ▸ Extensions ▸ Movar via System Events
+# 5. safaridriver: does `--enable` work, and does a session accept a web extension
+name: macos-safari-probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/macos-safari-probe.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-safari-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      OUT: ${{ github.workspace }}/probe
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Prepare
+        run: mkdir -p "$OUT"
+
+      - name: 1 · display
+        continue-on-error: true
+        run: |
+          set -x
+          sw_vers | tee "$OUT/sw_vers.txt"
+          system_profiler SPDisplaysDataType | tee "$OUT/displays.txt"
+          screencapture -x "$OUT/1-desktop.png"
+          sips -g pixelWidth -g pixelHeight "$OUT/1-desktop.png"
+          # Round 1: the runner's screen is 1024x768 and system_profiler lists no display.
+          # Can the mode be raised? (Mac App Store minimum is 1280x800.)
+          brew install jakehilborn/jakehilborn/displayplacer || true
+          displayplacer list | tee "$OUT/1-displayplacer.txt" || true
+          id="$(displayplacer list | awk '/Persistent screen id:/{print $4; exit}')"
+          for mode in 'res:2880x1800 hz:60 color_depth:8 scaling:on' 'res:1440x900 scaling:on' 'res:2560x1600' 'res:1920x1200' 'res:1280x800'; do
+            displayplacer "id:$id $mode" && { echo "set: $mode" | tee -a "$OUT/1-displayplacer.txt"; break; } || echo "failed: $mode" | tee -a "$OUT/1-displayplacer.txt"
+          done
+          sleep 3
+          screencapture -x "$OUT/1-desktop-after.png"
+          sips -g pixelWidth -g pixelHeight "$OUT/1-desktop-after.png" | tee -a "$OUT/1-displayplacer.txt"
+
+      - name: 2 · trust a root CA
+        continue-on-error: true
+        run: |
+          set -x
+          cd "$RUNNER_TEMP"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=Movar Probe Root' \
+            -keyout probe-ca.key -out probe-ca.pem \
+            -addext 'basicConstraints=critical,CA:TRUE' -addext 'keyUsage=critical,keyCertSign,cRLSign'
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain probe-ca.pem \
+            && echo 'add-trusted-cert: OK' | tee "$OUT/2-trust.txt" \
+            || echo "add-trusted-cert: FAILED ($?)" | tee "$OUT/2-trust.txt"
+          security verify-cert -c probe-ca.pem -p ssl 2>&1 | tee -a "$OUT/2-trust.txt" || true
+
+      - name: 3 · install the notarized build
+        continue-on-error: true
+        run: |
+          set -x
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 20 | tee "$OUT/releases.txt"
+          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft,isPrerelease \
+            --jq '[.[]|select(.tagName|startswith("extension-v"))|select(.isDraft|not)][0].tagName')"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern 'Movar-*.dmg' --dir "$RUNNER_TEMP"
+          dmg="$(ls "$RUNNER_TEMP"/Movar-*.dmg)"
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" "$dmg"
+          ditto "$RUNNER_TEMP/mnt/Movar.app" /Applications/Movar.app
+          hdiutil detach "$RUNNER_TEMP/mnt"
+          spctl -a -vv /Applications/Movar.app 2>&1 | tee "$OUT/3-gatekeeper.txt"
+          open /Applications/Movar.app
+          sleep 10
+          screencapture -x "$OUT/3-host-app.png"
+          osascript -e 'tell application "Movar" to quit' || true
+          pluginkit -mAv 2>/dev/null | grep -i movar | tee "$OUT/3-pluginkit.txt" || true
+
+      - name: 4 · enable in Safari Settings via System Events
+        continue-on-error: true
+        run: |
+          set -x
+          open -a Safari 'about:blank'
+          sleep 6
+          screencapture -x "$OUT/4a-safari.png"
+          # Settings window (cmd-,), then its Extensions pane.
+          osascript -e 'tell application "Safari" to activate' \
+                    -e 'delay 1' \
+                    -e 'tell application "System Events" to keystroke "," using command down'
+          sleep 3
+          screencapture -x "$OUT/4b-settings.png"
+          osascript > "$OUT/4c-settings-toolbar.txt" 2>&1 <<'OSA' || true
+          tell application "System Events" to tell process "Safari"
+            set w to front window
+            set out to "window: " & (name of w) & linefeed
+            repeat with b in (buttons of toolbar 1 of w)
+              set out to out & "toolbar button: " & (name of b) & linefeed
+            end repeat
+            return out
+          end tell
+          OSA
+          cat "$OUT/4c-settings-toolbar.txt"
+          osascript -e 'tell application "System Events" to tell process "Safari" to click button "Extensions" of toolbar 1 of front window' \
+            2>&1 | tee "$OUT/4d-click-extensions.txt" || true
+          sleep 3
+          screencapture -x "$OUT/4e-extensions-pane.png"
+          # The whole UI tree of the pane, so the next attempt can address the checkbox exactly.
+          osascript -e 'tell application "System Events" to tell process "Safari" to return entire contents of front window' \
+            > "$OUT/4f-extensions-tree.txt" 2>&1 || true
+          grep -io 'checkbox[^,]*' "$OUT/4f-extensions-tree.txt" | head -20 || true
+          # Round 1 found the exact path: Installed list, row "Movar", checkbox 1.
+          osascript > "$OUT/4g-tick.txt" 2>&1 <<'OSA' || true
+          tell application "System Events" to tell process "Safari"
+            set t to table 1 of scroll area 1 of group 2 of group 1 of group 1 of window "Extensions"
+            repeat with r in rows of t
+              try
+                set el to UI element "Movar" of r
+                set c to checkbox 1 of el
+                set before to value of c
+                click c
+                delay 2
+                return "Movar checkbox: " & before & " -> " & (value of c)
+              end try
+            end repeat
+            return "no Movar row"
+          end tell
+          OSA
+          cat "$OUT/4g-tick.txt"
+          sleep 2
+          screencapture -x "$OUT/4h-after-tick.png"
+          # Any sheet/dialog the tick raised.
+          osascript -e 'tell application "System Events" to tell process "Safari" to return {name of every window, entire contents of front window}' \
+            > "$OUT/4h-windows.txt" 2>&1 || true
+          # Website access: Websites pane, Movar, "Other websites" → Allow.
+          osascript -e 'tell application "System Events" to tell process "Safari" to click button "Websites" of toolbar 1 of front window' || true
+          sleep 3
+          screencapture -x "$OUT/4j-websites.png"
+          osascript -e 'tell application "System Events" to tell process "Safari" to return entire contents of front window' \
+            > "$OUT/4k-websites-tree.txt" 2>&1 || true
+          tr ',' '\n' < "$OUT/4k-websites-tree.txt" | grep -i -E 'movar|pop up|popup|other websites' | head -20 || true
+          # Then load a page and show the toolbar (the extension's button appears when enabled).
+          osascript -e 'tell application "Safari" to open location "https://example.com/"' || true
+          sleep 6
+          screencapture -x "$OUT/4l-page.png"
+
+      - name: 5 · safaridriver
+        continue-on-error: true
+        run: |
+          set -x
+          osascript -e 'tell application "Safari" to quit' || true
+          sleep 2
+          sudo safaridriver --enable 2>&1 | tee "$OUT/5-enable.txt" || true
+          safaridriver -p 4444 > "$OUT/5-driver.log" 2>&1 &
+          sleep 3
+          curl -s -X POST localhost:4444/session -H 'content-type: application/json' \
+            -d '{"capabilities":{"alwaysMatch":{"browserName":"safari"}}}' | tee "$OUT/5-session.json"
+          sid="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["value"]["sessionId"])' "$OUT/5-session.json" || true)"
+          if [ -n "$sid" ]; then
+            ext=/Applications/Movar.app/Contents/PlugIns/"$(ls /Applications/Movar.app/Contents/PlugIns | head -1)"
+            curl -s -X POST "localhost:4444/session/$sid/webextension" -H 'content-type: application/json' \
+              -d "{\"type\":\"path\",\"path\":\"$ext\"}" | tee "$OUT/5-webextension.json"
+            curl -s -X DELETE "localhost:4444/session/$sid" > /dev/null
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: macos-safari-probe
+          path: probe
+          if-no-files-found: warn

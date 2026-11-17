@@ -15,7 +15,7 @@
 //   AMO_JWT_ISSUER / AMO_JWT_SECRET   required for apply; plan reads the public
 //                        endpoint and uses them only if set
 //   AMO_ADDON            slug or id (default: from listing.json, movar)
-//   SCREENSHOTS_PATH     default apps/extension/store-assets/screenshots/desktop
+//   SCREENSHOTS_PATH     default apps/extension/store-assets/screenshots/firefox
 //                        (<path>/<locale>/NN-name.png, 1280x800 PNG)
 //   AMO_SCREENSHOT_LOCALE  folder whose images become the previews (default: listing.json, uk)
 //   FORCE_SCREENSHOTS=1  re-upload previews even if count and captions match
@@ -125,7 +125,7 @@ async function main() {
   const shotLocale = env('AMO_SCREENSHOT_LOCALE', listing.amo.screenshots?.locale ?? 'uk');
   const shotRoot = nodePath.resolve(
     repoRoot,
-    env('SCREENSHOTS_PATH', 'apps/extension/store-assets/screenshots/desktop'),
+    env('SCREENSHOTS_PATH', 'apps/extension/store-assets/screenshots/firefox'),
   );
   const found = discoverDesktopScreenshots(shotRoot, shotLocale);
   problems.push(...found.problems);

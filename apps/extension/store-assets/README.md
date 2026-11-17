@@ -334,7 +334,7 @@ environment). `plan` prints the live-vs-repo diff to the job summary and writes 
 `apply` PATCHes the changed fields, then replaces the previews: new images are uploaded
 and captioned first, old ones deleted only after all succeed. Locally:
 `node scripts/amo-listing.mjs` (plan), `MODE=apply` with `AMO_JWT_ISSUER` /
-`AMO_JWT_SECRET`. Screenshots come from `screenshots/desktop/<locale>/NN-name.png`
+`AMO_JWT_SECRET`. Screenshots come from `screenshots/firefox/<locale>/NN-name.png`
 (1280x800 PNG; override with `SCREENSHOTS_PATH`); AMO previews are not per-locale, so the
 images come from `AMO_SCREENSHOT_LOCALE` (default `uk`) with captions in both locales.
 A missing folder skips screenshots. Image content is not compared, so re-upload an

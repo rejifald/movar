@@ -16,7 +16,7 @@
 // screenshots are reported, not fatal: the text files are still produced.
 //
 // Env: OUT_DIR (default dist/chrome-listing), SCREENSHOTS_PATH (default
-// apps/extension/store-assets/screenshots/desktop).
+// apps/extension/store-assets/screenshots/chrome).
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import nodePath from 'node:path';
@@ -147,7 +147,7 @@ function main() {
   }
   const shotRoot = nodePath.resolve(
     repoRoot,
-    env('SCREENSHOTS_PATH', 'apps/extension/store-assets/screenshots/desktop'),
+    env('SCREENSHOTS_PATH', 'apps/extension/store-assets/screenshots/chrome'),
   );
   const shots = {};
   for (const l of locales) {

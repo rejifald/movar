@@ -13,7 +13,7 @@ name: AMO listing
 # The write (`apply`) is behind the `production` environment gate, like every
 # other store job.
 #
-# Screenshots come from apps/extension/store-assets/screenshots/desktop/<locale>/
+# Screenshots come from apps/extension/store-assets/screenshots/firefox/<locale>/
 # (1280x800 PNG). A missing folder skips screenshots; metadata still syncs.
 # Existing previews are deleted only after every new one is uploaded.
 #

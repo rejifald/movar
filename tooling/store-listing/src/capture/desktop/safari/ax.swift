@@ -175,7 +175,8 @@ func find(_ root: AXUIElement, _ options: Options) -> AXUIElement? {
     let re = regex(options.match)
     var hits: [AXUIElement] = []
     walk(scope) { element, _ in
-        if let wanted = options.role, role(element) != wanted { return true }
+        // `--role` takes alternatives: `AXButton|AXPopUpButton`.
+        if let wanted = options.role, !wanted.split(separator: "|").contains(where: { $0 == role(element) }) { return true }
         if let id = options.identifier, string(element, "AXIdentifier") != id { return true }
         if let re, !labels(element).contains(where: { matches(re, $0) }) { return true }
         hits.append(element)

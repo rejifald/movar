@@ -30,6 +30,8 @@ import {
   x11LockPath,
   x11SocketPath,
   xvfbArgs,
+  CLICK_ROLES,
+  evidenceStem,
 } from '../src/capture/desktop/decisions';
 import type { TakenShot } from '../src/capture/desktop/decisions';
 import { XVFB_SCREEN, WINDOW } from '../src/capture/desktop/geometry';
@@ -230,5 +232,20 @@ describe('BiDi decisions', () => {
     expect(firefoxSeedProblem({ hosts: true, saved: true })).toBeNull();
     expect(firefoxSeedProblem({ hosts: false, saved: true })).toContain('host permission');
     expect(firefoxSeedProblem({ hosts: true, saved: false })).toContain('did not persist');
+  });
+});
+
+describe('evidenceStem', () => {
+  it('keeps evidence file names uploadable', () => {
+    expect(evidenceStem('failed-shot "site-menu-before"-press')).toBe(
+      'failed-shot_site-menu-before_-press',
+    );
+    expect(evidenceStem('safari: Movar off')).toBe('safari_Movar_off');
+  });
+});
+
+describe('CLICK_ROLES', () => {
+  it('covers the roles WebKit gives a page button', () => {
+    expect(CLICK_ROLES.split('|')).toEqual(['AXButton', 'AXPopUpButton', 'AXMenuButton']);
   });
 });

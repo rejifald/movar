@@ -24,6 +24,7 @@ import { hostSettingsSummary } from '../gates';
 import { sleepSync } from '../retry';
 import { log, out } from '../sh';
 import type { Locale, ShotExpectation } from '../shots';
+import { CLICK_ROLES, evidenceStem } from './decisions';
 import type { PhaseResult } from './dom-shots';
 import {
   assertCaptureSize,
@@ -236,7 +237,7 @@ export class SafariUi {
    */
   evidence(name: string, bundle: string = SAFARI): void {
     this.shots += 1;
-    const stem = `${String(this.shots).padStart(2, '0')}-${name}`;
+    const stem = `${String(this.shots).padStart(2, '0')}-${evidenceStem(name)}`;
     try {
       mkdirSync(this.debugDir, { recursive: true });
       out('screencapture', ['-x', path.join(this.debugDir, `${stem}.png`)]);
@@ -542,7 +543,7 @@ export class SafariUi {
         '--in-role',
         'AXWebArea',
         '--role',
-        'AXButton',
+        CLICK_ROLES,
         '--match',
         phase.click.axLabel,
       ];

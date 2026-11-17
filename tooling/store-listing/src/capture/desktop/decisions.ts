@@ -325,3 +325,23 @@ export function firefoxSeedProblem(seeded: { hosts: boolean; saved: boolean }): 
   if (!seeded.saved) return 'firefox: Movar settings did not persist';
   return null;
 }
+
+/**
+ * A step name as a file stem: artifact uploads refuse `"`, `:`, `<`, `>`, `|`,
+ * `*`, `?` and newlines (run 44144715092 lost all its evidence to one quote).
+ */
+export function evidenceStem(name: string): string {
+  const stem = name.replaceAll(/[^\w.-]+/gu, '_');
+  let start = 0;
+  let end = stem.length;
+  while (start < end && stem[start] === '_') start += 1;
+  while (end > start && stem[end - 1] === '_') end -= 1;
+  return stem.slice(start, end);
+}
+
+/**
+ * Roles a page button can have in Safari's AX tree: WebKit exposes a
+ * `<button aria-haspopup>` (tochka24's language menu) as a pop-up or menu
+ * button, not `AXButton` (run 44144715092). `movar-ax --role` takes `|`.
+ */
+export const CLICK_ROLES = 'AXButton|AXPopUpButton|AXMenuButton';

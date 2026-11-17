@@ -153,16 +153,22 @@
 
   /* -- Device frames ---------------------------------------------------- *
    * The hero drum's CSS phone and tablet around the real captures. Each outer
-   * radius is the screen radius plus the bezel padding (8px phone, 12px
-   * tablet — `p-2` / `p-3`), so the two curves stay concentric. */
-  --device-bezel: #0a0a0a; /* near-black in both themes, like the hardware */
+   * radius is the inner radius plus the padding between them, so the curves
+   * stay concentric. Both are built like the hardware: a 2px aluminium rim
+   * (`p-0.5`) around black glass — phone 4px (`p-1`), 38 → 36 → 32; tablet
+   * 6px (`p-1.5`) with a camera dot in its top edge, 28 → 26 → 20. */
+  --device-bezel: #0a0a0a; /* near-black glass in both themes, like the hardware */
+  --device-rim: #d4d4d4; /* the aluminium edge, the same in both themes */
+  --device-camera: #404040;
   --device-phone-w: 260px;
   --device-phone-w-sm: 288px; /* from `sm:` */
-  --device-phone-r: 40px;
+  --device-phone-r: 38px;
+  --device-phone-glass-r: 36px;
   --device-phone-screen-r: 32px;
   --device-tablet-w: 420px; /* cap; the tablet fills the hero column up to it */
-  --device-tablet-r: 30px;
-  --device-tablet-screen-r: 18px;
+  --device-tablet-r: 28px;
+  --device-tablet-glass-r: 26px;
+  --device-tablet-screen-r: 20px;
 
   /* -- Motion ----------------------------------------------------------- */
   --drum-fill: 4500ms; /* the example drum's progress fill, = one slide */

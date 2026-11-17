@@ -24,7 +24,8 @@
  * timer. Never auto-advances at all under `prefers-reduced-motion: reduce`
  * (checked in the client script below) — that is a hard requirement, not a
  * "slower" mode. The active tab's 2px underline doubles as a 4500ms progress
- * bar, built from two Tailwind width classes (`w-0` → `w-full`) plus a
+ * bar (an inactive tab shows none — its bar empties at once, not over the
+ * 4500ms), built from two Tailwind width classes (`w-0` → `w-full`) plus a
  * `transition-[width]` on the fill bar, so a plain class toggle is what
  * animates it; `motion-reduce:transition-none` drops that transition for
  * reduced-motion visitors without any extra JS branch.
@@ -110,26 +111,48 @@ const slides: Slide[] = SLIDE_IDS.flatMap((id): Slide[] => {
 });
 
 /*
- * Frame geometry. Bezel padding is uniform (`p-2` phone, `p-3` tablet) so the
- * seam stays at exactly half the device's height — which is what lets the
- * captions centre on each half. Radii and widths are tokens in global.css.
+ * Frame geometry: two layers around the screen, an outer `body` and an inner
+ * `glass`. Every layer's padding is uniform so the seam stays at exactly half
+ * the device's height — which is what lets the captions centre on each half.
+ * Radii, widths and colours are tokens in global.css.
+ *
+ * Both devices are built like the hardware, after strimko's `PhoneFrame` and
+ * `TabletFrame`: a 2px aluminium rim (`p-0.5`), then black glass — 4px on the
+ * phone (38 → 36 → 32), 6px on the tablet with a camera dot centred in its
+ * top edge (28 → 26 → 20). In `both` mode the tablet's sizes are `lg:`
+ * overrides of the phone's; the rim and glass colours are shared.
  */
-const bezel = 'border border-border bg-[var(--device-bezel)] shadow-2xl';
-const phoneFrame =
-  'w-[var(--device-phone-w)] max-w-full rounded-[var(--device-phone-r)] p-2 sm:w-[var(--device-phone-w-sm)]';
-const tabletFrame = 'w-full max-w-[var(--device-tablet-w)] rounded-[var(--device-tablet-r)] p-3';
-const tabletFrameLg =
-  'lg:w-full lg:max-w-[var(--device-tablet-w)] lg:rounded-[var(--device-tablet-r)] lg:p-3';
+const body = 'bg-[var(--device-rim)] p-0.5 shadow-xl';
+const glass = 'bg-[var(--device-bezel)]';
+const phoneBody =
+  'w-[var(--device-phone-w)] max-w-full rounded-[var(--device-phone-r)] sm:w-[var(--device-phone-w-sm)]';
+const tabletBody = 'w-full max-w-[var(--device-tablet-w)] rounded-[var(--device-tablet-r)]';
+const tabletBodyLg =
+  'lg:w-full lg:max-w-[var(--device-tablet-w)] lg:rounded-[var(--device-tablet-r)]';
+const phoneGlass = 'rounded-[var(--device-phone-glass-r)] p-1';
+const tabletGlass = 'rounded-[var(--device-tablet-glass-r)] p-1.5';
+const tabletGlassLg = 'lg:rounded-[var(--device-tablet-glass-r)] lg:p-1.5';
 const phoneScreen = 'rounded-[var(--device-phone-screen-r)]';
 const tabletScreen = 'rounded-[var(--device-tablet-screen-r)]';
 const tabletScreenLg = 'lg:rounded-[var(--device-tablet-screen-r)]';
 
-const frameClass = (mode: FrameMode): string[] =>
+const bodyClass = (mode: FrameMode): string[] =>
   mode === 'tablet'
-    ? [bezel, tabletFrame]
+    ? [body, tabletBody]
     : mode === 'both'
-      ? [bezel, phoneFrame, tabletFrameLg]
-      : [bezel, phoneFrame];
+      ? [body, phoneBody, tabletBodyLg]
+      : [body, phoneBody];
+
+const glassClass = (mode: FrameMode): string[] =>
+  mode === 'tablet'
+    ? [glass, tabletGlass]
+    : mode === 'both'
+      ? [glass, phoneGlass, tabletGlassLg]
+      : [glass, phoneGlass];
+
+/** The tablet's camera dot, centred in the top glass; none on the phone. */
+const cameraClass = (mode: FrameMode): string | null =>
+  mode === 'tablet' ? 'block' : mode === 'both' ? 'hidden lg:block' : null;
 
 const screenClass = (mode: FrameMode): string[] =>
   mode === 'tablet' ? [tabletScreen] : mode === 'both' ? [phoneScreen, tabletScreenLg] : [phoneScreen];
@@ -216,26 +239,37 @@ const captionClass =
               aria-labelledby={`drum-tab-${i}`}
               hidden={i !== 0}
             >
-              <div class:list={['mx-auto', ...frameClass(slide.mode)]}>
-                <picture>
-                  {slide.tabletSource && (
-                    <source
-                      media="(min-width: 64rem)"
-                      srcset={slide.tabletSource.src}
-                      width={slide.tabletSource.width}
-                      height={slide.tabletSource.height}
+              <div class:list={['mx-auto', ...bodyClass(slide.mode)]}>
+                <div class:list={['relative', ...glassClass(slide.mode)]}>
+                  {cameraClass(slide.mode) && (
+                    <span
+                      aria-hidden="true"
+                      class:list={[
+                        'absolute top-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-[var(--device-camera)]',
+                        cameraClass(slide.mode),
+                      ]}
                     />
                   )}
-                  <img
-                    src={slide.img.src}
-                    width={slide.img.width}
-                    height={slide.img.height}
-                    alt={slide.alt}
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                    decoding="async"
-                    class:list={['block h-auto w-full', ...screenClass(slide.mode)]}
-                  />
-                </picture>
+                  <picture>
+                    {slide.tabletSource && (
+                      <source
+                        media="(min-width: 64rem)"
+                        srcset={slide.tabletSource.src}
+                        width={slide.tabletSource.width}
+                        height={slide.tabletSource.height}
+                      />
+                    )}
+                    <img
+                      src={slide.img.src}
+                      width={slide.img.width}
+                      height={slide.img.height}
+                      alt={slide.alt}
+                      loading={i === 0 ? 'eager' : 'lazy'}
+                      decoding="async"
+                      class:list={['block h-auto w-full', ...screenClass(slide.mode)]}
+                    />
+                  </picture>
+                </div>
               </div>
             </div>
           ))}
@@ -304,24 +338,26 @@ const captionClass =
         panel.hidden = n !== next;
       });
 
-      fills.forEach((fill, n) => {
-        if (n !== next) {
-          fill.classList.remove('w-full');
-          fill.classList.add('w-0');
-        }
-      });
-
-      // Reset-then-reflow-then-fill every time, even when re-selecting the
-      // tab that was already active, so its bar restarts too. The
-      // transition is dropped under prefers-reduced-motion by the
+      // Empty every bar with its transition switched off, so a tab that loses
+      // the selection drops its underline at once rather than draining it
+      // over the 4500ms the fill takes; reflow; then turn the transition back
+      // on and fill only the active bar. Runs even when re-selecting the tab
+      // that was already active, so its bar restarts too. The transition is
+      // dropped under prefers-reduced-motion by the
       // `motion-reduce:transition-none` class above, so this exact same
       // sequence lands instantly there instead of animating — no separate
       // branch needed for that half of the behaviour.
+      fills.forEach((fill) => {
+        fill.style.transition = 'none';
+        fill.classList.remove('w-full');
+        fill.classList.add('w-0');
+      });
+      void root.offsetWidth;
+      fills.forEach((fill) => {
+        fill.style.transition = '';
+      });
       const activeFill = fills[next];
       if (activeFill) {
-        activeFill.classList.remove('w-full');
-        activeFill.classList.add('w-0');
-        void activeFill.offsetWidth;
         activeFill.classList.remove('w-0');
         activeFill.classList.add('w-full');
       }

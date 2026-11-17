@@ -10,5 +10,4 @@ export * from './pieces.js';
 export * from './png.js';
 export { planShot, renderScreen, renderShot } from './render.js';
 export type { ShotSpec } from './render.js';
-export { planLandscapeShot, readChromeTop, renderLandscapeShot } from './render-landscape.js';
-export type { LandscapeShotSpec } from './render-landscape.js';
+export { readChromeTop, renderLandscapeShot } from './render-landscape.js';

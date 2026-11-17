@@ -23,7 +23,7 @@ import { defaultSettings } from '@movar/settings';
 import { REPO_ROOT } from '../build';
 import { out } from '../sh';
 import type { DomDriver } from './dom-shots';
-import { WINDOW } from './geometry';
+import { chromeArgs } from './decisions';
 import type { DesktopLocale } from './locale';
 import { chromePreferences, unpackedExtensionId } from './profiles';
 
@@ -112,9 +112,16 @@ async function seedSettings(context: PwContext, extensionId: string): Promise<vo
   if (!ok) throw new Error('chrome: Movar settings did not persist');
 }
 
-export async function launchChrome(opts: ChromeLaunch): Promise<DomDriver> {
-  const chromium = playwrightChromium();
-  const root = mkdtempSync(path.join(tmpdir(), 'movar-desktop-chrome-'));
+/** Throwaway user-data dir and HOME, with the profile files Chrome reads at first launch. */
+function prepareChromeProfile(
+  root: string,
+  opts: ChromeLaunch,
+): {
+  userData: string;
+  extension: string | null;
+  extensionId: string | null;
+  trust: ReturnType<typeof trustSetup>;
+} {
   const userData = path.join(root, 'profile');
   const home = path.join(root, 'home');
   mkdirSync(path.join(userData, 'Default'), { recursive: true });
@@ -128,47 +135,22 @@ export async function launchChrome(opts: ChromeLaunch): Promise<DomDriver> {
   );
   // Answers the "first run" questions before the first launch.
   writeFileSync(path.join(userData, 'First Run'), '');
-  const trust = trustSetup(opts.caCertPath, home);
+  return { userData, extension, extensionId, trust: trustSetup(opts.caCertPath, home) };
+}
 
-  const context = await chromium.launchPersistentContext(userData, {
-    headless: false,
-    viewport: null,
-    executablePath: opts.executable ?? chromium.executablePath(),
-    // No "controlled by automated test software" infobar; extensions allowed.
-    ignoreDefaultArgs: ['--enable-automation', '--disable-extensions'],
-    env: { ...process.env, LANGUAGE: opts.locale.chromeLang, ...trust.env },
-    args: [
-      `--window-size=${WINDOW.width},${WINDOW.height}`,
-      '--window-position=0,0',
-      `--lang=${opts.locale.chromeLang}`,
-      `--accept-lang=${opts.locale.acceptLanguages}`,
-      `--proxy-server=http://127.0.0.1:${opts.proxyPort}`,
-      '--test-type',
-      '--disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints,PrivacySandboxSettings4',
-      '--disable-session-crashed-bubble',
-      '--hide-crash-restore-bubble',
-      '--force-device-scale-factor=1',
-      ...(extension === null
-        ? []
-        : [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`]),
-    ],
-    ignoreHTTPSErrors: trust.ignoreHTTPSErrors,
-  });
-
-  if (extensionId !== null) {
-    await seedSettings(context, extensionId);
-    // Movar opens its onboarding tab on install; give it a moment, then close it.
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
+/** The window's one tab, with any other the browser opened closed. */
+async function mainPage(context: PwContext): Promise<PwPage> {
   const [page, ...rest] = context.pages();
   const main = page ?? (await context.newPage());
   for (const extra of rest) await extra.close();
   await main.bringToFront();
+  return main;
+}
 
+function chromeDriver(context: PwContext, main: PwPage, root: string): DomDriver {
   const closeOthers = async (): Promise<void> => {
     for (const p of context.pages()) if (p !== main) await p.close();
   };
-
   return {
     browser: 'chrome',
     version: context.browser()?.version() ?? 'chrome-for-testing',
@@ -186,4 +168,28 @@ export async function launchChrome(opts: ChromeLaunch): Promise<DomDriver> {
       rmSync(root, { recursive: true, force: true });
     },
   };
+}
+
+export async function launchChrome(opts: ChromeLaunch): Promise<DomDriver> {
+  const chromium = playwrightChromium();
+  const root = mkdtempSync(path.join(tmpdir(), 'movar-desktop-chrome-'));
+  const { userData, extension, extensionId, trust } = prepareChromeProfile(root, opts);
+
+  const context = await chromium.launchPersistentContext(userData, {
+    headless: false,
+    viewport: null,
+    executablePath: opts.executable ?? chromium.executablePath(),
+    // No "controlled by automated test software" infobar; extensions allowed.
+    ignoreDefaultArgs: ['--enable-automation', '--disable-extensions'],
+    env: { ...process.env, LANGUAGE: opts.locale.chromeLang, ...trust.env },
+    args: chromeArgs(opts.locale, opts.proxyPort, extension),
+    ignoreHTTPSErrors: trust.ignoreHTTPSErrors,
+  });
+
+  if (extensionId !== null) {
+    await seedSettings(context, extensionId);
+    // Movar opens its onboarding tab on install; give it a moment, then close it.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  return chromeDriver(context, await mainPage(context), root);
 }

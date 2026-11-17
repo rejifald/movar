@@ -7,24 +7,11 @@ import {
 } from './google-knowledge-frame';
 
 /**
- * "With Movar" half of the Knowledge-Panel diptych. Used by both
- * surfaces:
- *
- *   - Marketing single-half PNG (`Marketing/Screenshots/GoogleGodOfWarWith`,
- *     captured at 1280×800 with built-in chrome). Composed at runtime
- *     into the second pair of `apps/marketing/src/components/BeforeAfter.astro`.
- *     Use `GoogleGodOfWarWithMovarBackdrop` (chrome built in).
- *   - Marketplace diptych half (retired `Marketplace/Screenshots/KnowledgePanel`),
- *     rendered inside `BeforeAfterFrameWithFrame` which supplies its own
- *     browser chrome at the half level. Use
- *     `GoogleGodOfWarWithMovarContent` (chrome suppressed).
- *
- * Both wrappers render the same seed data through a private
- * `GoogleGodOfWarWithMovarFrame` helper so the two surfaces never
- * drift. The two zero-prop exports keep Storybook's `satisfies
- * Meta<typeof …>` type inference unambiguous under
- * `exactOptionalPropertyTypes` — a single component with an optional
- * `hideChrome` prop trips the strict-args inference on the decorator.
+ * "With Movar" half of the Knowledge-Panel diptych: the marketing
+ * single-half PNG (`Marketing/Screenshots/GoogleGodOfWarWith`, captured at
+ * 1280×800 with built-in chrome), composed at runtime into the second pair
+ * of `apps/marketing/src/components/BeforeAfter.astro`. The backdrop is a
+ * zero-prop component over a private `GoogleGodOfWarWithMovarFrame` helper.
  *
  * Same `God of War` query as the without-Movar half, but Movar has
  * appended `&hl=uk&lr=lang_uk` (both highlighted in the URL bar). The
@@ -44,10 +31,6 @@ import {
  */
 export function GoogleGodOfWarWithMovarBackdrop(): JSX.Element {
   return <GoogleGodOfWarWithMovarFrame hideChrome={false} />;
-}
-
-export function GoogleGodOfWarWithMovarContent(): JSX.Element {
-  return <GoogleGodOfWarWithMovarFrame hideChrome />;
 }
 
 function GoogleGodOfWarWithMovarFrame({ hideChrome }: { hideChrome: boolean }): JSX.Element {

@@ -21,7 +21,6 @@ import path from 'node:path';
 import { defaultSettings } from '@movar/settings';
 import { PACKAGE_ROOT } from '../build';
 import { hostSettingsSummary } from '../gates';
-import { activeService, parseProxyGet, planProxy } from '../proxy-state';
 import { sleepSync } from '../retry';
 import { log, out } from '../sh';
 import type { Locale, ShotExpectation } from '../shots';
@@ -37,8 +36,8 @@ import type { Rect } from './geometry';
 import type { DesktopLocale } from './locale';
 import type { DesktopPhase } from './plan';
 
-export const SAFARI = 'com.apple.Safari';
-export const HOST_APP_BUNDLE = 'fyi.movar.safari';
+const SAFARI = 'com.apple.Safari';
+const HOST_APP_BUNDLE = 'fyi.movar.safari';
 const APP_GROUP = 'group.fyi.movar.safari';
 /** Host app UI labels, read in English (the host app is launched with `-AppleLanguages (en)`). */
 const HOST_SIDEBAR_HIDE_CONTENT = 'sidebar.hideContent';
@@ -99,31 +98,6 @@ export function trustCa(caCertPath: string): Cleanup {
     ]);
     log('▸ mock CA removed from the System keychain');
   };
-}
-
-/** Point the active service's HTTP/HTTPS proxy at the mock proxy; returns the restore. */
-export function pointSystemProxyAt(port: number): Cleanup {
-  const service = activeService(
-    out('route', ['-n', 'get', 'default']),
-    out('networksetup', ['-listnetworkserviceorder']),
-  );
-  if (service === null) throw new Error('cannot find the active network service');
-  const plan = planProxy(service, '127.0.0.1', port, {
-    web: parseProxyGet(out('networksetup', ['-getwebproxy', service])),
-    secure: parseProxyGet(out('networksetup', ['-getsecurewebproxy', service])),
-  });
-  const restore = (): void => {
-    for (const cmd of plan.restore) out('sudo', ['-n', 'networksetup', ...cmd]);
-    log(`▸ system proxy restored on "${plan.service}"`);
-  };
-  try {
-    for (const cmd of plan.apply) out('sudo', ['-n', 'networksetup', ...cmd]);
-  } catch (error) {
-    restore();
-    throw error;
-  }
-  log(`▸ system proxy on "${plan.service}" → 127.0.0.1:${port}`);
-  return restore;
 }
 
 /** Set the user's AppleLanguages (Safari UI, Accept-Language, the extension's locale); returns the restore. */

@@ -23,9 +23,22 @@ import { evaluateGates } from '../gates';
 import type { ShotRecord } from '../gates';
 import { freePort, startMockProxy } from '../mock-proxy';
 import type { MockProxy } from '../mock-proxy';
+import { createLifecycle } from '../lifecycle';
 import { log } from '../sh';
+import { pointSystemProxyAt } from '../system-proxy';
 import type { Locale } from '../shots';
 import { launchChrome } from './chrome';
+import {
+  afterBrowserVersion,
+  expectedSize,
+  extensionBuildProblem,
+  extensionPath,
+  gateFailureMessage,
+  relevantFailures,
+  runScale,
+  shotSummaries,
+  sidecarsOf,
+} from './decisions';
 import { capturePhase, writeSidecar } from './dom-shots';
 import type { DomDriver, PhaseResult, WindowCapturer } from './dom-shots';
 import { defaultFirefoxBinary, launchFirefox } from './firefox';
@@ -37,7 +50,6 @@ import { hasRequiredAllUrls } from './profiles';
 import {
   buildAxHelper,
   installApp,
-  pointSystemProxyAt,
   SafariUi,
   setAppleLanguages,
   setDisplayMode,
@@ -72,44 +84,17 @@ const runId = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, 'Z')
 const runDir = path.join(PACKAGE_ROOT, '.cache/desktop-captures', runId, browser, locale);
 const debugDir = path.join(PACKAGE_ROOT, '.cache/desktop-debug', runId);
 
-const cleanups: (() => Promise<void> | void)[] = [];
-let cleaning: Promise<void> | null = null;
-async function cleanup(): Promise<void> {
-  cleaning ??= (async () => {
-    for (const fn of cleanups.reverse()) {
-      try {
-        await fn();
-      } catch (error) {
-        console.error('cleanup step failed:', error);
-      }
-    }
-  })();
-  return cleaning;
-}
-for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
-  process.on(signal, () => {
-    void cleanup().finally(() => process.exit(130));
-  });
-}
+const { cleanups, run } = createLifecycle();
 
 /** Where the extension build is, checked to be the e2e variant (host access held at install). */
 function extensionDir(): string {
-  const target = browser === 'firefox' ? 'firefox-mv3' : 'chrome-mv3';
-  const dir = path.resolve(
-    values.extension ?? path.join(REPO_ROOT, 'apps/extension/.output', target),
-  );
+  const dir = extensionPath(browser, values.extension, REPO_ROOT);
   const manifestPath = path.join(dir, 'manifest.json');
-  if (!existsSync(manifestPath)) {
-    throw new Error(
-      `no extension build at ${dir}; build it: cd apps/extension && MOVAR_E2E=1 pnpm exec wxt build${browser === 'firefox' ? ' -b firefox' : ''}`,
-    );
-  }
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
-  if (!hasRequiredAllUrls(manifest)) {
-    throw new Error(
-      `${dir} is not the MOVAR_E2E=1 build (<all_urls> must be a required host permission, or no page is touched)`,
-    );
-  }
+  const manifest = existsSync(manifestPath)
+    ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>)
+    : null;
+  const problem = extensionBuildProblem(dir, browser, manifest, hasRequiredAllUrls);
+  if (problem !== null) throw new Error(problem);
   return dir;
 }
 
@@ -254,7 +239,7 @@ async function captureSafari(proxy: MockProxy): Promise<Taken[]> {
 // ── gates + output ──────────────────────────────────────────────────────────
 
 function finish(taken: readonly Taken[], proxy: MockProxy, started: string): void {
-  const scale = taken[0] === undefined ? 1 : Math.round(taken[0].result.width / WINDOW.width) || 1;
+  const scale = runScale(taken);
   const records: ShotRecord[] = taken.map((t) => ({
     id: t.id,
     width: t.result.width,
@@ -262,45 +247,36 @@ function finish(taken: readonly Taken[], proxy: MockProxy, started: string): voi
     appVersion: extensionVersion(),
     appBuild: t.browserVersion,
   }));
-  const failures = evaluateGates({
-    proxy: proxy.summary(),
-    shots: records,
-    expectedIds: DESKTOP_SHOTS.flatMap((s) => [s.id, `${s.id}-before`]),
-    // A viewport-only check has no window to hold to WINDOW.
-    size: viewportOnly
-      ? { width: records[0]?.width ?? 0, height: records[0]?.height ?? 0 }
-      : { width: WINDOW.width * scale, height: WINDOW.height * scale },
-  }).filter((f) => !f.startsWith('app version/build differs')); // before/after are two launches of one browser
+  const failures = relevantFailures(
+    evaluateGates({
+      proxy: proxy.summary(),
+      shots: records,
+      expectedIds: DESKTOP_SHOTS.flatMap((s) => [s.id, `${s.id}-before`]),
+      // A viewport-only check has no window to hold to WINDOW.
+      size: expectedSize(viewportOnly, records, scale),
+    }),
+  );
   // Every capture gets its own measured chrome height: `<id>.json` and `<id>-before.json`.
-  const sidecars = viewportOnly
-    ? []
-    : taken.flatMap((t) =>
-        t.result.chromeTop === null ? [] : [{ id: t.id, chromeTop: t.result.chromeTop }],
-      );
+  const sidecars = sidecarsOf(taken, viewportOnly);
   const manifest = {
     runId,
     browser,
     locale,
     viewportOnly,
     version: extensionVersion(),
-    browserVersion: taken.find((t) => !t.id.endsWith('-before'))?.browserVersion,
+    browserVersion: afterBrowserVersion(taken),
     sha: gitSha(),
     window: WINDOW,
     startedAt: started,
     finishedAt: new Date().toISOString(),
     proxy: proxy.summary(),
-    shots: taken.map((t) => ({
-      id: t.id,
-      width: t.result.width,
-      height: t.result.height,
-      chromeTop: t.result.chromeTop,
-    })),
+    shots: shotSummaries(taken),
     failures,
   };
   writeFileSync(path.join(runDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   if (failures.length > 0) {
     rmSync(runDir, { recursive: true, force: true });
-    throw new Error(`gates failed, no outputs kept:\n  - ${failures.join('\n  - ')}`);
+    throw new Error(gateFailureMessage(failures));
   }
   mkdirSync(outDir, { recursive: true });
   for (const t of taken) copyFileSync(t.file, path.join(outDir, `${t.id}.png`));
@@ -317,9 +293,4 @@ async function main(): Promise<void> {
   finish(taken, proxy, started);
 }
 
-main()
-  .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-  })
-  .finally(async () => cleanup());
+run(main);

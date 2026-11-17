@@ -7,22 +7,11 @@ import {
 } from './google-knowledge-frame';
 
 /**
- * "Without Movar" half of the Knowledge-Panel diptych. Used by both
- * surfaces:
- *
- *   - Marketing single-half PNG (`Marketing/Screenshots/GoogleGodOfWarWithout`,
- *     captured at 1280×800 with built-in chrome). Composed at runtime
- *     into the second pair of `apps/marketing/src/components/BeforeAfter.astro`.
- *     Use `GoogleGodOfWarWithoutMovarBackdrop` (chrome built in).
- *   - Marketplace diptych half (retired `Marketplace/Screenshots/KnowledgePanel`),
- *     rendered inside `BeforeAfterFrameWithFrame` which supplies its own
- *     browser chrome at the half level. Use
- *     `GoogleGodOfWarWithoutMovarContent` (chrome suppressed).
- *
- * The two wrappers share a private `GoogleGodOfWarWithoutMovarFrame`
- * helper so the seed data never drifts between surfaces. Two
- * zero-prop exports keep Storybook's `satisfies Meta<typeof …>`
- * inference clean under `exactOptionalPropertyTypes`.
+ * "Without Movar" half of the Knowledge-Panel diptych: the marketing
+ * single-half PNG (`Marketing/Screenshots/GoogleGodOfWarWithout`, captured at
+ * 1280×800 with built-in chrome), composed at runtime into the second pair
+ * of `apps/marketing/src/components/BeforeAfter.astro`. The backdrop is a
+ * zero-prop component over a private `GoogleGodOfWarWithoutMovarFrame` helper.
  *
  * Latin-script query — `God of War` — on google.com.ua with no Movar
  * params. Google's entity Knowledge Panel comes back in English because
@@ -46,10 +35,6 @@ import {
  */
 export function GoogleGodOfWarWithoutMovarBackdrop(): JSX.Element {
   return <GoogleGodOfWarWithoutMovarFrame hideChrome={false} />;
-}
-
-export function GoogleGodOfWarWithoutMovarContent(): JSX.Element {
-  return <GoogleGodOfWarWithoutMovarFrame hideChrome />;
 }
 
 function GoogleGodOfWarWithoutMovarFrame({ hideChrome }: { hideChrome: boolean }): JSX.Element {

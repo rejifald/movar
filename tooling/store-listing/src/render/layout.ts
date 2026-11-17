@@ -15,10 +15,22 @@
  * The logo sits at one fixed y on every shot; the headline sits tight above the
  * phone, and any spare height goes between the logo and the headline.
  */
-import { RenderGuardError } from './errors.js';
 import { phoneShape } from './devices.js';
 import type { DeviceProfile, PhoneShape } from './devices.js';
 import type { PixelSize } from './png.js';
+import {
+  assertCaptures,
+  assertHeadlineRoom,
+  assertSeamShare,
+  fail,
+  MAX_HEADLINE_LINES,
+  OVERLAP_EPSILON,
+  overlapArea,
+  placeLogo,
+  placeSeam,
+} from './layout-shared.js';
+import type { Px } from './layout-shared.js';
+export { MAX_HEADLINE_LINES, MIN_PART_SHARE } from './layout-shared.js';
 
 /* eslint-disable @typescript-eslint/no-magic-numbers -- the proportions below
  * are the owner's design numbers, written once as fractions of the canvas width
@@ -33,7 +45,6 @@ const MIN_SIDE_GAP = ref(84);
 const SCREEN_WIDTH = ref(940);
 const HEADLINE_FONT_SIZE = ref(98);
 export const HEADLINE_LINE_HEIGHT = 1.08;
-export const MAX_HEADLINE_LINES = 3;
 const GAP_TO_PHONE = ref(48);
 const TOP_PAD = ref(72);
 const LOGO_MARK = ref(84);
@@ -52,11 +63,14 @@ const CAPTION_OFFSET = ref(44);
  * A device profile with its own `statusBarShare` (the iPad) overrides it.
  */
 export const STATUS_BAR_SHARE = 186 / 2868;
-/** Each part must keep at least this share of the screen, or it stops reading as a page. */
-export const MIN_PART_SHARE = 0.25;
+const SEAM_STYLE = {
+  seamLine: SEAM_LINE,
+  captionSize: CAPTION_SIZE,
+  captionLeading: CAPTION_LEADING,
+  captionOffset: CAPTION_OFFSET,
+} as const;
 const ASPECT_TOLERANCE = 0.005;
 const BODY_RATIO_TOLERANCE = 0.005;
-const OVERLAP_EPSILON = 0.5;
 
 export interface Rect {
   x: number;
@@ -187,37 +201,10 @@ function placeSplit(
   capture: PixelSize,
   statusBarShare: number,
   placement: PhonePlacement,
-  px: (f: number) => number,
+  px: Px,
 ): SplitPlacement {
-  const { screen, phone } = placement;
-  const cutPx = Math.round(capture.height * split.cut);
-  const lineH = px(SEAM_LINE);
-  const seamY = screen.y + Math.round((screen.height * cutPx) / capture.height);
-  const lineTop = seamY - Math.round(lineH / 2);
-  // The before part starts under its status bar; the line's lower half falls on
-  // status-bar rows, so it covers none of the before page.
-  const halfLineRows = Math.round(((seamY - lineTop) * capture.height) / screen.height);
   const statusBar = Math.round(capture.height * statusBarShare);
-  const fontSize = px(CAPTION_SIZE);
-  const column = Math.round(fontSize * CAPTION_LEADING);
-  const columnX = phone.x - px(CAPTION_OFFSET) - Math.round(column / 2);
-  const screenBottom = screen.y + screen.height;
-  return {
-    ...split,
-    afterSlice: { y: 0, height: cutPx },
-    beforeSlice: { y: Math.max(0, statusBar - halfLineRows), height: capture.height - cutPx },
-    seam: { x: screen.x, y: lineTop, width: screen.width, height: lineH },
-    captions: {
-      after: { x: columnX, y: screen.y, width: column, height: lineTop - screen.y },
-      before: {
-        x: columnX,
-        y: lineTop + lineH,
-        width: column,
-        height: screenBottom - lineTop - lineH,
-      },
-      fontSize,
-    },
-  };
+  return placeSeam(split, capture, placement.screen, statusBar, placement.phone.x, px, SEAM_STYLE);
 }
 
 export function computeLayout(input: LayoutInput): Layout {
@@ -230,8 +217,6 @@ export function computeLayout(input: LayoutInput): Layout {
   const fontSize = headlineFontSize(W);
   const lineHeight = Math.round(fontSize * HEADLINE_LINE_HEIGHT);
   const headlineHeight = headlineLines * lineHeight;
-  const markSize = px(LOGO_MARK);
-
   const phone = placePhone(input, screenWidthFor(input, px, lineHeight), px);
 
   return {
@@ -241,7 +226,7 @@ export function computeLayout(input: LayoutInput): Layout {
     device,
     minSideGap: gapSide,
     minLogoGap: px(LOGO_TO_HEADLINE),
-    logo: { x: gapSide, y: px(TOP_PAD), markSize, fontSize: Math.round(markSize * 0.7) },
+    logo: placeLogo(px, gapSide, TOP_PAD, LOGO_MARK),
     headline: {
       x: gapSide,
       y: phone.phone.y - px(GAP_TO_PHONE) - headlineHeight,
@@ -255,26 +240,6 @@ export function computeLayout(input: LayoutInput): Layout {
     split: placeSplit(input.split, capture, device.statusBarShare ?? STATUS_BAR_SHARE, phone, px),
     cta: input.cta,
   };
-}
-
-function overlapArea(a: Rect, b: Rect): number {
-  const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-  const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-  return w > 0 && h > 0 ? w * h : 0;
-}
-
-function fail(code: ConstructorParameters<typeof RenderGuardError>[0], message: string): never {
-  throw new RenderGuardError(code, message);
-}
-
-function assertCaptures(layout: Layout): void {
-  const { capture: a, beforeCapture: b } = layout;
-  if (a.width !== b.width || a.height !== b.height) {
-    fail(
-      'capture-mismatch',
-      `before capture is ${b.width}x${b.height} but after is ${a.width}x${a.height}`,
-    );
-  }
 }
 
 function assertPhone(layout: Layout): void {
@@ -318,13 +283,7 @@ function assertGaps(layout: Layout): void {
 /** Both parts keep a readable share of the screen, and the before slice lies inside its capture. */
 function assertSplit(layout: Layout): void {
   const { split, capture, beforeCapture } = layout;
-  if (split.cut < MIN_PART_SHARE || split.cut > 1 - MIN_PART_SHARE + 1e-9) {
-    fail(
-      'split-cut',
-      `the seam sits at ${(split.cut * 100).toFixed(1)}% of the screen; each part needs ` +
-        `at least ${MIN_PART_SHARE * 100}%`,
-    );
-  }
+  assertSeamShare(split.cut, 'screen');
   const end = split.beforeSlice.y + split.beforeSlice.height;
   if (split.afterSlice.height > capture.height || end > beforeCapture.height) {
     fail(
@@ -335,20 +294,7 @@ function assertSplit(layout: Layout): void {
 }
 
 function assertHeadline(layout: Layout): void {
-  const { headline, logo } = layout;
-  if (headline.lines > MAX_HEADLINE_LINES) {
-    fail(
-      'headline-lines',
-      `headline wraps to ${headline.lines} lines; maximum is ${MAX_HEADLINE_LINES}`,
-    );
-  }
-  const room = headline.y - (logo.y + logo.markSize);
-  if (room < layout.minLogoGap - 1) {
-    fail(
-      'headline-overlap',
-      `headline starts ${room} px under the logo; minimum is ${layout.minLogoGap} px`,
-    );
-  }
+  assertHeadlineRoom(layout);
 }
 
 /** The captions stand on the ground: inside the canvas, clear of the phone and the headline. */

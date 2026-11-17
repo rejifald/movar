@@ -55,14 +55,14 @@ export interface DesktopShot {
 const q = (selector: string): string => JSON.stringify(selector);
 
 /** Concealed: Movar curtained or hid the node, an ancestor or a descendant. */
-export function concealedJs(selector: string): string {
+function concealedJs(selector: string): string {
   return `(() => { const el = document.querySelector(${q(selector)}); if (el === null) return false;
     const m = '[data-movar-curtain],[data-movar-hidden]';
     return el.closest(m) !== null || el.querySelector(m) !== null; })()`;
 }
 
 /** Rendered: the node exists and lays out a box. */
-export function renderedJs(selector: string): string {
+function renderedJs(selector: string): string {
   return `(() => { const el = document.querySelector(${q(selector)});
     return el !== null && el.getClientRects().length > 0; })()`;
 }
@@ -71,7 +71,7 @@ const existsJs = (selector: string): string => `document.querySelector(${q(selec
 const absentJs = (selector: string): string => `document.querySelector(${q(selector)}) === null`;
 
 /** At least one Movar curtain is on screen. */
-export const CURTAIN_SHOWN_JS = `[...document.querySelectorAll('[data-movar-curtain]')].some((h) => h.getClientRects().length > 0)`;
+const CURTAIN_SHOWN_JS = `[...document.querySelectorAll('[data-movar-curtain]')].some((h) => h.getClientRects().length > 0)`;
 const NO_CURTAIN_JS = `!(${CURTAIN_SHOWN_JS})`;
 
 const check = (label: string, js: string): DomCheck => ({ label, js });

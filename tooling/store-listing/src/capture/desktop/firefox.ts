@@ -20,7 +20,17 @@ import { defaultSettings } from '@movar/settings';
 import { freePort } from '../mock-proxy';
 import { out } from '../sh';
 import type { DomDriver } from './dom-shots';
-import { WINDOW } from './geometry';
+import {
+  clickActions,
+  evaluateValue,
+  firefoxArgs,
+  firefoxEnv,
+  firefoxSeedProblem,
+  isNavigationAbort,
+  pollFor,
+  settleOf,
+} from './decisions';
+import type { BidiReply } from './decisions';
 import type { DesktopLocale } from './locale';
 import {
   FIREFOX_EXTENSION_UUID,
@@ -33,15 +43,7 @@ import {
 
 // ── a minimal WebDriver BiDi client ─────────────────────────────────────────
 
-interface BidiMessage {
-  id?: number;
-  type?: 'success' | 'error' | 'event';
-  result?: unknown;
-  error?: string;
-  message?: string;
-}
-
-export class Bidi {
+class Bidi {
   private next = 1;
   private readonly pending = new Map<
     number,
@@ -50,16 +52,13 @@ export class Bidi {
 
   private constructor(private readonly socket: WebSocket) {
     socket.addEventListener('message', (event: MessageEvent) => {
-      const message = JSON.parse(String(event.data)) as BidiMessage;
-      if (message.id === undefined) return;
-      const waiter = this.pending.get(message.id);
+      const settled = settleOf(JSON.parse(String(event.data)) as BidiReply);
+      if (settled === null) return;
+      const waiter = this.pending.get(settled.id);
       if (waiter === undefined) return;
-      this.pending.delete(message.id);
-      if (message.type === 'error') {
-        waiter.reject(new Error(`${message.error ?? 'error'}: ${message.message ?? ''}`));
-      } else {
-        waiter.resolve(message.result);
-      }
+      this.pending.delete(settled.id);
+      if (settled.ok) waiter.resolve(settled.value);
+      else waiter.reject(settled.error);
     });
     socket.addEventListener('close', () => {
       for (const waiter of this.pending.values()) waiter.reject(new Error('BiDi socket closed'));
@@ -113,7 +112,7 @@ export class Bidi {
 }
 
 /** Wrap an expression so its (awaited) value comes back as one JSON string. */
-export function jsonExpression(expression: string): string {
+function jsonExpression(expression: string): string {
   return `(async () => JSON.stringify(await (${expression})))()`;
 }
 
@@ -165,7 +164,11 @@ function prepareProfile(dir: string, opts: FirefoxLaunch, geckoId: string | null
 }
 
 /** Copy of the build with the toolbar button pinned; returns its directory and gecko id. */
-function stageExtension(source: string, into: string): { dir: string; geckoId: string } {
+function stageExtension(
+  source: string | null,
+  into: string,
+): { dir: string; geckoId: string } | { dir: null; geckoId: null } {
+  if (source === null) return { dir: null, geckoId: null };
   const dir = path.join(into, 'extension');
   cpSync(source, dir, { recursive: true });
   const manifestPath = path.join(dir, 'manifest.json');
@@ -214,12 +217,13 @@ async function seedFirefoxSettings(bidi: Bidi, tree: Tree, evaluateIn: EvaluateI
     window.context,
     `(() => { gBrowser.selectedTab = gBrowser.addTab(${JSON.stringify(optionsUrl)}, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); return true; })()`,
   );
-  let options: string | undefined;
-  for (let i = 0; i < 100 && options === undefined; i += 1) {
-    options = (await tree()).find((c) => c.url === optionsUrl)?.context;
-    if (options === undefined) await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  if (options === undefined) throw new Error('firefox: Movar options page did not open');
+  const options = await pollFor(
+    async () => (await tree()).find((c) => c.url === optionsUrl)?.context ?? null,
+    100,
+    100,
+    sleep,
+  );
+  if (options === null) throw new Error('firefox: Movar options page did not open');
   const settings = { ...defaultSettings, contentModification: true };
   const seeded = await evaluateIn<{ hosts: boolean; saved: boolean }>(
     options,
@@ -236,149 +240,148 @@ async function seedFirefoxSettings(bidi: Bidi, tree: Tree, evaluateIn: EvaluateI
     })()`,
   );
   await bidi.send('browsingContext.close', { context: options });
-  if (!seeded.hosts)
-    throw new Error('firefox: Movar was installed without its <all_urls> host permission');
-  if (!seeded.saved) throw new Error('firefox: Movar settings did not persist');
+  const problem = firefoxSeedProblem(seeded);
+  if (problem !== null) throw new Error(problem);
+}
+
+const sleep = async (ms: number): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+};
+
+type Contexts = { context: string; url: string }[];
+
+function bidiTree(bidi: Bidi): Tree {
+  return async (scope) =>
+    (
+      await bidi.send<{ contexts: Contexts }>('browsingContext.getTree', {
+        maxDepth: 0,
+        ...(scope === undefined ? {} : { 'moz:scope': scope }),
+      })
+    ).contexts;
+}
+
+function bidiEvaluateIn(bidi: Bidi): EvaluateIn {
+  return async <T>(context: string, expression: string): Promise<T> =>
+    evaluateValue(
+      await bidi.send<EvaluateResult>('script.evaluate', {
+        expression: jsonExpression(expression),
+        target: { context },
+        awaitPromise: true,
+        resultOwnership: 'none',
+      }),
+    ) as T;
+}
+
+interface FirefoxSession {
+  readonly bidi: Bidi;
+  readonly tree: Tree;
+  readonly evaluateIn: EvaluateIn;
+  readonly main: string;
+  readonly version: string;
+}
+
+async function openSession(child: ChildProcess): Promise<FirefoxSession> {
+  const endpoint = await waitForBidiUrl(child);
+  const bidi = await Bidi.connect(`${endpoint.replace(/\/$/, '')}/session`);
+  const session = await bidi.send<{ capabilities: { browserVersion?: string } }>('session.new', {
+    capabilities: {},
+  });
+  const tree = bidiTree(bidi);
+  const [first] = await tree();
+  if (first === undefined) throw new Error('firefox has no browsing context');
+  return {
+    bidi,
+    tree,
+    evaluateIn: bidiEvaluateIn(bidi),
+    main: first.context,
+    version: `firefox ${session.capabilities.browserVersion ?? '?'}`,
+  };
+}
+
+/** Install Movar into the running browser and seed its settings. */
+async function installMovar(s: FirefoxSession, extensionDir: string): Promise<void> {
+  await s.bidi.send('webExtension.install', {
+    extensionData: { type: 'path', path: extensionDir },
+  });
+  await seedFirefoxSettings(s.bidi, s.tree, s.evaluateIn);
+  // Movar's onboarding tab opens on install; give it a moment, then close it.
+  await sleep(1500);
+}
+
+async function closeOtherContexts(s: FirefoxSession): Promise<void> {
+  for (const { context } of await s.tree()) {
+    if (context !== s.main) await s.bidi.send('browsingContext.close', { context });
+  }
+}
+
+function firefoxDriver(s: FirefoxSession, root: string, kill: () => void): DomDriver {
+  const { bidi, main } = s;
+  const navigate = async (url: string): Promise<void> => {
+    try {
+      await bidi.send('browsingContext.navigate', { context: main, url, wait: 'interactive' });
+    } catch (error) {
+      if (!isNavigationAbort(error)) throw error;
+    }
+  };
+  const closeOthers = async (): Promise<void> => closeOtherContexts(s);
+  return {
+    browser: 'firefox',
+    version: s.version,
+    async goto(url) {
+      await closeOthers();
+      await navigate(url);
+    },
+    evaluate: async <T>(expression: string) => s.evaluateIn<T>(main, expression),
+    async clickAt(x, y) {
+      await bidi.send('input.performActions', { context: main, actions: clickActions(x, y) });
+    },
+    async screenshotViewport(file) {
+      const shot = await bidi.send<{ data: string }>('browsingContext.captureScreenshot', {
+        context: main,
+      });
+      writeFileSync(file, Buffer.from(shot.data, 'base64'));
+    },
+    async close() {
+      await bidi.send('session.end').catch(() => null); // the browser may already be gone
+      bidi.close();
+      kill();
+      await sleep(500);
+      rmSync(root, { recursive: true, force: true });
+    },
+  };
+}
+
+/** Stage the extension (if any) and prepare the profile; returns the staged directory or null. */
+function prepareFirefox(root: string, profile: string, opts: FirefoxLaunch): string | null {
+  mkdirSync(profile, { recursive: true });
+  const staged = stageExtension(opts.extension, root);
+  prepareProfile(profile, opts, staged.geckoId);
+  return staged.dir;
+}
+
+function stopper(child: ChildProcess): () => void {
+  return () => {
+    if (child.exitCode === null) child.kill('SIGTERM');
+  };
 }
 
 export async function launchFirefox(opts: FirefoxLaunch): Promise<DomDriver> {
   const root = mkdtempSync(path.join(tmpdir(), 'movar-desktop-firefox-'));
   const profile = path.join(root, 'profile');
-  mkdirSync(profile, { recursive: true });
-  const staged = opts.extension === null ? null : stageExtension(opts.extension, root);
-  prepareProfile(profile, opts, staged?.geckoId ?? null);
+  const stagedDir = prepareFirefox(root, profile, opts);
 
-  const port = await freePort();
-  const child = spawn(
-    opts.binary,
-    [
-      '--remote-debugging-port',
-      String(port),
-      '--profile',
-      profile,
-      '--no-remote',
-      '--new-instance',
-      '--width',
-      String(WINDOW.width),
-      '--height',
-      String(WINDOW.height),
-      'about:blank',
-    ],
-    {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        MOZ_CRASHREPORTER_DISABLE: '1',
-        MOZ_ENABLE_WAYLAND: '0',
-        // BiDi may not navigate to moz-extension://; the options tab is opened from
-        // the browser (chrome) realm instead, which needs system access.
-        MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: '1',
-      },
-    },
-  );
-  const kill = (): void => {
-    if (child.exitCode === null) child.kill('SIGTERM');
-  };
+  const child = spawn(opts.binary, firefoxArgs(await freePort(), profile), {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: firefoxEnv(process.env),
+  });
+  const kill = stopper(child);
   try {
-    const endpoint = await waitForBidiUrl(child);
-    const bidi = await Bidi.connect(`${endpoint.replace(/\/$/, '')}/session`);
-    const session = await bidi.send<{ capabilities: { browserVersion?: string } }>('session.new', {
-      capabilities: {},
-    });
-    const version = `firefox ${session.capabilities.browserVersion ?? '?'}`;
-
-    const tree = async (scope?: 'chrome'): Promise<{ context: string; url: string }[]> =>
-      (
-        await bidi.send<{ contexts: { context: string; url: string }[] }>(
-          'browsingContext.getTree',
-          {
-            maxDepth: 0,
-            ...(scope === undefined ? {} : { 'moz:scope': scope }),
-          },
-        )
-      ).contexts;
-    const [first] = await tree();
-    if (first === undefined) throw new Error('firefox has no browsing context');
-    const main = first.context;
-
-    const evaluateIn = async <T>(context: string, expression: string): Promise<T> => {
-      const reply = await bidi.send<EvaluateResult>('script.evaluate', {
-        expression: jsonExpression(expression),
-        target: { context },
-        awaitPromise: true,
-        resultOwnership: 'none',
-      });
-      if (reply.type === 'exception') {
-        throw new Error(`page script threw: ${reply.exceptionDetails?.text ?? '?'}`);
-      }
-      const raw = reply.result?.value;
-      return (typeof raw === 'string' ? JSON.parse(raw) : undefined) as T;
-    };
-    const evaluate = async <T>(expression: string): Promise<T> => evaluateIn<T>(main, expression);
-    const navigate = async (url: string): Promise<void> => {
-      try {
-        await bidi.send('browsingContext.navigate', { context: main, url, wait: 'interactive' });
-      } catch (error) {
-        // Movar redirecting mid-load aborts the original navigation: not an error.
-        if (!/abort|cancel/i.test(error instanceof Error ? error.message : '')) throw error;
-      }
-    };
-    const closeOthers = async (): Promise<void> => {
-      for (const { context } of await tree()) {
-        if (context !== main) await bidi.send('browsingContext.close', { context });
-      }
-    };
-
-    if (staged !== null) {
-      await bidi.send('webExtension.install', {
-        extensionData: { type: 'path', path: staged.dir },
-      });
-      await seedFirefoxSettings(bidi, tree, evaluateIn);
-      // Movar's onboarding tab opens on install; give it a moment, then close it.
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-    await closeOthers();
-    await bidi.send('browsingContext.activate', { context: main });
-
-    return {
-      browser: 'firefox',
-      version,
-      async goto(url) {
-        await closeOthers();
-        await navigate(url);
-      },
-      evaluate,
-      async clickAt(x, y) {
-        await bidi.send('input.performActions', {
-          context: main,
-          actions: [
-            {
-              type: 'pointer',
-              id: 'mouse',
-              parameters: { pointerType: 'mouse' },
-              actions: [
-                { type: 'pointerMove', x, y },
-                { type: 'pointerDown', button: 0 },
-                { type: 'pointerUp', button: 0 },
-              ],
-            },
-          ],
-        });
-      },
-      async screenshotViewport(file) {
-        const shot = await bidi.send<{ data: string }>('browsingContext.captureScreenshot', {
-          context: main,
-        });
-        writeFileSync(file, Buffer.from(shot.data, 'base64'));
-      },
-      async close() {
-        await bidi.send('session.end').catch(() => null); // the browser may already be gone
-        bidi.close();
-        kill();
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        rmSync(root, { recursive: true, force: true });
-      },
-    };
+    const session = await openSession(child);
+    if (stagedDir !== null) await installMovar(session, stagedDir);
+    const driver = firefoxDriver(session, root, kill);
+    await closeOtherContexts(session);
+    await session.bidi.send('browsingContext.activate', { context: session.main });
+    return driver;
   } catch (error) {
     kill();
     throw error;

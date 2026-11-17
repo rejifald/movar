@@ -174,98 +174,91 @@ async function openTracked(
   return { page, visited };
 }
 
+type Shot = (name: string) => string;
+
+async function sceneGoogle(context: BrowserContext, shot: Shot): Promise<void> {
+  const { page, visited } = await openTracked(context, SCENES.google.startUrl);
+  const redirected = await waitFor(
+    page,
+    async () => new URL(page.url()).searchParams.get('hl') === 'uk',
+  );
+  check('google: Movar rewrote the URL to hl=uk', redirected, page.url());
+  await waitFor(page, async () => (await page.locator('[data-fixture-id="uk-1"]').count()) > 0);
+  await waitFor(page, () => concealed(page, '[data-fixture-id="ru-1"]'));
+  await settle(page, 1500);
+  check(
+    'google: final page is the Ukrainian SERP',
+    (await page.locator('[data-fixture-id="uk-1"]').count()) === 1,
+  );
+  check('google: Russian result 1 curtained', await concealed(page, '[data-fixture-id="ru-1"]'));
+  check('google: Russian result 2 curtained', await concealed(page, '[data-fixture-id="ru-2"]'));
+  for (const id of ['uk-1', 'uk-2', 'uk-3', 'uk-4', 'en-1']) {
+    check(`google: ${id} visible`, !(await concealed(page, `[data-fixture-id="${id}"]`)));
+  }
+  console.log(
+    '      google navigations:',
+    visited.map((u) => decodeURIComponent(u)).join('  ->  '),
+  );
+  await page.screenshot({ path: shot('1-google') });
+  await page.close();
+}
+
+async function sceneTochka24(context: BrowserContext, profile: Profile, shot: Shot): Promise<void> {
+  const { page, visited } = await openTracked(context, SCENES.tochka24.startUrl);
+  const arrived = await waitFor(page, async () => page.url() === SCENES.tochka24.finalUrl);
+  check('tochka24: redirected to /uk/', arrived, page.url());
+  await settle(page, 1500);
+  check('tochka24: no language gate', (await page.locator('#language-gate').count()) === 0);
+  check('tochka24: <html lang> is uk', (await page.locator('html').getAttribute('lang')) === 'uk');
+  await page.screenshot({ path: shot('2a-site-uk') });
+
+  const ruEntry = '#lang-menu a[hreflang="ru"]';
+  check(
+    'tochka24: Russian menu entry hidden by Movar',
+    await waitFor(page, () => concealed(page, ruEntry), 4000),
+  );
+  check(
+    'tochka24: Ukrainian menu entry untouched',
+    !(await concealed(page, '#lang-menu a[hreflang="uk"]')),
+  );
+  check(
+    'tochka24: English menu entry untouched',
+    !(await concealed(page, '#lang-menu a[hreflang="en"]')),
+  );
+  await (profile.mobile
+    ? page.locator('#lang-menu-button').tap()
+    : page.locator('#lang-menu-button').click());
+  await page.waitForTimeout(600);
+  check('tochka24: menu opens on tap', (await page.locator('#lang-menu.open').count()) === 1);
+  await page.screenshot({ path: shot('2b-site-uk-menu') });
+  console.log('      tochka24 navigations:', visited.join('  ->  '));
+  await page.close();
+}
+
+async function sceneYoutube(context: BrowserContext, profile: Profile, shot: Shot): Promise<void> {
+  const page = await context.newPage();
+  await page.goto(profile.youtubeUrl, { waitUntil: 'domcontentloaded' });
+  await waitFor(page, () => concealed(page, '[data-fixture-id="ru-1"]'));
+  await settle(page, 1500);
+  for (const id of ['ru-1', 'ru-2', 'ru-3']) {
+    check(`youtube: ${id} curtained`, await concealed(page, `[data-fixture-id="${id}"]`));
+  }
+  for (const id of ['uk-1', 'uk-2', 'uk-3', 'en-1', 'en-2']) {
+    check(`youtube: ${id} visible`, !(await concealed(page, `[data-fixture-id="${id}"]`)));
+  }
+  await page.screenshot({ path: shot('3-youtube') });
+  await page.screenshot({ path: shot('3-youtube-full'), fullPage: true });
+  await page.close();
+}
+
 async function runPass(profile: Profile): Promise<void> {
   const context = await launch(profile);
   passName = profile.name;
   const shot = (name: string): string => path.join(OUT_DIR, `${profile.name}-${name}.png`);
   try {
-    // ── Scene 1: Google ──────────────────────────────────────────────────────
-    {
-      const { page, visited } = await openTracked(context, SCENES.google.startUrl);
-      const redirected = await waitFor(
-        page,
-        async () => new URL(page.url()).searchParams.get('hl') === 'uk',
-      );
-      check('google: Movar rewrote the URL to hl=uk', redirected, page.url());
-      await waitFor(page, async () => (await page.locator('[data-fixture-id="uk-1"]').count()) > 0);
-      await waitFor(page, () => concealed(page, '[data-fixture-id="ru-1"]'));
-      await settle(page, 1500);
-      check(
-        'google: final page is the Ukrainian SERP',
-        (await page.locator('[data-fixture-id="uk-1"]').count()) === 1,
-      );
-      check(
-        'google: Russian result 1 curtained',
-        await concealed(page, '[data-fixture-id="ru-1"]'),
-      );
-      check(
-        'google: Russian result 2 curtained',
-        await concealed(page, '[data-fixture-id="ru-2"]'),
-      );
-      for (const id of ['uk-1', 'uk-2', 'uk-3', 'uk-4', 'en-1']) {
-        check(`google: ${id} visible`, !(await concealed(page, `[data-fixture-id="${id}"]`)));
-      }
-      console.log(
-        '      google navigations:',
-        visited.map((u) => decodeURIComponent(u)).join('  ->  '),
-      );
-      await page.screenshot({ path: shot('1-google') });
-      await page.close();
-    }
-
-    // ── Scene 2: Tochka24 ────────────────────────────────────────────────────
-    {
-      const { page, visited } = await openTracked(context, SCENES.tochka24.startUrl);
-      const arrived = await waitFor(page, async () => page.url() === SCENES.tochka24.finalUrl);
-      check('tochka24: redirected to /uk/', arrived, page.url());
-      await settle(page, 1500);
-      check('tochka24: no language gate', (await page.locator('#language-gate').count()) === 0);
-      check(
-        'tochka24: <html lang> is uk',
-        (await page.locator('html').getAttribute('lang')) === 'uk',
-      );
-      await page.screenshot({ path: shot('2a-site-uk') });
-
-      const ruEntry = '#lang-menu a[hreflang="ru"]';
-      check(
-        'tochka24: Russian menu entry hidden by Movar',
-        await waitFor(page, () => concealed(page, ruEntry), 4000),
-      );
-      check(
-        'tochka24: Ukrainian menu entry untouched',
-        !(await concealed(page, '#lang-menu a[hreflang="uk"]')),
-      );
-      check(
-        'tochka24: English menu entry untouched',
-        !(await concealed(page, '#lang-menu a[hreflang="en"]')),
-      );
-      await (profile.mobile
-        ? page.locator('#lang-menu-button').tap()
-        : page.locator('#lang-menu-button').click());
-      await page.waitForTimeout(600);
-      check('tochka24: menu opens on tap', (await page.locator('#lang-menu.open').count()) === 1);
-      await page.screenshot({ path: shot('2b-site-uk-menu') });
-      console.log('      tochka24 navigations:', visited.join('  ->  '));
-      await page.close();
-    }
-
-    // ── Scene 3: YouTube ─────────────────────────────────────────────────────
-    {
-      const page = await context.newPage();
-      await page.goto(profile.youtubeUrl, { waitUntil: 'domcontentloaded' });
-      await waitFor(page, () => concealed(page, '[data-fixture-id="ru-1"]'));
-      await settle(page, 1500);
-      for (const id of ['ru-1', 'ru-2', 'ru-3']) {
-        check(`youtube: ${id} curtained`, await concealed(page, `[data-fixture-id="${id}"]`));
-      }
-      for (const id of ['uk-1', 'uk-2', 'uk-3', 'en-1', 'en-2']) {
-        check(`youtube: ${id} visible`, !(await concealed(page, `[data-fixture-id="${id}"]`)));
-      }
-      await page.screenshot({ path: shot('3-youtube') });
-      await page.screenshot({ path: shot('3-youtube-full'), fullPage: true });
-      await page.close();
-    }
-
+    await sceneGoogle(context, shot);
+    await sceneTochka24(context, profile, shot);
+    await sceneYoutube(context, profile, shot);
     const refused = (context as unknown as { refused: string[] }).refused;
     check('no unrouted or external requests', refused.length === 0, refused.join(', '));
   } finally {

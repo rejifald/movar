@@ -33,9 +33,10 @@ import { runFlow } from './maestro';
 import { sleepSync } from './retry';
 import { freePort, startMockProxy } from './mock-proxy';
 import type { MockProxy } from './mock-proxy';
-import { activeService, manualProxyInstructions, parseProxyGet, planProxy } from './proxy-state';
-import type { ProxyPlan } from './proxy-state';
-import { log, out } from './sh';
+import { createLifecycle } from './lifecycle';
+import { manualProxyInstructions } from './proxy-state';
+import { log } from './sh';
+import { pointSystemProxyAt } from './system-proxy';
 import * as sim from './simulator';
 import { beforePlan, CAPTURE_DEVICES, listingPlan, smokePlan } from './shots';
 import type { CaptureDevice, Locale, PlannedShot } from './shots';
@@ -67,48 +68,7 @@ const derived = path.join(cache, 'derived');
 const runDir = path.join(cache, 'captures', runId, deviceName, locale);
 const debugDir = path.join(cache, 'maestro-debug', runId);
 
-const cleanups: (() => Promise<void> | void)[] = [];
-let cleaning: Promise<void> | null = null;
-async function cleanup(): Promise<void> {
-  cleaning ??= (async () => {
-    for (const fn of cleanups.reverse()) {
-      try {
-        await fn();
-      } catch (error) {
-        console.error('cleanup step failed:', error);
-      }
-    }
-  })();
-  return cleaning;
-}
-for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
-  process.on(signal, () => {
-    void cleanup().finally(() => process.exit(130));
-  });
-}
-
-const networksetup = (args: readonly string[]): string =>
-  out('sudo', ['-n', 'networksetup', ...args]);
-
-/** CI only: read the active service's proxy state, apply ours, register the restore. */
-function pointSystemProxyAt(port: number): void {
-  const service = activeService(
-    out('route', ['-n', 'get', 'default']),
-    out('networksetup', ['-listnetworkserviceorder']),
-  );
-  if (service === null) throw new Error('cannot find the active network service');
-  const plan: ProxyPlan = planProxy(service, '127.0.0.1', port, {
-    web: parseProxyGet(out('networksetup', ['-getwebproxy', service])),
-    secure: parseProxyGet(out('networksetup', ['-getsecurewebproxy', service])),
-  });
-  // Register the restore BEFORE applying: a half-applied change still unwinds.
-  cleanups.push(() => {
-    for (const cmd of plan.restore) networksetup(cmd);
-    log(`▸ system proxy restored on "${plan.service}"`);
-  });
-  for (const cmd of plan.apply) networksetup(cmd);
-  log(`▸ system proxy on "${plan.service}" → 127.0.0.1:${port}`);
-}
+const { cleanups, run } = createLifecycle();
 
 async function pngSize(file: string): Promise<{ width: number; height: number }> {
   const { width, height } = await sharp(file).metadata();
@@ -160,7 +120,7 @@ async function startProxy(port: number): Promise<MockProxy> {
     path.join(runDir, 'proxy.log'),
   );
   cleanups.push(async () => proxy.stop());
-  if (isCI) pointSystemProxyAt(proxy.port);
+  if (isCI) cleanups.push(pointSystemProxyAt(proxy.port));
   else log(`▸ expecting the system proxy to already point at the mock proxy (${proxy.port})`);
   return proxy;
 }
@@ -359,9 +319,4 @@ async function main(): Promise<void> {
   log(`✓ run ${runId} passed; captures in ${runDir}`);
 }
 
-main()
-  .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-  })
-  .finally(async () => cleanup());
+run(main);

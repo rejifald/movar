@@ -11,9 +11,6 @@ export const WINDOW = { width: 1440, height: 900 } as const;
 /** The Xvfb screen the Linux browsers run on: room for the window at DPR 1, nothing else on it. */
 export const XVFB_SCREEN = { width: 1600, height: 1000, depth: 24 } as const;
 
-/** The Mac runner's display mode (displayplacer), a non-HiDPI 1920×1080. */
-export const MAC_DISPLAY = { width: 1920, height: 1080 } as const;
-
 /**
  * Plausible bounds of a browser's top chrome, in logical px. A measurement
  * outside them means the capture or the viewport read is wrong (a dialog, a

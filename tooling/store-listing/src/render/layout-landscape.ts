@@ -11,8 +11,18 @@
  * gives the bottom half from just under ITS toolbar (`chromeTop` capture rows),
  * each part from its own page top. Nothing here touches Satori or pixels.
  */
-import { RenderGuardError } from './errors.js';
-import { MAX_HEADLINE_LINES, MIN_PART_SHARE } from './layout.js';
+import {
+  assertCaptures,
+  assertHeadlineRoom,
+  assertSeamShare,
+  fail,
+  MAX_HEADLINE_LINES,
+  OVERLAP_EPSILON,
+  overlapArea,
+  placeLogo,
+  placeSeam,
+} from './layout-shared.js';
+import type { Px } from './layout-shared.js';
 import type { Rect, Slice, SplitSpec } from './layout.js';
 import type { PixelSize } from './png.js';
 
@@ -42,8 +52,13 @@ const CAPTION_OFFSET = ref(26);
 const CAPTION_MIN_LENGTH = 8;
 /** Clear ground wanted between the headline column and the caption column. */
 const COLUMN_TO_CAPTION = ref(12);
+const SEAM_STYLE = {
+  seamLine: SEAM_LINE,
+  captionSize: CAPTION_SIZE,
+  captionLeading: CAPTION_LEADING,
+  captionOffset: CAPTION_OFFSET,
+} as const;
 const ASPECT_TOLERANCE = 0.005;
-const OVERLAP_EPSILON = 0.5;
 
 export interface LandscapeLayoutInput {
   canvas: PixelSize;
@@ -114,39 +129,9 @@ function placeSplit(
   input: LandscapeLayoutInput,
   win: Rect,
   beforeChromeTop: number,
-  px: (f: number) => number,
+  px: Px,
 ): LandscapeSplit {
-  const { capture, split } = input;
-  const cutPx = Math.round(capture.height * split.cut);
-  const lineH = px(SEAM_LINE);
-  const seamY = win.y + Math.round((win.height * cutPx) / capture.height);
-  const lineTop = seamY - Math.round(lineH / 2);
-  // The before part starts under its toolbar; the line's lower half falls on
-  // toolbar rows, so it covers none of the before page.
-  const halfLineRows = Math.round(((seamY - lineTop) * capture.height) / win.height);
-  const fontSize = px(CAPTION_SIZE);
-  const column = Math.round(fontSize * CAPTION_LEADING);
-  const columnX = win.x - px(CAPTION_OFFSET) - Math.round(column / 2);
-  const bottom = win.y + win.height;
-  return {
-    ...split,
-    afterSlice: { y: 0, height: cutPx },
-    beforeSlice: {
-      y: Math.max(0, beforeChromeTop - halfLineRows),
-      height: capture.height - cutPx,
-    },
-    seam: { x: win.x, y: lineTop, width: win.width, height: lineH },
-    captions: {
-      after: { x: columnX, y: win.y, width: column, height: lineTop - win.y },
-      before: {
-        x: columnX,
-        y: lineTop + lineH,
-        width: column,
-        height: bottom - lineTop - lineH,
-      },
-      fontSize,
-    },
-  };
+  return placeSeam(input.split, input.capture, win, beforeChromeTop, win.x, px, SEAM_STYLE);
 }
 
 export function computeLandscapeLayout(input: LandscapeLayoutInput): LandscapeLayout {
@@ -171,7 +156,7 @@ export function computeLandscapeLayout(input: LandscapeLayoutInput): LandscapeLa
     beforeChromeTop,
     minSideGap: gapSide,
     minLogoGap: px(LOGO_TO_HEADLINE),
-    logo: { x: gapSide, y: px(TOP_PAD), markSize, fontSize: Math.round(markSize * 0.7) },
+    logo: placeLogo(px, gapSide, TOP_PAD, LOGO_MARK),
     headline: {
       x: gapSide,
       y: headlineY,
@@ -183,26 +168,6 @@ export function computeLandscapeLayout(input: LandscapeLayoutInput): LandscapeLa
     window: { rect: win, radius: px(WINDOW_RADIUS) },
     split: placeSplit(input, win, beforeChromeTop, px),
   };
-}
-
-function overlapArea(a: Rect, b: Rect): number {
-  const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-  const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-  return w > 0 && h > 0 ? w * h : 0;
-}
-
-function fail(code: ConstructorParameters<typeof RenderGuardError>[0], message: string): never {
-  throw new RenderGuardError(code, message);
-}
-
-function assertCaptures(layout: LandscapeLayout): void {
-  const { capture: a, beforeCapture: b } = layout;
-  if (a.width !== b.width || a.height !== b.height) {
-    fail(
-      'capture-mismatch',
-      `before capture is ${b.width}x${b.height} but after is ${a.width}x${a.height}`,
-    );
-  }
 }
 
 function assertWindow(layout: LandscapeLayout): void {
@@ -233,13 +198,7 @@ function assertWindow(layout: LandscapeLayout): void {
 /** Both parts keep a readable share, the toolbar fits in the after part, the before slice lies inside its capture. */
 function assertSplit(layout: LandscapeLayout): void {
   const { split, capture, beforeCapture, chromeTop, beforeChromeTop } = layout;
-  if (split.cut < MIN_PART_SHARE || split.cut > 1 - MIN_PART_SHARE + 1e-9) {
-    fail(
-      'split-cut',
-      `the seam sits at ${(split.cut * 100).toFixed(1)}% of the window; each part needs ` +
-        `at least ${MIN_PART_SHARE * 100}%`,
-    );
-  }
+  assertSeamShare(split.cut, 'window');
   if (chromeTop < 0 || beforeChromeTop < 0 || chromeTop >= split.afterSlice.height) {
     fail(
       'chrome-top',
@@ -257,20 +216,8 @@ function assertSplit(layout: LandscapeLayout): void {
 }
 
 function assertHeadline(layout: LandscapeLayout): void {
-  const { headline, logo } = layout;
-  if (headline.lines > MAX_HEADLINE_LINES) {
-    fail(
-      'headline-lines',
-      `headline wraps to ${headline.lines} lines; maximum is ${MAX_HEADLINE_LINES}`,
-    );
-  }
-  const room = headline.y - (logo.y + logo.markSize);
-  if (room < layout.minLogoGap - 1) {
-    fail(
-      'headline-overlap',
-      `headline starts ${room} px under the logo; minimum is ${layout.minLogoGap} px`,
-    );
-  }
+  const { headline } = layout;
+  assertHeadlineRoom(layout);
   const bottom = headline.y + headline.height;
   if (bottom > layout.canvas.height - layout.minSideGap + 1) {
     fail('headline-overlap', `headline ends at y ${bottom}, past the bottom gap`);

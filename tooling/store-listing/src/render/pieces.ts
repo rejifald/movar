@@ -130,7 +130,7 @@ export interface SplitTagLabels {
 }
 
 /** One caption, rotated to read bottom-up, centred in its footprint on the ground. */
-export function Caption(props: {
+function Caption(props: {
   rect: Rect;
   fontSize: number;
   label: string;

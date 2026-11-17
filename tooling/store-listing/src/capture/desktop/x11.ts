@@ -9,7 +9,17 @@ import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import type { WindowCapturer } from './dom-shots';
-import { largestWindow, parseXdotoolGeometry, WINDOW, XVFB_SCREEN } from './geometry';
+import {
+  firstFreeDisplay,
+  hasDisplay,
+  needsFit,
+  pickBrowserWindow,
+  pollFor,
+  x11LockPath,
+  x11SocketPath,
+  xvfbArgs,
+} from './decisions';
+import { parseXdotoolGeometry, WINDOW } from './geometry';
 import type { Rect } from './geometry';
 import { out } from '../sh';
 
@@ -19,30 +29,17 @@ const sleep = async (ms: number): Promise<void> => {
 
 /** Start Xvfb on the first free display number and export DISPLAY; returns its stopper. */
 export async function ensureDisplay(): Promise<() => void> {
-  if (process.env['DISPLAY'] !== undefined && process.env['DISPLAY'] !== '')
+  if (hasDisplay(process.env))
     return () => {
       /* DISPLAY was already set: nothing was started */
     };
-  let display = 99;
-  while (existsSync(`/tmp/.X11-unix/X${display}`) || existsSync(`/tmp/.X${display}-lock`))
-    display += 1;
-  const { width, height, depth } = XVFB_SCREEN;
-  const xvfb: ChildProcess = spawn(
-    'Xvfb',
-    [
-      `:${display}`,
-      '-screen',
-      '0',
-      `${width}x${height}x${depth}`,
-      '-nolisten',
-      'tcp',
-      '-dpi',
-      '96',
-    ],
-    { stdio: 'ignore' },
+  const display = firstFreeDisplay(
+    (n) => existsSync(x11SocketPath(n)) || existsSync(x11LockPath(n)),
   );
-  for (let i = 0; i < 50 && !existsSync(`/tmp/.X11-unix/X${display}`); i += 1) await sleep(100);
-  if (!existsSync(`/tmp/.X11-unix/X${display}`)) throw new Error('Xvfb did not come up');
+  const xvfb: ChildProcess = spawn('Xvfb', xvfbArgs(display), { stdio: 'ignore' });
+  const socket = x11SocketPath(display);
+  await pollFor(() => (existsSync(socket) ? true : null), 50, 100, sleep);
+  if (!existsSync(socket)) throw new Error('Xvfb did not come up');
   process.env['DISPLAY'] = `:${display}`;
   return () => {
     xvfb.kill('SIGTERM');
@@ -73,20 +70,10 @@ function visibleWindows(): (Rect & { id: number })[] {
 export function x11Capturer(): WindowCapturer {
   return {
     async capture(file: string): Promise<void> {
-      let window: (Rect & { id: number }) | null = null;
-      for (let i = 0; i < 50 && window === null; i += 1) {
-        const all = visibleWindows().filter((w) => w.width > 400 && w.height > 300);
-        window = all.length > 0 ? largestWindow(all) : null;
-        if (window === null) await sleep(200);
-      }
+      const window = await pollFor(() => pickBrowserWindow(visibleWindows()), 50, 200, sleep);
       if (window === null) throw new Error('no browser window on the X display');
       const id = String(window.id);
-      if (
-        window.width !== WINDOW.width ||
-        window.height !== WINDOW.height ||
-        window.x !== 0 ||
-        window.y !== 0
-      ) {
+      if (needsFit(window)) {
         out('xdotool', ['windowsize', '--sync', id, String(WINDOW.width), String(WINDOW.height)]);
         out('xdotool', ['windowmove', '--sync', id, '0', '0']);
         await sleep(600); // let the browser relayout at the new size

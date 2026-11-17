@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-magic-numbers, sonarjs/no-os-command-from-path -- shells out to Xvfb/xdotool/ImageMagick by name; waits are inline on purpose */
 /**
- * Linux display plumbing: a private Xvfb screen (started here when no DISPLAY
- * is set, so a run needs no wrapper), and window capture of the browser's one
- * top-level window with xdotool + ImageMagick `import`. There is no window
- * manager on the screen, so nothing but the browser's own frame is drawn.
+ * Linux display plumbing: a private Xvfb screen exactly the size of the capture
+ * window (started here when no DISPLAY is set, so a run needs no wrapper), and
+ * the capture itself. There is no window manager, so a client window's own grab
+ * is unreliable; instead the browser is pinned to (0,0) at WINDOW size, which
+ * fills the screen, and the screen is grabbed. dom-shots.ts then proves from the
+ * page (`outerWidth`/`screenX`…) that the browser really filled it.
  */
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
@@ -62,25 +64,37 @@ function visibleWindows(): (Rect & { id: number })[] {
   });
 }
 
+/** Grab the whole (WINDOW-sized) screen. */
+export function grabScreen(file: string): void {
+  out('import', ['-window', 'root', `png:${file}`]);
+}
+
+/** `xwininfo -root -tree`: every window on the display, for a failed run's debug dir. */
+export function windowTree(): string {
+  return out('xwininfo', ['-root', '-tree']);
+}
+
 /**
- * Capturer for the browser's main window: found as the largest visible window,
- * pinned at (0,0) and WINDOW size, focused (so the toolbar is drawn active, not
- * greyed out), then grabbed with `import -window`, which reads only that window.
+ * Capturer for the browser: every big visible window pinned to (0,0) at WINDOW
+ * size, the largest focused (so the toolbar is drawn active, not greyed out),
+ * then the screen grabbed.
  */
 export function x11Capturer(): WindowCapturer {
   return {
     async capture(file: string): Promise<void> {
       const window = await pollFor(() => pickBrowserWindow(visibleWindows()), 50, 200, sleep);
       if (window === null) throw new Error('no browser window on the X display');
-      const id = String(window.id);
-      if (needsFit(window)) {
-        out('xdotool', ['windowsize', '--sync', id, String(WINDOW.width), String(WINDOW.height)]);
-        out('xdotool', ['windowmove', '--sync', id, '0', '0']);
-        await sleep(600); // let the browser relayout at the new size
+      const big = visibleWindows().filter((w) => w.width > 400 && w.height > 300);
+      const misplaced = big.filter((w) => needsFit(w));
+      for (const w of misplaced) {
+        const id = String(w.id);
+        out('xdotool', ['windowsize', id, String(WINDOW.width), String(WINDOW.height)]);
+        out('xdotool', ['windowmove', id, '0', '0']);
       }
-      out('xdotool', ['windowfocus', '--sync', id]);
+      if (misplaced.length > 0) await sleep(800); // let the browser relayout at the new size
+      out('xdotool', ['windowfocus', String(window.id)]);
       await sleep(200);
-      out('import', ['-window', id, `png:${file}`]);
+      grabScreen(file);
     },
   };
 }

@@ -8,8 +8,14 @@
 /** Logical window size of every desktop capture (CSS px at DPR 1 on Linux, points on a Mac). */
 export const WINDOW = { width: 1440, height: 900 } as const;
 
-/** The Xvfb screen the Linux browsers run on: room for the window at DPR 1, nothing else on it. */
-export const XVFB_SCREEN = { width: 1600, height: 1000, depth: 24 } as const;
+/**
+ * The Xvfb screen the Linux browsers run on: exactly the window, at DPR 1. There
+ * is no window manager, so `import -window <id>` cannot be trusted to grab one
+ * client window (CI run 44086919439 got the whole 1600×1000 screen); with the
+ * screen the size of the window, the browser filling it IS the capture, and the
+ * run proves it filled it (`windowFillProblem`) before keeping the frame.
+ */
+export const XVFB_SCREEN = { width: WINDOW.width, height: WINDOW.height, depth: 24 } as const;
 
 /**
  * Plausible bounds of a browser's top chrome, in logical px. A measurement

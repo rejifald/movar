@@ -42,6 +42,10 @@ const APP_GROUP = 'group.fyi.movar.safari';
 /** Host app UI labels, read in English (the host app is launched with `-AppleLanguages (en)`). */
 const HOST_SIDEBAR_HIDE_CONTENT = 'sidebar.hideContent';
 const HOST_CONTENT_TOGGLE = 'Hide content in blocked languages';
+/** Buttons that close a sheet or alert without granting anything. */
+const DISMISS_LABELS = String.raw`^(Not Now|Cancel|Close|OK|Later|Don.t Allow|Done)$`;
+/** Buttons that confirm turning Movar on. */
+const CONFIRM_LABELS = String.raw`^(Turn On|Enable|Allow|Always Allow.*|OK|Continue)$`;
 /** Top of the Safari window, below the menu bar (points). */
 const WINDOW_TOP = 40;
 
@@ -166,6 +170,7 @@ interface Snapshot {
 }
 
 interface ActResult {
+  labels: string[];
   performed: boolean;
   before: number | null;
   after: number | null;
@@ -204,6 +209,54 @@ export class SafariUi {
     return JSON.parse(this.run(['snapshot', SAFARI])) as Snapshot;
   }
 
+  private shots = 0;
+
+  /**
+   * Evidence of what is on screen right now: a full-screen screenshot and the
+   * AX tree of `bundle`, numbered in step order in the debug dir. Never throws.
+   */
+  evidence(name: string, bundle: string = SAFARI): void {
+    this.shots += 1;
+    const stem = `${String(this.shots).padStart(2, '0')}-${name}`;
+    try {
+      mkdirSync(this.debugDir, { recursive: true });
+      out('screencapture', ['-x', path.join(this.debugDir, `${stem}.png`)]);
+    } catch (error) {
+      console.error(`  (no screenshot: ${String(error)})`);
+    }
+    this.dump(bundle, stem);
+  }
+
+  /**
+   * Close any sheet or alert Safari raised on its own (a new-extension notice,
+   * a first-run sheet): a modal blocks every AppleEvent to Safari (CI run
+   * 44086919439: `set bounds` timed out, -1712). `labels` picks the button.
+   */
+  answerDialogs(labels: string = DISMISS_LABELS): void {
+    for (let i = 0; i < 4; i += 1) {
+      const pressed = ['AXSheet', 'AXDialog', 'AXSystemDialog'].some((container) => {
+        try {
+          const r = this.act(SAFARI, [
+            '--action',
+            'press',
+            '--in-role',
+            container,
+            '--role',
+            'AXButton',
+            '--match',
+            labels,
+          ]);
+          log(`▸ Safari ${container}: pressed ${r.labels.join(' / ')}`);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (!pressed) return;
+      sleepSync(1000);
+    }
+  }
+
   /** Save the AX tree of `bundle` next to the run, for a failed step. */
   dump(bundle: string, name: string): void {
     try {
@@ -228,7 +281,7 @@ export class SafariUi {
         sleepSync(1000);
       }
     }
-    this.dump(bundle, name);
+    this.evidence(`failed-${name}`, bundle);
     throw new Error(`${name}: ${last instanceof Error ? last.message : String(last)}`);
   }
 
@@ -251,12 +304,30 @@ export class SafariUi {
     out('open', ['-a', 'Safari', ...override]);
     for (let i = 0; i < 40 && !isRunning('Safari'); i += 1) sleepSync(500);
     sleepSync(3000);
+    this.evidence('safari-launched');
+    this.answerDialogs();
   }
 
   /** One front window at WINDOW size, one tab, nothing else open. */
   fitWindow(): void {
+    try {
+      this.fitWindowOnce();
+    } catch (error) {
+      // Most likely a modal: show it, answer it, try once more.
+      this.evidence('fit-window-failed');
+      this.answerDialogs();
+      log(
+        `▸ window setup retried after: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.fitWindowOnce();
+    }
+    this.evidence('window-ready');
+  }
+
+  private fitWindowOnce(): void {
     const bottom = WINDOW_TOP + WINDOW.height;
     osa([
+      'with timeout of 30 seconds',
       'tell application "Safari"',
       'activate',
       'if (count of windows) = 0 then make new document',
@@ -270,6 +341,7 @@ export class SafariUi {
       `set bounds to {0, ${WINDOW_TOP}, ${WINDOW.width}, ${bottom}}`,
       'end tell',
       'end tell',
+      'end timeout',
     ]);
     sleepSync(800);
   }
@@ -299,6 +371,7 @@ export class SafariUi {
       this.act(SAFARI, ['--action', 'press', '--role', 'AXButton', '--match', `^${pane}$`]),
     );
     sleepSync(1500);
+    this.evidence(`settings-${pane}`);
   }
 
   private closeSettings(): void {
@@ -320,9 +393,25 @@ export class SafariUi {
         '--role',
         'AXCheckBox',
       ]);
-      if (r.after !== (on ? 1 : 0)) throw new Error(`checkbox reads ${String(r.after)}`);
-      return r;
+      // Enabling can raise a confirmation sheet; the box only reads 1 once it is answered.
+      if (on) {
+        sleepSync(800);
+        this.answerDialogs(CONFIRM_LABELS);
+      }
+      const now = this.act(SAFARI, [
+        '--action',
+        'read',
+        '--in-role',
+        'AXRow',
+        '--in-match',
+        'Movar',
+        '--role',
+        'AXCheckBox',
+      ]);
+      if (now.after !== (on ? 1 : 0)) throw new Error(`checkbox reads ${String(now.after)}`);
+      return { ...r, after: now.after };
     });
+    this.evidence(`extension-${on ? 'on' : 'off'}`);
     log(`▸ Safari ▸ Extensions ▸ Movar: ${String(result.before)} → ${String(result.after)}`);
     if (on) {
       // Website access: Websites ▸ Movar ▸ "When visiting other websites" → Allow.
@@ -351,6 +440,7 @@ export class SafariUi {
         this.act(SAFARI, ['--action', 'press', '--role', 'AXMenuItem', '--match', '^Allow$']),
       );
       log('▸ Safari ▸ Websites ▸ Movar ▸ other websites: Allow');
+      this.evidence('websites-allow');
     }
     this.closeSettings();
   }
@@ -393,6 +483,7 @@ export class SafariUi {
         return res;
       });
       log(`▸ host app ▸ ${HOST_CONTENT_TOGGLE}: ${String(r.before)} → ${String(r.after)}`);
+      this.evidence('host-content-hiding', HOST_APP_BUNDLE);
     } catch (error) {
       log(
         `▸ host app toggle not reachable (${String(error)}); writing the App Group store instead`,

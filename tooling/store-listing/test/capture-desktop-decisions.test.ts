@@ -16,6 +16,10 @@ import {
   hasDisplay,
   isNavigationAbort,
   needsFit,
+  windowFillProblem,
+  failureReport,
+  failureStem,
+  launchStep,
   pickBrowserWindow,
   pollFor,
   relevantFailures,
@@ -72,7 +76,7 @@ describe('x11 decisions', () => {
       ':100',
       '-screen',
       '0',
-      '1600x1000x24',
+      '1440x900x24',
       '-nolisten',
       'tcp',
       '-dpi',
@@ -83,6 +87,24 @@ describe('x11 decisions', () => {
     expect(pickBrowserWindow([])).toBeNull();
     expect(pickBrowserWindow([win(1, 400, 900), win(2, 1000, 300)])).toBeNull();
     expect(pickBrowserWindow([win(1, 500, 400), win(2, 1440, 900), win(3, 10, 10)])?.id).toBe(2);
+  });
+  it('names launches and failure files after the step', () => {
+    expect(launchStep('chrome', true)).toBe('launch chrome with Movar');
+    expect(launchStep('firefox', false)).toBe('launch firefox without Movar');
+    expect(failureStem('shot site-menu-before')).toBe('failure-shot_site-menu-before');
+    expect(failureStem('safari: Movar on')).toBe('failure-safari_Movar_on');
+  });
+  it('names the failed step and the error in the failure report', () => {
+    expect(failureReport('shot search', new Error('boom'))).toMatch(
+      /^step: shot search\n\nError: boom/,
+    );
+    expect(failureReport('start', 'plain')).toBe('step: start\n\nplain\n');
+  });
+  it('keeps a screen grab only when the browser fills the screen at (0,0)', () => {
+    expect(windowFillProblem([1440, 900, 0, 0])).toBeNull();
+    expect(windowFillProblem([1600, 1000, 0, 0])).toMatch(/1600x1000 at \(0,0\)/);
+    expect(windowFillProblem([1440, 900, 0, 24])).not.toBeNull();
+    expect(windowFillProblem([])).not.toBeNull();
   });
   it('fits a window only when it is off position or size', () => {
     const at = { x: 0, y: 0, ...WINDOW };

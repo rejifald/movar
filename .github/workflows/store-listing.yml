@@ -188,13 +188,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # Xvfb (screen), xdotool + ImageMagick (find, size, grab the window),
+      # Xvfb (a screen exactly the window's size), xdotool + ImageMagick (pin the
+      # window to it, grab the screen), x11-utils (`xwininfo` for a failed run's debug dir),
       # certutil (the mock CA into the throwaway profile's NSS database).
       - name: Display + capture tools
         run: |
           set -euo pipefail
           sudo apt-get update -q
-          sudo apt-get install -yq --no-install-recommends xvfb xdotool imagemagick libnss3-tools fonts-noto-core
+          sudo apt-get install -yq --no-install-recommends xvfb xdotool x11-utils imagemagick libnss3-tools fonts-noto-core
           # Ubuntu 24.04 blocks the unprivileged user namespaces Chrome's sandbox
           # needs; without this it would have to run --no-sandbox (and say so in an infobar).
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -432,7 +433,9 @@ jobs:
         with:
           name: store-listing-framed-desktop
           path: framed
-          if-no-files-found: error
+          # A run where every desktop capture failed frames nothing; the capture
+          # jobs already report that, so this step must not mask it.
+          if-no-files-found: warn
 
   # Manual runs only: copies every framed set into the store folders
   # (src/publish/place.ts) and opens a PR for review, contact sheets attached as

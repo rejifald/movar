@@ -10,8 +10,9 @@
 //   movar-ax act <bundleId> --action press|select|read|ensure-on|ensure-off
 //       [--role R] [--match REGEX] [--identifier ID]
 //       [--in-role R --in-match REGEX] [--last]
-//       find ONE element (optionally inside the first container whose subtree
-//       text matches) and act on it; `read` only reports its AXValue
+//       find ONE element (optionally inside the first container, by role or
+//       subrole, whose subtree text matches) and act on it; `read` only reports
+//       its AXValue
 //   movar-ax dump <bundleId>
 //       the whole tree of the front window as indented text (debug artifact)
 //
@@ -154,7 +155,9 @@ func find(_ root: AXUIElement, _ options: Options) -> AXUIElement? {
         let inRe = regex(options.inMatch)
         var container: AXUIElement?
         walk(root) { element, _ in
-            if role(element) == inRole, inRe.map({ matches($0, subtreeText(element)) }) ?? true {
+            // A role or a subrole (`AXDialog`, `AXSystemDialog`) names the container.
+            let kind = role(element) == inRole || string(element, kAXSubroleAttribute) == inRole
+            if kind, inRe.map({ matches($0, subtreeText(element)) }) ?? true {
                 container = element
                 return false
             }

@@ -8,6 +8,7 @@
 import { writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { assertCaptureSize, chromeTopFromViewport, sidecar } from './geometry';
+import { OUTER_GEOMETRY_JS, windowFillProblem } from './decisions';
 import { finalChecks } from './plan';
 import type { DesktopBrowser, DesktopPhase, DomCheck } from './plan';
 
@@ -138,6 +139,9 @@ export async function capturePhase(opts: {
   const meta = await sharp(file).metadata();
   const size = { width: meta.width, height: meta.height };
   assertCaptureSize(size);
+  // The capture is the screen; it is the window only if the browser filled it.
+  const fill = windowFillProblem(await driver.evaluate<number[]>(OUTER_GEOMETRY_JS));
+  if (fill !== null) throw new Error(`${what}: ${fill}`);
   const viewport = await driver.evaluate<number>('window.innerHeight');
   return { ...size, chromeTop: chromeTopFromViewport(size.height, viewport) };
 }

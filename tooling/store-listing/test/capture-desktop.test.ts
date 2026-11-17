@@ -112,8 +112,9 @@ describe('Safari accessibility checks', () => {
 
 describe('desktop geometry', () => {
   it('fits the window on the Xvfb screen', () => {
-    expect(XVFB_SCREEN.width).toBeGreaterThanOrEqual(WINDOW.width);
-    expect(XVFB_SCREEN.height).toBeGreaterThanOrEqual(WINDOW.height);
+    // Exactly the window: the screen grab IS the window once the browser fills it.
+    expect(XVFB_SCREEN.width).toBe(WINDOW.width);
+    expect(XVFB_SCREEN.height).toBe(WINDOW.height);
   });
 
   it('measures the chrome as capture height minus viewport', () => {

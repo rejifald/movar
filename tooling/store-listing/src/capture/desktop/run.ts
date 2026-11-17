@@ -34,11 +34,13 @@ import {
   extensionBuildProblem,
   extensionPath,
   gateFailureMessage,
+  launchStep,
   relevantFailures,
   runScale,
   shotSummaries,
   sidecarsOf,
 } from './decisions';
+import { writeFailureEvidence } from './debug';
 import { capturePhase, writeSidecar } from './dom-shots';
 import type { DomDriver, PhaseResult, WindowCapturer } from './dom-shots';
 import { defaultFirefoxBinary, launchFirefox } from './firefox';
@@ -86,6 +88,13 @@ const debugDir = path.join(PACKAGE_ROOT, '.cache/desktop-debug', runId);
 
 const { cleanups, run } = createLifecycle();
 
+/** The step in progress, named in a failure's evidence. */
+let currentStep = 'start';
+const stepTo = (step: string): void => {
+  currentStep = step;
+};
+let safariUi: SafariUi | null = null;
+
 /** Where the extension build is, checked to be the e2e variant (host access held at install). */
 function extensionDir(): string {
   const dir = extensionPath(browser, values.extension, REPO_ROOT);
@@ -131,30 +140,39 @@ async function launchDom(proxy: MockProxy, extension: string | null): Promise<Do
       });
 }
 
+async function shootAll(
+  driver: DomDriver,
+  pick: (shot: (typeof DESKTOP_SHOTS)[number]) => DesktopPhase,
+  suffix: string,
+): Promise<Taken[]> {
+  const capturer: WindowCapturer | null = viewportOnly ? null : x11Capturer();
+  const taken: Taken[] = [];
+  for (const shot of DESKTOP_SHOTS) {
+    const id = `${shot.id}${suffix}`;
+    log(`▸ shot ${id}`);
+    stepTo(`shot ${id}`);
+    const file = path.join(runDir, `${id}.png`);
+    const phase = pick(shot);
+    const result = await capturePhase({ driver, capturer, phase, file, what: `shot "${id}"` });
+    taken.push({ id, file, result, browserVersion: driver.version });
+  }
+  return taken;
+}
+
 async function domPass(
   proxy: MockProxy,
   extension: string | null,
   pick: (shot: (typeof DESKTOP_SHOTS)[number]) => DesktopPhase,
   suffix: string,
 ): Promise<Taken[]> {
+  stepTo(launchStep(browser, extension !== null));
   const driver = await launchDom(proxy, extension);
   try {
-    const capturer: WindowCapturer | null = viewportOnly ? null : x11Capturer();
-    const taken: Taken[] = [];
-    for (const shot of DESKTOP_SHOTS) {
-      const id = `${shot.id}${suffix}`;
-      log(`▸ shot ${id}`);
-      const file = path.join(runDir, `${id}.png`);
-      const result = await capturePhase({
-        driver,
-        capturer,
-        phase: pick(shot),
-        file,
-        what: `shot "${id}"`,
-      });
-      taken.push({ id, file, result, browserVersion: driver.version });
-    }
-    return taken;
+    return await shootAll(driver, pick, suffix);
+  } catch (error) {
+    // While the browser is still up: what was on screen when it failed.
+    writeFailureEvidence(debugDir, currentStep, error);
+    throw error;
   } finally {
     await driver.close();
   }
@@ -192,6 +210,7 @@ async function captureSafari(proxy: MockProxy): Promise<Taken[]> {
   register(setAppleLanguages(desktopLocale));
   const app = installApp(values['safari-app']);
   const ui = new SafariUi(buildAxHelper(), debugDir);
+  safariUi = ui;
   cleanups.push(() => {
     ui.quitSafari();
   });
@@ -207,6 +226,7 @@ async function captureSafari(proxy: MockProxy): Promise<Taken[]> {
     return DESKTOP_SHOTS.map((shot) => {
       const id = `${shot.id}${suffix}`;
       log(`▸ shot ${id}`);
+      stepTo(`shot ${id}`);
       const file = path.join(runDir, `${id}.png`);
       return {
         id,
@@ -218,10 +238,12 @@ async function captureSafari(proxy: MockProxy): Promise<Taken[]> {
   };
 
   // Before: Movar installed but switched off (idempotent: a second locale's run finds it on).
+  stepTo('safari: Movar off');
   ui.launchSafari(english);
   ui.setExtensionEnabled(false);
   const before = pass((s) => s.before, '-before');
 
+  stepTo('safari: Movar on');
   ui.launchSafari(english);
   ui.setExtensionEnabled(true);
   // Let the extension finish its first run in Safari BEFORE the host app changes a
@@ -231,6 +253,7 @@ async function captureSafari(proxy: MockProxy): Promise<Taken[]> {
   ui.setUrl(DESKTOP_SHOTS[0]?.after.url ?? 'about:blank');
   await new Promise((resolve) => setTimeout(resolve, 20_000));
   ui.quitSafari();
+  stepTo('host app: content hiding');
   ui.enableContentHiding(app);
   const after = pass((s) => s.after, '');
   return [...before, ...after];
@@ -293,4 +316,12 @@ async function main(): Promise<void> {
   finish(taken, proxy, started);
 }
 
-run(main);
+run(async () => {
+  try {
+    await main();
+  } catch (error) {
+    writeFailureEvidence(debugDir, currentStep, error);
+    safariUi?.evidence('failure');
+    throw error;
+  }
+});

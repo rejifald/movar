@@ -69,6 +69,37 @@ export function pickBrowserWindow<T extends Rect>(windows: readonly T[]): T | nu
   return big.length > 0 ? largestWindow(big) : null;
 }
 
+/** The browser window as its page sees it: `[outerWidth, outerHeight, screenX, screenY]`. */
+export const OUTER_GEOMETRY_JS =
+  '[window.outerWidth, window.outerHeight, window.screenX, window.screenY]';
+
+/**
+ * Why a root-window grab would not be the browser window alone: the browser
+ * must sit at (0,0) and fill the WINDOW-sized screen exactly. Null when it does.
+ */
+export function windowFillProblem(outer: readonly number[]): string | null {
+  const [width, height, x, y] = outer;
+  return width === WINDOW.width && height === WINDOW.height && x === 0 && y === 0
+    ? null
+    : `browser window is ${String(width)}x${String(height)} at (${String(x)},${String(y)}), not ${WINDOW.width}x${WINDOW.height} at (0,0): the screen grab would not be the window`;
+}
+
+/** The step name of a browser launch, as a failure report names it. */
+export function launchStep(browser: DesktopBrowser, withMovar: boolean): string {
+  return `launch ${browser} ${withMovar ? 'with' : 'without'} Movar`;
+}
+
+/** File stem of a failure's evidence: `failure-<step>`, safe as a file name. */
+export function failureStem(step: string): string {
+  return `failure-${step.replaceAll(/[^\w.-]+/g, '_')}`;
+}
+
+/** The text of a failed run's `failure-<step>.txt`. */
+export function failureReport(step: string, error: unknown): string {
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  return `step: ${step}\n\n${detail}\n`;
+}
+
 /** Whether the window is not already at (0,0) and WINDOW size. */
 export function needsFit(window: Rect): boolean {
   return (

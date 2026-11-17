@@ -11,6 +11,7 @@
  * state is ever written.
  */
 import { SCENES } from '../../mock/routes';
+import { COPY } from '../../mock/sites/tochka24';
 import { CURTAIN, SHOTS } from '../shots';
 import type { Locale, ShotExpectation } from '../shots';
 
@@ -91,8 +92,13 @@ const MENU_BUTTON = '#lang-menu-button';
 const RU_ENTRY = '#lang-menu a[hreflang="ru"]';
 const UK_ENTRY = '#lang-menu a[hreflang="uk"]';
 const GATE = '#language-gate';
-/** The menu button's accessible name on every tochka24 page («Мова: …», «Language: …»). */
-const MENU_AX = '.*(Мова|Language).*';
+/**
+ * The menu button's accessible name on every tochka24 page, taken from the
+ * page's own labels («Язык: …» on the before pass, «Мова: …», «Language: …»).
+ */
+export const MENU_AX = `.*(${Object.values(COPY)
+  .map((copy) => copy.menuLabel.split(':')[0])
+  .join('|')}).*`;
 
 const openMenu: DesktopClick = {
   label: 'open the language menu',

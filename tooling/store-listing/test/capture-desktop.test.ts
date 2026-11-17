@@ -14,7 +14,8 @@ import {
   XVFB_SCREEN,
 } from '../src/capture/desktop/geometry';
 import { DESKTOP_LOCALES, parseLocale } from '../src/capture/desktop/locale';
-import { DESKTOP_SHOTS, expectedFiles, finalChecks } from '../src/capture/desktop/plan';
+import { DESKTOP_SHOTS, expectedFiles, finalChecks, MENU_AX } from '../src/capture/desktop/plan';
+import { COPY } from '../src/mock/sites/tochka24';
 import type { DesktopPhase } from '../src/capture/desktop/plan';
 import {
   chromePreferences,
@@ -253,5 +254,13 @@ describe('profiles', () => {
     expect(hasRequiredAllUrls({ optional_host_permissions: ['<all_urls>'] })).toBe(false);
     expect(geckoIdOf(manifest)).toBe('movar@movar.fyi');
     expect(() => geckoIdOf({})).toThrow();
+  });
+});
+
+describe('MENU_AX', () => {
+  it('matches the language-menu button on every tochka24 page, the Russian before pass included', () => {
+    for (const copy of Object.values(COPY)) {
+      expect(new RegExp(`^${MENU_AX}$`).test(copy.menuLabel)).toBe(true);
+    }
   });
 });

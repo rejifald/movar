@@ -19,7 +19,12 @@ extension and Movar.app from the checked-out commit and runs every capture unatt
 (iPhone/iPad), `capture-desktop` (Firefox + Chrome × uk/en, artifacts
 `store-listing-desktop-<browser>-<locale>`), `capture-mac` (Safari, uk + en, artifact
 `store-listing-desktop-safari`). No manual step anywhere; a run that cannot assert a shot's state
-fails instead of writing it.
+fails instead of writing it. `frame` and `frame-desktop` frame what was captured, then `propose`
+(dispatch only) places every framed set with `src/publish/place.ts` and opens a PR:
+`app-store/{iphone-6.9,ipad-13,mac}/<locale>` (the Mac host-app shots 05–07 stay),
+`firefox/<locale>` (AMO), `chrome/<locale>` (the Chrome bundle), and the movar.fyi drum WebPs. Review
+the contact sheets in the run's artifacts before merging; the PR is opened with `GITHUB_TOKEN`,
+so close and reopen it to run CI.
 
 ```sh
 pnpm --filter @movar/store-listing check:mock-scenes         # real extension (Chromium) vs the mock pages

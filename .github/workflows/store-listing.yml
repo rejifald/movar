@@ -395,15 +395,95 @@ jobs:
           if-no-files-found: warn
           include-hidden-files: true
 
-  # TODO(owner): propose — commit the framed set to a branch and open a PR.
-  # Deliberately NOT wired yet (this pipeline must not write to the repo until the
-  # output has been reviewed by hand once). Sketch:
-  #
-  # propose:
-  #   needs: frame
-  #   if: github.event_name == 'workflow_dispatch'
-  #   runs-on: ubuntu-latest
-  #   permissions: { contents: write, pull-requests: write }
-  #   steps:
-  #     - download store-listing-framed, copy into apps/extension/store-assets/…,
-  #       open a PR with the manifest.json run id + sha in the body.
+  # Frames every desktop capture that succeeded: Firefox + Chrome at 1280x800
+  # (AMO, Chrome Web Store), Safari at 2560x1600 (Mac App Store). A browser or
+  # locale whose capture failed is skipped here and reported by its own job.
+  frame-desktop:
+    needs: [capture-desktop, capture-mac]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: store-listing-desktop-*
+          merge-multiple: true
+          path: artifact
+      - name: Frame
+        run: |
+          set -euo pipefail
+          for browser in firefox chrome safari; do
+            canvas=desktop; [ "$browser" = safari ] && canvas=mac
+            for locale in uk en; do
+              dir="$GITHUB_WORKSPACE/artifact/captures-desktop/$browser/$locale"
+              if [ ! -d "$dir" ]; then echo "::warning::no $browser/$locale capture to frame"; continue; fi
+              pnpm --filter @movar/store-listing exec tsx src/render/cli.ts \
+                --captures "$dir" --out "$GITHUB_WORKSPACE/framed/$browser/$locale" \
+                --locale "$locale" --canvas "$canvas"
+            done
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: store-listing-framed-desktop
+          path: framed
+          if-no-files-found: error
+
+  # Manual runs only: copies every framed set into the store folders
+  # (src/publish/place.ts) and opens a PR for review, contact sheets attached as
+  # an artifact. Needs "Allow GitHub Actions to create and approve pull requests"
+  # (Settings > Actions > General; IaC tracked in #632). A PR opened with
+  # GITHUB_TOKEN does not trigger CI: close and reopen it to run the checks.
+  propose:
+    needs: [frame, frame-desktop]
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: listing/refresh-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: store-listing-framed*
+          merge-multiple: true
+          path: framed
+      - name: Place into the store folders
+        run: pnpm --filter @movar/store-listing exec tsx src/publish/place.ts --framed "$GITHUB_WORKSPACE/framed" --repo "$GITHUB_WORKSPACE" | tee "$RUNNER_TEMP/placed.txt"
+      - name: Open the PR
+        run: |
+          set -euo pipefail
+          if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+            echo "Nothing changed: the captures match what is committed."; exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add apps/extension/store-assets/screenshots apps/marketing/public/listing
+          git commit -m "chore(listing): refresh store screenshots from run ${{ github.run_id }}"
+          git push origin "$BRANCH"
+          {
+            echo "Fresh store screenshots captured from \`${GITHUB_SHA::8}\` by [run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+            echo
+            echo '```'; cat "$RUNNER_TEMP/placed.txt"; echo '```'
+            echo
+            echo 'Review the contact sheets in the run artifacts (`store-listing-framed`, `store-listing-framed-desktop`) before merging.'
+            echo 'This PR was opened with GITHUB_TOKEN, so CI does not start on its own: close and reopen it to run the checks.'
+            echo 'If the drum WebPs changed, regenerate the marketing visual baselines (`pnpm e2e:baselines:marketing`).'
+          } > "$RUNNER_TEMP/body.md"
+          gh pr create --base "${GITHUB_REF_NAME}" --head "$BRANCH" \
+            --title "chore(listing): refresh store screenshots" --body-file "$RUNNER_TEMP/body.md"

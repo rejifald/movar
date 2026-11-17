@@ -21,7 +21,7 @@ import {
   x11SocketPath,
   xvfbArgs,
 } from './decisions';
-import { parseXdotoolGeometry, WINDOW } from './geometry';
+import { LINUX_SCALE, parseXdotoolGeometry, XVFB_SCREEN } from './geometry';
 import type { Rect } from './geometry';
 import { out } from '../sh';
 
@@ -75,12 +75,13 @@ export function windowTree(): string {
 }
 
 /**
- * Capturer for the browser: every big visible window pinned to (0,0) at WINDOW
- * size, the largest focused (so the toolbar is drawn active, not greyed out),
+ * Capturer for the browser: every big visible window pinned to (0,0) filling
+ * the screen (WINDOW × LINUX_SCALE device px), the largest focused (so the toolbar is drawn active, not greyed out),
  * then the screen grabbed.
  */
 export function x11Capturer(): WindowCapturer {
   return {
+    scale: LINUX_SCALE,
     async capture(file: string): Promise<void> {
       const window = await pollFor(() => pickBrowserWindow(visibleWindows()), 50, 200, sleep);
       if (window === null) throw new Error('no browser window on the X display');
@@ -88,7 +89,7 @@ export function x11Capturer(): WindowCapturer {
       const misplaced = big.filter((w) => needsFit(w));
       for (const w of misplaced) {
         const id = String(w.id);
-        out('xdotool', ['windowsize', id, String(WINDOW.width), String(WINDOW.height)]);
+        out('xdotool', ['windowsize', id, String(XVFB_SCREEN.width), String(XVFB_SCREEN.height)]);
         out('xdotool', ['windowmove', id, '0', '0']);
       }
       if (misplaced.length > 0) await sleep(800); // let the browser relayout at the new size

@@ -7,7 +7,7 @@
 import path from 'node:path';
 import type { DesktopLocale } from './locale';
 import type { DesktopBrowser } from './plan';
-import { largestWindow, WINDOW, XVFB_SCREEN } from './geometry';
+import { largestWindow, LINUX_SCALE, nearestScale, WINDOW, XVFB_SCREEN } from './geometry';
 import type { Rect } from './geometry';
 
 // ── polling ─────────────────────────────────────────────────────────────────
@@ -100,11 +100,11 @@ export function failureReport(step: string, error: unknown): string {
   return `step: ${step}\n\n${detail}\n`;
 }
 
-/** Whether the window is not already at (0,0) and WINDOW size. */
+/** Whether the X window (device px) is not already at (0,0) filling the screen. */
 export function needsFit(window: Rect): boolean {
   return (
-    window.width !== WINDOW.width ||
-    window.height !== WINDOW.height ||
+    window.width !== XVFB_SCREEN.width ||
+    window.height !== XVFB_SCREEN.height ||
     window.x !== 0 ||
     window.y !== 0
   );
@@ -158,7 +158,7 @@ export interface TakenShot {
 /** Capture px per window px from the first shot (1 when there is none). */
 export function runScale(taken: readonly TakenShot[]): number {
   const first = taken[0];
-  return first === undefined ? 1 : Math.round(first.result.width / WINDOW.width) || 1;
+  return first === undefined ? 1 : (nearestScale(first.result.width / WINDOW.width) ?? 1);
 }
 
 /** The size every capture must have: the first one's own for a viewport-only run, else the scaled window. */
@@ -228,7 +228,7 @@ export function chromeArgs(
     '--disable-features=Translate,TranslateUI,MediaRouter,OptimizationHints,PrivacySandboxSettings4',
     '--disable-session-crashed-bubble',
     '--hide-crash-restore-bubble',
-    '--force-device-scale-factor=1',
+    `--force-device-scale-factor=${LINUX_SCALE}`,
     ...(extension === null
       ? []
       : [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`]),

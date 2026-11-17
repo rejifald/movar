@@ -221,8 +221,7 @@ async function captureSafari(proxy: MockProxy): Promise<Taken[]> {
     pick: (s: (typeof DESKTOP_SHOTS)[number]) => DesktopPhase,
     suffix: string,
   ): Taken[] => {
-    ui.launchSafari();
-    ui.fitWindow();
+    // Each phase launches Safari fresh at its own URL (safari.ts openAt).
     return DESKTOP_SHOTS.map((shot) => {
       const id = `${shot.id}${suffix}`;
       log(`▸ shot ${id}`);
@@ -248,9 +247,7 @@ async function captureSafari(proxy: MockProxy): Promise<Taken[]> {
   ui.setExtensionEnabled(true);
   // Let the extension finish its first run in Safari BEFORE the host app changes a
   // setting: its install initialiser can otherwise write the defaults over it (AGENTS.md).
-  ui.launchSafari();
-  ui.fitWindow();
-  ui.setUrl(DESKTOP_SHOTS[0]?.after.url ?? 'about:blank');
+  ui.openAt(DESKTOP_SHOTS[0]?.after.url ?? 'about:blank');
   await new Promise((resolve) => setTimeout(resolve, 20_000));
   ui.quitSafari();
   stepTo('host app: content hiding');

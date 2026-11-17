@@ -5,8 +5,15 @@
  * browser window is picked out of a window list.
  */
 
-/** Logical window size of every desktop capture (CSS px at DPR 1 on Linux, points on a Mac). */
-export const WINDOW = { width: 1440, height: 900 } as const;
+/**
+ * Logical window size of every desktop capture: CSS px on Linux, points on a
+ * Mac. 1200 CSS px keeps the mock sites' ≥1100px desktop layout while the page
+ * text stays large enough in the framed listing (coordinator, 2026-11-17).
+ */
+export const WINDOW = { width: 1200, height: 750 } as const;
+
+/** Device px per CSS px on Linux (Chrome `--force-device-scale-factor`, Firefox `devPixelsPerPx`). */
+export const LINUX_SCALE = 1.5;
 
 /**
  * The Xvfb screen the Linux browsers run on: exactly the window, at DPR 1. There
@@ -15,7 +22,11 @@ export const WINDOW = { width: 1440, height: 900 } as const;
  * screen the size of the window, the browser filling it IS the capture, and the
  * run proves it filled it (`windowFillProblem`) before keeping the frame.
  */
-export const XVFB_SCREEN = { width: WINDOW.width, height: WINDOW.height, depth: 24 } as const;
+export const XVFB_SCREEN = {
+  width: WINDOW.width * LINUX_SCALE,
+  height: WINDOW.height * LINUX_SCALE,
+  depth: 24,
+} as const;
 
 /**
  * Plausible bounds of a browser's top chrome, in logical px. A measurement
@@ -63,16 +74,22 @@ function assertChromeTop(px: number, scale: number): number {
   return px;
 }
 
-/** How far a capture's px-per-pt may sit from a whole number (rounding in the window server). */
+/** How far a capture's px-per-pt may sit from a half step (rounding in the window server). */
 const SCALE_TOLERANCE = 0.01;
 
-/** Capture px per logical px, from a capture and the window it shows; must be an exact 1× or 2×. */
+/** A capture scale rounded to the half steps displays use (1, 1.5, 2…), or null below 1. */
+export function nearestScale(ratio: number): number | null {
+  const rounded = Math.round(ratio * 2) / 2;
+  return rounded >= 1 ? rounded : null;
+}
+
+/** Capture px per logical px, from a capture and the window it shows; must be an exact 1×, 1.5× or 2×. */
 export function captureScale(captureWidth: number, windowWidth: number): number {
   const scale = captureWidth / windowWidth;
-  const rounded = Math.round(scale);
-  if (rounded < 1 || Math.abs(scale - rounded) > SCALE_TOLERANCE) {
+  const rounded = nearestScale(scale);
+  if (rounded === null || Math.abs(scale - rounded) > SCALE_TOLERANCE) {
     throw new Error(
-      `capture ${captureWidth}px wide for a ${windowWidth}pt window: not a 1× or 2× capture`,
+      `capture ${captureWidth}px wide for a ${windowWidth}pt window: not a 1×, 1.5× or 2× capture`,
     );
   }
   return rounded;

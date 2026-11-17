@@ -32,7 +32,7 @@ import {
   xvfbArgs,
 } from '../src/capture/desktop/decisions';
 import type { TakenShot } from '../src/capture/desktop/decisions';
-import { WINDOW } from '../src/capture/desktop/geometry';
+import { XVFB_SCREEN, WINDOW } from '../src/capture/desktop/geometry';
 import { DESKTOP_LOCALES } from '../src/capture/desktop/locale';
 
 const win = (id: number, width: number, height: number) => ({ id, x: 0, y: 0, width, height });
@@ -76,7 +76,7 @@ describe('x11 decisions', () => {
       ':100',
       '-screen',
       '0',
-      '1440x900x24',
+      '1800x1125x24',
       '-nolisten',
       'tcp',
       '-dpi',
@@ -101,13 +101,15 @@ describe('x11 decisions', () => {
     expect(failureReport('start', 'plain')).toBe('step: start\n\nplain\n');
   });
   it('keeps a screen grab only when the browser fills the screen at (0,0)', () => {
-    expect(windowFillProblem([1440, 900, 0, 0])).toBeNull();
-    expect(windowFillProblem([1600, 1000, 0, 0])).toMatch(/1600x1000 at \(0,0\)/);
-    expect(windowFillProblem([1440, 900, 0, 24])).not.toBeNull();
+    // CSS px: the page sees the 1800x1125 device-px window as 1200x750 at scale 1.5.
+    expect(windowFillProblem([1200, 750, 0, 0])).toBeNull();
+    expect(windowFillProblem([1800, 1125, 0, 0])).toMatch(/1800x1125 at \(0,0\)/);
+    expect(windowFillProblem([1200, 750, 0, 24])).not.toBeNull();
     expect(windowFillProblem([])).not.toBeNull();
   });
   it('fits a window only when it is off position or size', () => {
-    const at = { x: 0, y: 0, ...WINDOW };
+    // X windows are in device px: the full Xvfb screen.
+    const at = { x: 0, y: 0, width: XVFB_SCREEN.width, height: XVFB_SCREEN.height };
     expect(needsFit(at)).toBe(false);
     expect(needsFit({ ...at, x: 1 })).toBe(true);
     expect(needsFit({ ...at, y: 1 })).toBe(true);
@@ -137,6 +139,7 @@ describe('run output', () => {
   it('derives the scale from the first shot, defaulting to 1', () => {
     expect(runScale([])).toBe(1);
     expect(runScale([shot('a', WINDOW.width * 2, 100)])).toBe(2);
+    expect(runScale([shot('a', WINDOW.width * 1.5, 100)])).toBe(1.5);
     expect(runScale([shot('a', 10, 100)])).toBe(1);
   });
   it('expects the first shot size for viewport-only, else the scaled window', () => {

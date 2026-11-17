@@ -6,6 +6,7 @@
  * the machine; the runner writes these into a throwaway profile directory.
  */
 import { createHash } from 'node:crypto';
+import { LINUX_SCALE } from './geometry';
 import type { DesktopLocale } from './locale';
 
 // ── Chrome ──────────────────────────────────────────────────────────────────
@@ -101,7 +102,11 @@ export function firefoxPrefs(input: FirefoxPrefsInput): Record<string, PrefValue
     'sidebar.revamp': false,
     'sidebar.verticalTabs': false,
     'app.update.auto': false,
+    // Never update the Firefox it runs (a local install may have one staged).
+    'app.update.disabledForTesting': true,
     'browser.download.panel.shown': true,
+    // The window at LINUX_SCALE device px per CSS px, chrome and page alike.
+    'layout.css.devPixelsPerPx': String(LINUX_SCALE),
     // userChrome.css (below) is read only with this on.
     'toolkit.legacyUserProfileCustomizations.stylesheets': true,
     // MV3 host permissions granted at install, as a store install grants them.
@@ -125,9 +130,27 @@ export function userJs(prefs: Record<string, PrefValue>): string {
  * Firefox paints an automated session's address bar with stripes and a robot
  * icon. A user's Firefox never shows them; nothing else of the UI is touched.
  */
-export const FIREFOX_USER_CHROME_CSS = `#urlbar[remotecontrol] #urlbar-background { background-image: none !important; }
-#remote-control-box, #remote-control-icon { display: none !important; }
+export const FIREFOX_USER_CHROME_CSS = `:root[remotecontrol] #urlbar > .urlbar-background { background-image: none !important; }
+:root[remotecontrol] #remote-control-box { visibility: collapse !important; width: 0 !important; }
+#remote-control-toolbar-button { display: none !important; }
 `;
+
+/**
+ * Chrome-realm check that no automation marking survives in the toolbar: any
+ * element painted with the stripes' repeating gradient, or the robot box or
+ * button laid out. Yields the offenders; empty means a user's Firefox look.
+ */
+export const FIREFOX_AUTOMATION_MARKS_JS = `(() => {
+  const hits = [];
+  for (const el of document.querySelectorAll('#navigator-toolbox, #navigator-toolbox *')) {
+    if (getComputedStyle(el).backgroundImage.includes('repeating-linear-gradient')) hits.push('stripes on ' + (el.id || el.className || el.localName));
+  }
+  for (const id of ['remote-control-box', 'remote-control-toolbar-button']) {
+    const el = document.getElementById(id);
+    if (el !== null && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility === 'visible') hits.push(id + ' shown');
+  }
+  return hits;
+})()`;
 
 /**
  * The built manifest with Movar's button pinned to the toolbar

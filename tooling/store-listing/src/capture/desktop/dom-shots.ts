@@ -29,6 +29,8 @@ export interface DomDriver {
 
 /** Captures the browser's whole window (toolbar included) to a PNG. */
 export interface WindowCapturer {
+  /** Capture px per CSS px. */
+  readonly scale: number;
   capture(file: string): Promise<void>;
 }
 
@@ -138,12 +140,12 @@ export async function capturePhase(opts: {
   await capturer.capture(file);
   const meta = await sharp(file).metadata();
   const size = { width: meta.width, height: meta.height };
-  assertCaptureSize(size);
+  assertCaptureSize(size, capturer.scale);
   // The capture is the screen; it is the window only if the browser filled it.
   const fill = windowFillProblem(await driver.evaluate<number[]>(OUTER_GEOMETRY_JS));
   if (fill !== null) throw new Error(`${what}: ${fill}`);
   const viewport = await driver.evaluate<number>('window.innerHeight');
-  return { ...size, chromeTop: chromeTopFromViewport(size.height, viewport) };
+  return { ...size, chromeTop: chromeTopFromViewport(size.height, viewport, capturer.scale) };
 }
 
 export function writeSidecar(file: string, chromeTop: number): void {

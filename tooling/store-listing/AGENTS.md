@@ -6,12 +6,12 @@ renderer. Private build tooling, never shipped in a product.
 
 ## The three stages
 
-| Stage             | Code                   | Runs on                                                 | Output                                                    |
-| ----------------- | ---------------------- | ------------------------------------------------------- | --------------------------------------------------------- |
-| Mock sites        | `src/mock/`            | anywhere                                                | an HTTPS MITM proxy serving fictional pages               |
-| Capture           | `src/capture/`         | macOS + Xcode 26 + Maestro                              | raw PNGs (iPhone 1320×2868, iPad 2064×2752)               |
-| Capture (desktop) | `src/capture/desktop/` | Linux (Firefox, Chrome for Testing) / macOS CI (Safari) | real browser windows 1440×900 + `<id>.json` `{chromeTop}` |
-| Frame             | `src/render/`          | anywhere (CI: Linux)                                    | framed listing PNGs, contact sheet, measurements          |
+| Stage             | Code                   | Runs on                                                 | Output                                                                                         |
+| ----------------- | ---------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Mock sites        | `src/mock/`            | anywhere                                                | an HTTPS MITM proxy serving fictional pages                                                    |
+| Capture           | `src/capture/`         | macOS + Xcode 26 + Maestro                              | raw PNGs (iPhone 1320×2868, iPad 2064×2752)                                                    |
+| Capture (desktop) | `src/capture/desktop/` | Linux (Firefox, Chrome for Testing) / macOS CI (Safari) | real browser windows 1200×750 CSS px (Linux at 1.5×: 1800×1125 px) + `<id>.json` `{chromeTop}` |
+| Frame             | `src/render/`          | anywhere (CI: Linux)                                    | framed listing PNGs, contact sheet, measurements                                               |
 
 **Recapture everything from the current source: one `workflow_dispatch` of
 `.github/workflows/store-listing.yml`** (Actions ▸ Store listing ▸ Run workflow). It builds the
@@ -139,6 +139,15 @@ machine you own, then pass `--local-proxy-already-set`.
 - **Desktop YouTube has no «Приховати всі»:** the curtain sheds its secondary action on a card
   under its `lg`×`xl` container band, and a desktop grid card is that small. The desktop `youtube`
   after therefore shows the Russian cards curtained (no tap), unlike the phone flow.
+- **Safari gets no AppleEvents.** The runner's process has no Automation consent for Safari, and
+  the consent prompt blocks every `tell application "Safari"` (CI run 44103936330, -1712). Safari
+  is launched with `open -a Safari <url>` per phase, placed and read through the AX helper
+  (`fit`, `snapshot` incl. the web area's `AXURL`), quit through its menu. A system prompt on
+  screen is recorded in the evidence and named in the failing step.
+- Firefox paints an automated session's urlbar with stripes (`:root[remotecontrol] #urlbar >
+.urlbar-background`); `userChrome.css` removes them and the launch fails if any mark survives.
+- Running the Firefox capture against a local Firefox that has an update staged applies the
+  update (Firefox's updater runs at startup); the profile now sets `app.update.disabledForTesting`.
 - WebDriver BiDi refuses to navigate to `moz-extension://`; Firefox settings are seeded from the
   options tab opened in the browser (chrome) realm, which needs `MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1`.
 - A desktop browser's own requests to a mocked host count as misses: Chrome's omnibox suggest

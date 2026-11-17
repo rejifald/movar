@@ -13,6 +13,12 @@
 //       find ONE element (optionally inside the first container, by role or
 //       subrole, whose subtree text matches) and act on it; `read` only reports
 //       its AXValue
+//   movar-ax fit <bundleId> <x> <y> <width> <height>
+//       close every other standard window, then move/size the main one and
+//       raise it (no AppleEvents: Safari's Automation consent never comes up)
+//   movar-ax onscreen
+//       every on-screen window of any app: [{owner, name, id, layer}] — finds a
+//       system prompt (e.g. a TCC consent dialog) that would block the run
 //   movar-ax dump <bundleId>
 //       the whole tree of the front window as indented text (debug artifact)
 //
@@ -230,9 +236,11 @@ func snapshot(_ bundleId: String) {
             return true
         }
     }
+    let url = webArea.flatMap { attr($0, "AXURL") as? URL }?.absoluteString
     emit([
         "window": frame(window).map { $0 as Any } ?? NSNull(),
         "webArea": webArea.flatMap(frame).map { $0 as Any } ?? NSNull(),
+        "url": url.map { $0 as Any } ?? NSNull(),
         "texts": texts,
     ])
 }
@@ -266,12 +274,55 @@ func windows(_ bundleId: String) {
     emit(["windows": list])
 }
 
+func fit(_ bundleId: String, _ rect: [Double]) {
+    guard rect.count == 4 else { fail("fit needs x y width height") }
+    let appElement = AXUIElementCreateApplication(app(bundleId).processIdentifier)
+    let all = ((attr(appElement, kAXWindowsAttribute) as? [AXUIElement]) ?? [])
+        .filter { string($0, kAXSubroleAttribute) == "AXStandardWindow" }
+    guard let main = all.first else { fail("no standard window") }
+    for extra in all.dropFirst() {
+        if let close = attr(extra, kAXCloseButtonAttribute) {
+            // swiftlint:disable:next force_cast
+            AXUIElementPerformAction(close as! AXUIElement, kAXPressAction as CFString)
+        }
+    }
+    var point = CGPoint(x: rect[0], y: rect[1])
+    var size = CGSize(width: rect[2], height: rect[3])
+    if let position = AXValueCreate(.cgPoint, &point) {
+        AXUIElementSetAttributeValue(main, kAXPositionAttribute as CFString, position)
+    }
+    if let extent = AXValueCreate(.cgSize, &size) {
+        AXUIElementSetAttributeValue(main, kAXSizeAttribute as CFString, extent)
+    }
+    AXUIElementPerformAction(main, kAXRaiseAction as CFString)
+    Thread.sleep(forTimeInterval: 0.5)
+    emit(["window": frame(main).map { $0 as Any } ?? NSNull(), "closed": all.count - 1])
+}
+
+func onscreen() {
+    let info = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []
+    let list: [[String: Any]] = info.map { entry in
+        [
+            "owner": entry[kCGWindowOwnerName as String] as? String ?? "",
+            "name": entry[kCGWindowName as String] as? String ?? "",
+            "id": entry[kCGWindowNumber as String] as? Int ?? 0,
+            "layer": entry[kCGWindowLayer as String] as? Int ?? 0,
+        ]
+    }
+    emit(["windows": list])
+}
+
 let argv = CommandLine.arguments
+if argv.count == 2, argv[1] == "onscreen" {
+    onscreen()
+    exit(0)
+}
 guard argv.count >= 3 else { fail("usage: movar-ax windows|snapshot|act|dump <bundleId> …") }
 switch argv[1] {
 case "windows": windows(argv[2])
 case "snapshot": snapshot(argv[2])
 case "dump": dump(argv[2])
 case "act": act(argv[2], parseOptions(argv.dropFirst(3)))
+case "fit": fit(argv[2], argv.dropFirst(3).compactMap { Double($0) })
 default: fail("unknown subcommand \(argv[1])")
 }

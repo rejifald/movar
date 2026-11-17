@@ -138,6 +138,14 @@ describe('route table', () => {
     expect(resolveRoute('www.youtube.com', '/robots.txt')).toBeNull();
   });
 
+  it("answers Chrome's own Google /async/ fetches quietly, on Google hosts only", () => {
+    const folae = '/async/folae?async=_fmt:pb&udm=50&client_locale=uk';
+    expect(resolveRoute('www.google.com', folae)?.status).toBe(204);
+    expect(resolveRoute('google.com', '/async/anything')?.status).toBe(204);
+    expect(resolveRoute('www.youtube.com', folae)).toBeNull();
+    expect(resolveRoute('www.google.com', '/asyncx')).toBeNull();
+  });
+
   it('keeps every rendered page free of external resources and banned strings', () => {
     const urls = [
       `${SCENES.google.startUrl}`,

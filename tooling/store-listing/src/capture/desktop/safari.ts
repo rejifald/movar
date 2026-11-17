@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-magic-numbers, sonarjs/no-os-command-from-path, no-console -- orchestration: shells out to osascript/screencapture/security/defaults by name; waits are inline on purpose */
+/* eslint-disable @typescript-eslint/no-magic-numbers, sonarjs/no-os-command-from-path, no-console -- orchestration: shells out to open/screencapture/security/defaults by name; waits are inline on purpose */
 /**
  * Real Safari on a macOS runner, with the real Movar.app.
  *
@@ -46,6 +46,23 @@ const HOST_CONTENT_TOGGLE = 'Hide content in blocked languages';
 const DISMISS_LABELS = String.raw`^(Not Now|Cancel|Close|OK|Later|Don.t Allow|Done)$`;
 /** Buttons that confirm turning Movar on. */
 const CONFIRM_LABELS = String.raw`^(Turn On|Enable|Allow|Always Allow.*|OK|Continue)$`;
+/** Menu items, matched in English or Ukrainian (Safari's UI follows AppleLanguages). */
+const SAFARI_QUIT = '^(Quit Safari|Вийти з Safari)$';
+const HOST_QUIT = '^(Quit Movar|Вийти з Movar)$';
+const SETTINGS_ITEM = '^(Settings…|Preferences…|Параметри…|Налаштування…)$';
+/** Processes whose on-screen window is a system prompt that blocks automation. */
+const SYSTEM_PROMPT_OWNERS = new Set([
+  'UserNotificationCenter',
+  'SecurityAgent',
+  'CoreServicesUIAgent',
+  'tccd',
+]);
+
+/** The system-prompt owners among on-screen windows. */
+export function systemPromptOwners(windows: readonly { owner: string }[]): string[] {
+  return [...new Set(windows.map((w) => w.owner).filter((o) => SYSTEM_PROMPT_OWNERS.has(o)))];
+}
+
 /** Top of the Safari window, below the menu bar (points). */
 const WINDOW_TOP = 40;
 
@@ -166,6 +183,8 @@ export function buildAxHelper(): string {
 interface Snapshot {
   window: Rect | null;
   webArea: Rect | null;
+  /** The web area's AXURL: the page Safari shows. */
+  url: string | null;
   texts: string[];
 }
 
@@ -282,90 +301,106 @@ export class SafariUi {
       }
     }
     this.evidence(`failed-${name}`, bundle);
-    throw new Error(`${name}: ${last instanceof Error ? last.message : String(last)}`);
+    const prompts = this.systemPrompts();
+    const blocked = prompts.length > 0 ? ` (system prompt on screen: ${prompts.join(', ')})` : '';
+    throw new Error(`${name}: ${last instanceof Error ? last.message : String(last)}${blocked}`);
   }
 
   // ── Safari process ──
 
-  quitSafari(): void {
+  /**
+   * Quit `bundle` through its own menu (AX, no AppleEvent), else SIGTERM.
+   * `quitLabel` matches the Quit menu item in the app's UI language.
+   */
+  private quitApp(bundle: string, processName: string, quitLabel: string): void {
+    if (!isRunning(processName)) return;
     try {
-      out('osascript', ['-e', 'tell application "Safari" to quit']);
+      this.act(bundle, ['--action', 'press', '--role', 'AXMenuItem', '--match', quitLabel]);
     } catch {
-      // not running
+      // no menu (a modal is up): fall through to the signal
     }
-    for (let i = 0; i < 30 && isRunning('Safari'); i += 1) sleepSync(500);
+    for (let i = 0; i < 20 && isRunning(processName); i += 1) sleepSync(500);
+    if (isRunning(processName)) {
+      out('killall', [processName]);
+      for (let i = 0; i < 20 && isRunning(processName); i += 1) sleepSync(500);
+    }
   }
 
-  /** Launch Safari fresh; `languages` overrides AppleLanguages for this launch only. */
-  launchSafari(languages?: readonly string[]): void {
+  quitSafari(): void {
+    this.quitApp(SAFARI, 'Safari', SAFARI_QUIT);
+  }
+
+  /**
+   * Launch Safari fresh, optionally straight at `url`; `languages` overrides
+   * AppleLanguages for this launch only. Nothing here (or anywhere in this
+   * file) sends Safari an AppleEvent: the runner's process has no Automation
+   * consent for Safari, and the consent prompt blocks every event (CI run
+   * 44103936330, -1712). Navigation is a fresh launch at the URL; the window is
+   * placed through the accessibility API.
+   */
+  launchSafari(languages?: readonly string[], url?: string): void {
     this.quitSafari();
     const override =
       languages === undefined ? [] : ['--args', '-AppleLanguages', `(${languages.join(',')})`];
-    out('open', ['-a', 'Safari', ...override]);
+    out('open', ['-a', 'Safari', ...(url === undefined ? [] : [url]), ...override]);
     for (let i = 0; i < 40 && !isRunning('Safari'); i += 1) sleepSync(500);
     sleepSync(3000);
-    this.evidence('safari-launched');
+    this.checkForSystemPrompt('safari-launched');
     this.answerDialogs();
   }
 
-  /** One front window at WINDOW size, one tab, nothing else open. */
-  fitWindow(): void {
+  /**
+   * A system prompt (TCC consent, keychain) on screen: evidence, and a warning;
+   * the step that it blocks then fails naming it rather than hanging.
+   */
+  private checkForSystemPrompt(name: string): void {
+    const prompts = this.systemPrompts();
+    this.evidence(prompts.length > 0 ? `${name}-system-prompt` : name);
+    if (prompts.length > 0) log(`▸ WARNING: system prompt on screen: ${prompts.join(', ')}`);
+  }
+
+  /** Owners of on-screen system prompt windows (empty when none). */
+  systemPrompts(): string[] {
     try {
-      this.fitWindowOnce();
-    } catch (error) {
-      // Most likely a modal: show it, answer it, try once more.
-      this.evidence('fit-window-failed');
-      this.answerDialogs();
-      log(
-        `▸ window setup retried after: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      this.fitWindowOnce();
+      const { windows } = JSON.parse(this.run(['onscreen'])) as {
+        windows: { owner: string; layer: number }[];
+      };
+      return systemPromptOwners(windows);
+    } catch {
+      return [];
     }
+  }
+
+  /** The one Safari window at WINDOW size and position, other windows closed (AX). */
+  fitWindow(): void {
+    const bounds = [0, WINDOW_TOP, WINDOW.width, WINDOW.height].map(String);
+    this.step('fit-window', SAFARI, () => {
+      const { window } = JSON.parse(this.run(['fit', SAFARI, ...bounds])) as {
+        window: Rect | null;
+      };
+      if (window?.width !== WINDOW.width || window.height !== WINDOW.height) {
+        throw new Error(`window is ${JSON.stringify(window)}`);
+      }
+    });
     this.evidence('window-ready');
   }
 
-  private fitWindowOnce(): void {
-    const bottom = WINDOW_TOP + WINDOW.height;
-    osa([
-      'with timeout of 30 seconds',
-      'tell application "Safari"',
-      'activate',
-      'if (count of windows) = 0 then make new document',
-      'repeat while (count of windows) > 1',
-      'close last window',
-      'end repeat',
-      'tell front window',
-      'repeat while (count of tabs) > 1',
-      'close last tab',
-      'end repeat',
-      `set bounds to {0, ${WINDOW_TOP}, ${WINDOW.width}, ${bottom}}`,
-      'end tell',
-      'end tell',
-      'end timeout',
-    ]);
-    sleepSync(800);
-  }
-
-  setUrl(url: string): void {
-    osa([
-      'tell application "Safari"',
-      `set URL of current tab of front window to ${JSON.stringify(url)}`,
-      'end tell',
-    ]);
+  /** Open `url` in a fresh Safari window at WINDOW size. */
+  openAt(url: string): void {
+    this.launchSafari(undefined, url);
+    this.fitWindow();
   }
 
   currentUrl(): string {
-    return osa(['tell application "Safari" to return URL of current tab of front window']).trim();
+    return this.snapshot().url ?? '';
   }
 
   // ── Safari settings ──
 
   private openSettings(pane: string): void {
-    osa([
-      'tell application "Safari" to activate',
-      'delay 0.5',
-      'tell application "System Events" to keystroke "," using command down',
-    ]);
+    this.step('settings-open', SAFARI, () =>
+      this.act(SAFARI, ['--action', 'press', '--role', 'AXMenuItem', '--match', SETTINGS_ITEM]),
+    );
     sleepSync(1500);
     this.step(`settings-${pane}`, SAFARI, () =>
       this.act(SAFARI, ['--action', 'press', '--role', 'AXButton', '--match', `^${pane}$`]),
@@ -375,8 +410,7 @@ export class SafariUi {
   }
 
   private closeSettings(): void {
-    osa(['tell application "System Events" to keystroke "w" using command down']);
-    sleepSync(800);
+    this.quitSafari();
   }
 
   /** Tick or untick Movar in Settings ▸ Extensions (idempotent). Safari must run in English. */
@@ -490,11 +524,7 @@ export class SafariUi {
       );
       writeAppGroupContentHiding();
     }
-    try {
-      out('osascript', ['-e', `tell application id "${HOST_APP_BUNDLE}" to quit`]);
-    } catch {
-      // already gone
-    }
+    this.quitApp(HOST_APP_BUNDLE, 'Movar', HOST_QUIT);
     sleepSync(1500);
     log(`▸ host settings: ${hostSettingsSummary(readAppGroup())}`);
   }
@@ -503,7 +533,7 @@ export class SafariUi {
 
   /** Open the phase, assert its state over AX + URL, press if asked, capture the window. */
   capturePhase(phase: DesktopPhase, locale: Locale, file: string, what: string): PhaseResult {
-    this.setUrl(phase.url);
+    this.openAt(phase.url);
     const url = new RegExp(phase.urlPattern);
     if (phase.click !== undefined) {
       const press = [
@@ -592,13 +622,6 @@ function isRunning(name: string): boolean {
   } catch {
     return false;
   }
-}
-
-function osa(lines: readonly string[]): string {
-  return out(
-    'osascript',
-    lines.flatMap((line) => ['-e', line]),
-  );
 }
 
 function pngSize(file: string): { width: number; height: number } {

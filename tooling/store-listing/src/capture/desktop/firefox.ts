@@ -33,6 +33,7 @@ import {
 import type { BidiReply } from './decisions';
 import type { DesktopLocale } from './locale';
 import {
+  FIREFOX_AUTOMATION_MARKS_JS,
   FIREFOX_EXTENSION_UUID,
   FIREFOX_USER_CHROME_CSS,
   firefoxPrefs,
@@ -359,6 +360,20 @@ function prepareFirefox(root: string, profile: string, opts: FirefoxLaunch): str
   return staged.dir;
 }
 
+/**
+ * The toolbar must look like a user's: userChrome.css removed the automated
+ * session's stripes and robot (CI run 44103936330 shipped them, the stylesheet
+ * having missed). Checked in the browser's own (chrome) realm; fails the launch.
+ */
+async function assertNoAutomationMarks(s: FirefoxSession): Promise<void> {
+  const [window] = await s.tree('chrome');
+  if (window === undefined) throw new Error('firefox has no browser window context');
+  const marks = await s.evaluateIn<string[]>(window.context, FIREFOX_AUTOMATION_MARKS_JS);
+  if (marks.length > 0) {
+    throw new Error(`firefox toolbar still shows automation marks: ${marks.join('; ')}`);
+  }
+}
+
 function stopper(child: ChildProcess): () => void {
   return () => {
     if (child.exitCode === null) child.kill('SIGTERM');
@@ -381,6 +396,7 @@ export async function launchFirefox(opts: FirefoxLaunch): Promise<DomDriver> {
     const driver = firefoxDriver(session, root, kill);
     await closeOtherContexts(session);
     await session.bidi.send('browsingContext.activate', { context: session.main });
+    await assertNoAutomationMarks(session);
     return driver;
   } catch (error) {
     kill();

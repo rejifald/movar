@@ -104,10 +104,13 @@ function youtubeRoute(host: string, url: URL): MockResponse | null {
  * (Safari, Chrome and Firefox ask for `/favicon.ico`, some for `.png`/`.svg`
  * variants), manifests Windows/Chromium probe for, DevTools' well-known probe, and
  * the Start Page's Favourites fetching a bookmarked home page
- * (`/?client=safari…`, CI run 17). Answered empty, so they are neither content
- * nor a miss; anything else unrouted still fails the run.
+ * (`/?client=safari…`, CI run 17), and on Google hosts Chrome's own `/async/…`
+ * fetches (`/async/folae?…&udm=50`, the omnibox's AI-mode prefetch, desktop CI run
+ * 44103936330), which no mock page makes. Answered empty, so they are neither
+ * content nor a miss; anything else unrouted still fails the run.
  */
-function isBrowserChrome(url: URL): boolean {
+function isBrowserChrome(host: string, url: URL): boolean {
+  if (host.endsWith('google.com') && url.pathname.startsWith('/async/')) return true;
   if (/^\/favicon(?:-\w+)?\.(?:ico|png|svg)$/u.test(url.pathname)) return true;
   if (['/browserconfig.xml', '/site.webmanifest'].includes(url.pathname)) return true;
   if (url.pathname.startsWith('/.well-known/appspecific/')) return true;
@@ -119,7 +122,7 @@ function isBrowserChrome(url: URL): boolean {
 export const resolveRoute: RouteTable = (host, target) => {
   if (!MOCK_HOSTS.includes(host)) return null;
   const url = new URL(target, `https://${host}`);
-  if (isBrowserChrome(url)) return EMPTY;
+  if (isBrowserChrome(host, url)) return EMPTY;
   if (host.endsWith('google.com')) return googleRoute(host, url);
   if (host === 'tochka24.example') return tochka24Route(url);
   return youtubeRoute(host, url);

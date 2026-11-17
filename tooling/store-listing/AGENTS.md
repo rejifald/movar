@@ -74,7 +74,9 @@ machine you own, then pass `--local-proxy-already-set`.
   2026-11-15; replaced B1).** Both are real captures of the same mock page from one run:
   `<id>-before.png` with the extension still off, `<id>.png` with Movar on. One whole phone,
   centred, 84 px above the bottom; the after capture fills the screen above the seam, the before
-  capture below it, both undimmed. Every shot splits at exactly half (`cut: 0.5`), each part
+  capture below it, never dimmed. The before part is fully desaturated by the frame (owner,
+  2026-11-17; replaced "both undimmed"), in every layout and in the site's drum WebPs:
+  `BEFORE_SATURATION` in `src/render/split-picture.ts`, never a wash or blur. Every shot splits at exactly half (`cut: 0.5`), each part
   from its own page top (the same opening lines in two languages; the before part starts under
   its status bar). Half or no split at all: no region cuts (owner, 2026-11-15). The seam is a thin
   dark line; the captions «● З МОВАРОМ» (accent dot) / «● БЕЗ МОВАРА» (`ink-soft` dot) stand

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { Resvg } from '@resvg/resvg-js';
 import satori from 'satori';
 import sharp from 'sharp';
+import { splitPicture } from './split-picture.js';
 import { createElement as h } from 'react';
 import type { ReactElement } from 'react';
 import { resolveDevice } from './devices.js';
@@ -138,20 +139,11 @@ async function backgroundUri(
 /** The split screen picture: the after rows on top, the before rows below, at capture size. */
 async function splitScreen(layout: Layout, after: Uint8Array, before: Uint8Array): Promise<Buffer> {
   const { capture, split } = layout;
-  const slice = async (bytes: Uint8Array, rows: { y: number; height: number }): Promise<Buffer> =>
-    sharp(bytes)
-      .extract({ left: 0, top: rows.y, width: capture.width, height: rows.height })
-      .png()
-      .toBuffer();
-  return sharp({
-    create: { width: capture.width, height: capture.height, channels: 4, background: '#ffffff' },
-  })
-    .composite([
-      { input: await slice(after, split.afterSlice), left: 0, top: 0 },
-      { input: await slice(before, split.beforeSlice), left: 0, top: split.afterSlice.height },
-    ])
-    .png()
-    .toBuffer();
+  return splitPicture(
+    capture,
+    { bytes: after, rows: split.afterSlice },
+    { bytes: before, rows: split.beforeSlice },
+  );
 }
 
 /** The seam line's colour, as the framed shot draws it. */

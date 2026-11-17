@@ -8,6 +8,7 @@ import path from 'node:path';
 import { Resvg } from '@resvg/resvg-js';
 import satori from 'satori';
 import sharp from 'sharp';
+import { splitPicture } from './split-picture.js';
 import { createElement as h } from 'react';
 import type { ReactElement } from 'react';
 import { loadFonts } from './fonts.js';
@@ -113,20 +114,11 @@ async function backgroundUri(
 async function splitWindow(plan: LandscapePlan): Promise<Buffer> {
   const { layout, captureBytes, beforeBytes } = plan;
   const { capture, split } = layout;
-  const slice = async (bytes: Uint8Array, rows: { y: number; height: number }): Promise<Buffer> =>
-    sharp(bytes)
-      .extract({ left: 0, top: rows.y, width: capture.width, height: rows.height })
-      .png()
-      .toBuffer();
-  return sharp({
-    create: { width: capture.width, height: capture.height, channels: 4, background: '#ffffff' },
-  })
-    .composite([
-      { input: await slice(captureBytes, split.afterSlice), left: 0, top: 0 },
-      { input: await slice(beforeBytes, split.beforeSlice), left: 0, top: split.afterSlice.height },
-    ])
-    .png()
-    .toBuffer();
+  return splitPicture(
+    capture,
+    { bytes: captureBytes, rows: split.afterSlice },
+    { bytes: beforeBytes, rows: split.beforeSlice },
+  );
 }
 
 /** Draws an already-planned (and checked) landscape layout. */

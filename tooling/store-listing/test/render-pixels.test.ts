@@ -162,7 +162,7 @@ describe('rendered pixels', () => {
   );
 
   it(
-    'draws the after capture above the seam and the before capture below it, undimmed',
+    'draws the after capture above the seam and the before capture below it, greyed but not dimmed',
     async () => {
       const spec: ShotSpec = {
         canvas: { width: 1320, height: 2868 },
@@ -183,7 +183,10 @@ describe('rendered pixels', () => {
         return [...data.subarray(0, 3)];
       };
       expect(await pixel(split.seam.y - 40)).toEqual([0x3b, 0x82, 0xf6]);
-      expect(await pixel(split.seam.y + split.seam.height + 40)).toEqual([0xef, 0x44, 0x44]);
+      // The before part is fully desaturated (owner, 2026-11-17), not darkened to a shadow.
+      const before = await pixel(split.seam.y + split.seam.height + 40);
+      expect(Math.max(...before) - Math.min(...before)).toBeLessThanOrEqual(2);
+      expect(Math.min(...before)).toBeGreaterThan(90);
       // The line itself is the dark seam colour.
       const [r = 0] = await pixel(split.seam.y + Math.round(split.seam.height / 2));
       expect(r).toBeLessThan(40);
@@ -211,7 +214,9 @@ describe('rendered pixels', () => {
       };
       const seam = Math.round(1434 * 0.47);
       expect(at(seam - 40)[2]).toBeGreaterThan(200); // blue: after
-      expect(at(seam + 40)[0]).toBeGreaterThan(200); // red: before
+      const before = at(seam + 40); // the red before page, greyed
+      expect(Math.max(...before) - Math.min(...before)).toBeLessThanOrEqual(3);
+      expect(Math.min(...before)).toBeGreaterThan(90);
       expect(Math.max(...at(seam))).toBeLessThan(60); // the dark seam line
     },
     TIMEOUT,

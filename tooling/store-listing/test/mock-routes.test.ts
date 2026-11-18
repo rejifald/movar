@@ -6,6 +6,10 @@ function get(url: string): ReturnType<typeof resolveRoute> {
   return resolveRoute(u.hostname, `${u.pathname}${u.search}`);
 }
 
+function ids(html: string): string[] {
+  return [...html.matchAll(/data-fixture-id="([^"]+)"/g)].map((m) => m[1] ?? '');
+}
+
 function bodyOf(url: string): string {
   const hit = get(url);
   if (hit === null) throw new Error(`no route for ${url}`);
@@ -70,11 +74,25 @@ describe('scene 2: tochka24', () => {
 });
 
 describe('scene 3: youtube', () => {
-  it('serves an 8-card feed on both mobile and desktop hosts', () => {
-    for (const host of ['m.youtube.com', 'www.youtube.com']) {
-      const body = bodyOf(`https://${host}/`);
-      expect(body.match(/<ytm-video-with-context-renderer /g)?.length).toBe(8);
-    }
+  it('serves an 8-card mobile feed on m.youtube.com', () => {
+    const body = bodyOf(SCENES.youtube.startUrl);
+    expect(body.match(/<ytm-video-with-context-renderer /g)?.length).toBe(8);
+  });
+
+  it('serves the desktop grid on www.youtube.com: rich items, lockup <h3> titles, same fixture ids', () => {
+    const body = bodyOf(SCENES.youtubeDesktop.startUrl);
+    expect(body.match(/<ytd-rich-item-renderer /g)?.length).toBe(8);
+    expect(body.match(/<yt-lockup-view-model>/g)?.length).toBe(8);
+    expect(body.match(/<h3>/g)?.length).toBe(8);
+    // Classic anchors would shadow the <h3> fallback with the channel name alone.
+    expect(body).not.toContain('id="video-title"');
+    expect(body).not.toContain('ytd-channel-name');
+    expect(ids(body)).toEqual(ids(bodyOf(SCENES.youtube.startUrl)));
+  });
+
+  it('keeps the responsive breakpoint on the shared pages', () => {
+    expect(bodyOf(SCENES.google.startUrl)).toContain('@media (min-width: 1100px)');
+    expect(bodyOf(SCENES.tochka24.finalUrl)).toContain('@media (min-width: 1100px)');
   });
 
   it('misses an unknown path', () => {
@@ -106,6 +124,28 @@ describe('route table', () => {
     expect(resolveRoute('www.google.com', '/apple-touch-icon.png/../secret')).toBeNull();
   });
 
+  it("answers desktop browsers' own icon and probe fetches quietly, nothing broader", () => {
+    for (const target of [
+      '/favicon.png',
+      '/favicon.svg',
+      '/favicon-32x32.png',
+      '/browserconfig.xml',
+      '/site.webmanifest',
+      '/.well-known/appspecific/com.chrome.devtools.json',
+    ]) {
+      expect(resolveRoute('www.youtube.com', target)?.status).toBe(204);
+    }
+    expect(resolveRoute('www.youtube.com', '/robots.txt')).toBeNull();
+  });
+
+  it("answers Chrome's own Google /async/ fetches quietly, on Google hosts only", () => {
+    const folae = '/async/folae?async=_fmt:pb&udm=50&client_locale=uk';
+    expect(resolveRoute('www.google.com', folae)?.status).toBe(204);
+    expect(resolveRoute('google.com', '/async/anything')?.status).toBe(204);
+    expect(resolveRoute('www.youtube.com', folae)).toBeNull();
+    expect(resolveRoute('www.google.com', '/asyncx')).toBeNull();
+  });
+
   it('keeps every rendered page free of external resources and banned strings', () => {
     const urls = [
       `${SCENES.google.startUrl}`,
@@ -114,6 +154,7 @@ describe('route table', () => {
       SCENES.tochka24.finalUrl,
       'https://tochka24.example/en/',
       SCENES.youtube.startUrl,
+      SCENES.youtubeDesktop.startUrl,
     ];
     for (const url of urls) {
       const body = bodyOf(url);

@@ -17,6 +17,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      # Covers src/capture/desktop/** (the desktop/Mac capture) too.
       - 'tooling/store-listing/**'
       - '.github/workflows/store-listing.yml'
 
@@ -161,15 +162,331 @@ jobs:
           path: framed
           if-no-files-found: error
 
-  # TODO(owner): propose — commit the framed set to a branch and open a PR.
-  # Deliberately NOT wired yet (this pipeline must not write to the repo until the
-  # output has been reviewed by hand once). Sketch:
-  #
-  # propose:
-  #   needs: frame
-  #   if: github.event_name == 'workflow_dispatch'
-  #   runs-on: ubuntu-latest
-  #   permissions: { contents: write, pull-requests: write }
-  #   steps:
-  #     - download store-listing-framed, copy into apps/extension/store-assets/…,
-  #       open a PR with the manifest.json run id + sha in the body.
+  # Desktop store screenshots (AMO + Chrome Web Store) from REAL browser windows:
+  # the MOVAR_E2E build of THIS commit, in real Firefox / Chrome for Testing under
+  # a private Xvfb (started by the script), on the same mock sites. One matrix cell
+  # = one browser × locale; src/capture/desktop/run.ts does every setup step itself
+  # (profile, proxy, mock-CA trust, window size, settings seed) from a clean runner.
+  capture-desktop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, chrome]
+        locale: [uk, en]
+    env:
+      # Pinned Mozilla release (a localized build per locale, from Mozilla's own
+      # archive), checked against that release's SHA256SUMS.
+      FIREFOX_VERSION: '160.0'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Xvfb (a screen exactly the window's size), xdotool + ImageMagick (pin the
+      # window to it, grab the screen), x11-utils (`xwininfo` for a failed run's debug dir),
+      # certutil (the mock CA into the throwaway profile's NSS database).
+      - name: Display + capture tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends xvfb xdotool x11-utils imagemagick libnss3-tools fonts-noto-core
+          # Ubuntu 24.04 blocks the unprivileged user namespaces Chrome's sandbox
+          # needs; without this it would have to run --no-sandbox (and say so in an infobar).
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Chrome for Testing = Playwright's `chromium` (branded Chrome ignores
+      # --load-extension since 137); its version is pinned by the lockfile's Playwright.
+      - name: Chrome for Testing
+        if: matrix.browser == 'chrome'
+        run: pnpm --filter @movar/e2e exec playwright install --with-deps chromium
+
+      - name: Firefox ${{ env.FIREFOX_VERSION }} (${{ matrix.locale }})
+        if: matrix.browser == 'firefox'
+        env:
+          BUILD: ${{ matrix.locale == 'uk' && 'uk' || 'en-US' }}
+        run: |
+          set -euo pipefail
+          base="https://ftp.mozilla.org/pub/firefox/releases/$FIREFOX_VERSION"
+          file="linux-x86_64/$BUILD/firefox-$FIREFOX_VERSION.tar.xz"
+          curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "$base/SHA256SUMS"
+          curl -fsSL -o "$RUNNER_TEMP/firefox.tar.xz" "$base/$file"
+          want="$(awk -v f="$file" '$2 == f { print $1 }' "$RUNNER_TEMP/SHA256SUMS")"
+          [ -n "$want" ] || { echo "::error::$file not in SHA256SUMS"; exit 1; }
+          echo "$want  $RUNNER_TEMP/firefox.tar.xz" | sha256sum -c -
+          echo "::notice::firefox $FIREFOX_VERSION $BUILD sha256 $want"
+          tar -xJf "$RUNNER_TEMP/firefox.tar.xz" -C "$RUNNER_TEMP"
+          # Runtime libraries for a stock Firefox build on the runner image.
+          pnpm --filter @movar/e2e exec playwright install-deps firefox
+          echo "FIREFOX_BIN=$RUNNER_TEMP/firefox/firefox" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/firefox/firefox" --version
+
+      # The e2e variant holds <all_urls> as a REQUIRED host permission, so the
+      # extension acts on the mock pages with no permission prompt.
+      - name: Build Movar (${{ matrix.browser }}, MOVAR_E2E=1)
+        working-directory: apps/extension
+        run: MOVAR_E2E=1 pnpm exec wxt build ${{ matrix.browser == 'firefox' && '-b firefox' || '' }}
+
+      - name: Capture
+        run: >-
+          pnpm --filter @movar/store-listing exec tsx src/capture/desktop/run.ts
+          --browser ${{ matrix.browser }} --locale ${{ matrix.locale }}
+          --out "$GITHUB_WORKSPACE/captures-desktop"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: store-listing-desktop-${{ matrix.browser }}-${{ matrix.locale }}
+          path: |
+            captures-desktop
+            tooling/store-listing/.cache/desktop-debug
+          if-no-files-found: warn
+          include-hidden-files: true
+
+  # Mac App Store screenshots: real Safari on the runner with the real Movar.app.
+  # Movar.app is built from THIS commit (Developer ID-signed: Safari loads no
+  # unsigned extension unattended) when the signing secrets reach this workflow;
+  # otherwise the latest published release's notarized DMG is used, with a
+  # warning, so a UI change only shows after a release. run.ts changes the
+  # display mode, System keychain trust, system proxy and AppleLanguages ONLY
+  # under CI=true, and restores each in a `finally`.
+  capture-mac:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Same floor-not-pin selection as release.yml / safari-wrapper.yml.
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          MIN_XCODE_MAJOR=26
+          best=""; best_version=""
+          for candidate in /Applications/Xcode*.app; do
+            [ -d "$candidate" ] || continue
+            version="$(/usr/bin/defaults read "$candidate/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo '?')"
+            case "$version" in ''|'?') continue ;; esac
+            [ "${version%%.*}" -ge "$MIN_XCODE_MAJOR" ] 2>/dev/null || continue
+            if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best_version" "$version" | sort -V | tail -1)" = "$version" ]; then
+              best="$candidate"; best_version="$version"
+            fi
+          done
+          [ -n "$best" ] || { echo "::error::No Xcode >= $MIN_XCODE_MAJOR on this runner"; exit 1; }
+          sudo xcode-select -s "$best/Contents/Developer"
+          echo "DEVELOPER_DIR=$best/Contents/Developer" >> "$GITHUB_ENV"
+
+      # The runner boots at 1024x768; run.ts switches it to 1920x1080.
+      - name: displayplacer
+        run: brew install jakehilborn/jakehilborn/displayplacer
+
+      # Signing keys reach this job only on a manual dispatch, never on a PR run;
+      # PR runs capture the latest release's app.
+      - id: signing
+        name: Signing secrets available?
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_DIST_CERT_P12_BASE64: ${{ secrets.APPLE_DIST_CERT_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
+        run: |
+          if [ -n "$APPLE_TEAM_ID" ] && [ -n "$APPLE_ASC_KEY_ID" ] && [ -n "$APPLE_DIST_CERT_P12_BASE64" ] && [ -n "$APPLE_DEVELOPER_ID_CERT_P12_BASE64" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Apple signing secrets are not available to this workflow: capturing the LATEST RELEASE's Movar.app, not this commit."
+          fi
+
+      # Mirrors release.yml's Developer ID path (manual signing against the
+      # deterministic profiles scripts/apple-provisioning.mjs fetches or creates),
+      # minus notarization: the app is built on this runner, so Gatekeeper never
+      # quarantines it.
+      - name: Build Movar.app from this commit (Developer ID)
+        if: steps.signing.outputs.build == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          APPLE_ASC_ISSUER_ID: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+          APPLE_ASC_API_KEY_P8: ${{ secrets.APPLE_ASC_API_KEY_P8 }}
+          APPLE_DIST_CERT_P12_BASE64: ${{ secrets.APPLE_DIST_CERT_P12_BASE64 }}
+          APPLE_DIST_CERT_PASSWORD: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+          APPLE_DEVELOPER_ID_CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERT_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          pnpm --filter @movar/extension build:safari
+          pnpm --filter @movar/safari-host-app build
+          pnpm --filter @movar/audit-engine build
+          PROJECT="apps/extension/safari/Movar/Movar.xcodeproj"
+          VERSION="$(node -p "require('./apps/extension/package.json').version")"
+          KEYCHAIN="$RUNNER_TEMP/movar-signing.keychain-db"
+          KEYCHAIN_PW="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          echo "$APPLE_DIST_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          echo "$APPLE_DEVELOPER_ID_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/devid.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KEYCHAIN" -P "$APPLE_DIST_CERT_PASSWORD" -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/devid.p12" -k "$KEYCHAIN" -P "$APPLE_DEVELOPER_ID_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN"
+          read_serial() {
+            /usr/bin/openssl pkcs12 -in "$1" -passin "pass:$2" -nokeys -clcerts -nomacver 2>/dev/null \
+              | /usr/bin/openssl x509 -noout -serial | cut -d= -f2
+          }
+          APPLE_DIST_CERT_SERIAL="$(read_serial "$RUNNER_TEMP/dist.p12" "$APPLE_DIST_CERT_PASSWORD")" \
+          APPLE_DEVID_CERT_SERIAL="$(read_serial "$RUNNER_TEMP/devid.p12" "$APPLE_DEVELOPER_ID_CERT_PASSWORD")" \
+          OUTPUT_DIR="$RUNNER_TEMP/exportOptions" \
+            node scripts/apple-provisioning.mjs
+          xcodebuild -project "$PROJECT" -scheme "Movar (macOS)" -configuration Release \
+            -destination 'generic/platform=macOS' -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${{ github.run_number }}" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual "CODE_SIGN_IDENTITY=Apple Distribution" \
+            'PROVISIONING_PROFILE_SPECIFIER=movar $(PRODUCT_BUNDLE_IDENTIFIER) mac-appstore' \
+            archive
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Movar-macOS.xcarchive" \
+            -exportPath "$RUNNER_TEMP/devid-mac" \
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions/developer-id-mac.plist"
+          codesign --verify --deep --strict "$RUNNER_TEMP/devid-mac/Movar.app"
+          echo "MOVAR_APP=$RUNNER_TEMP/devid-mac/Movar.app" >> "$GITHUB_ENV"
+
+      - name: Fallback — the latest release's notarized Movar.app
+        if: steps.signing.outputs.build != 'true'
+        run: |
+          set -euo pipefail
+          tag="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --json tagName,isDraft \
+            --jq '[.[]|select(.tagName|startswith("extension-v"))|select(.isDraft|not)][0].tagName')"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern 'Movar-*.dmg' --dir "$RUNNER_TEMP"
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mnt" "$(ls "$RUNNER_TEMP"/Movar-*.dmg)"
+          ditto "$RUNNER_TEMP/mnt/Movar.app" "$RUNNER_TEMP/release/Movar.app"
+          hdiutil detach "$RUNNER_TEMP/mnt"
+          echo "::warning::Safari captures show $tag, not this commit."
+          echo "MOVAR_APP=$RUNNER_TEMP/release/Movar.app" >> "$GITHUB_ENV"
+
+      # CI=true is what lets run.ts change the machine (see the job comment).
+      - name: Capture Safari uk
+        env:
+          CI: 'true'
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/desktop/run.ts --browser safari --locale uk --safari-app "$MOVAR_APP" --out "$GITHUB_WORKSPACE/captures-desktop"
+      - name: Capture Safari en
+        if: ${{ !cancelled() }}
+        env:
+          CI: 'true'
+        run: pnpm --filter @movar/store-listing exec tsx src/capture/desktop/run.ts --browser safari --locale en --safari-app "$MOVAR_APP" --out "$GITHUB_WORKSPACE/captures-desktop"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: store-listing-desktop-safari
+          path: |
+            captures-desktop
+            tooling/store-listing/.cache/desktop-debug
+          if-no-files-found: warn
+          include-hidden-files: true
+
+  # Frames every desktop capture that succeeded: Firefox + Chrome at 1280x800
+  # (AMO, Chrome Web Store), Safari at 2560x1600 (Mac App Store). A browser or
+  # locale whose capture failed is skipped here and reported by its own job.
+  frame-desktop:
+    needs: [capture-desktop, capture-mac]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: store-listing-desktop-*
+          merge-multiple: true
+          path: artifact
+      - name: Frame
+        run: |
+          set -euo pipefail
+          for browser in firefox chrome safari; do
+            canvas=desktop; [ "$browser" = safari ] && canvas=mac
+            for locale in uk en; do
+              dir="$GITHUB_WORKSPACE/artifact/captures-desktop/$browser/$locale"
+              if [ ! -d "$dir" ]; then echo "::warning::no $browser/$locale capture to frame"; continue; fi
+              pnpm --filter @movar/store-listing exec tsx src/render/cli.ts \
+                --captures "$dir" --out "$GITHUB_WORKSPACE/framed/$browser/$locale" \
+                --locale "$locale" --canvas "$canvas"
+            done
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: store-listing-framed-desktop
+          path: framed
+          # A run where every desktop capture failed frames nothing; the capture
+          # jobs already report that, so this step must not mask it.
+          if-no-files-found: warn
+
+  # Manual runs only: copies every framed set into the store folders
+  # (src/publish/place.ts) and opens a PR for review, contact sheets attached as
+  # an artifact. Needs "Allow GitHub Actions to create and approve pull requests"
+  # (Settings > Actions > General; IaC tracked in #632). A PR opened with
+  # GITHUB_TOKEN does not trigger CI: close and reopen it to run the checks.
+  propose:
+    needs: [frame, frame-desktop]
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: listing/refresh-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: store-listing-framed*
+          merge-multiple: true
+          path: framed
+      - name: Place into the store folders
+        run: pnpm --filter @movar/store-listing exec tsx src/publish/place.ts --framed "$GITHUB_WORKSPACE/framed" --repo "$GITHUB_WORKSPACE" | tee "$RUNNER_TEMP/placed.txt"
+      - name: Open the PR
+        run: |
+          set -euo pipefail
+          if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+            echo "Nothing changed: the captures match what is committed."; exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add apps/extension/store-assets/screenshots apps/marketing/public/listing
+          git commit -m "chore(listing): refresh store screenshots from run ${{ github.run_id }}"
+          git push origin "$BRANCH"
+          {
+            echo "Fresh store screenshots captured from \`${GITHUB_SHA::8}\` by [run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+            echo
+            echo '```'; cat "$RUNNER_TEMP/placed.txt"; echo '```'
+            echo
+            echo 'Review the contact sheets in the run artifacts (`store-listing-framed`, `store-listing-framed-desktop`) before merging.'
+            echo 'This PR was opened with GITHUB_TOKEN, so CI does not start on its own: close and reopen it to run the checks.'
+            echo 'If the drum WebPs changed, regenerate the marketing visual baselines (`pnpm e2e:baselines:marketing`).'
+          } > "$RUNNER_TEMP/body.md"
+          gh pr create --base "${GITHUB_REF_NAME}" --head "$BRANCH" \
+            --title "chore(listing): refresh store screenshots" --body-file "$RUNNER_TEMP/body.md"

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { Resvg } from '@resvg/resvg-js';
 import satori from 'satori';
 import sharp from 'sharp';
+import { splitPicture } from './split-picture.js';
 import { createElement as h } from 'react';
 import type { ReactElement } from 'react';
 import { resolveDevice } from './devices.js';
@@ -79,12 +80,11 @@ function parseBaselines(svg: string): number {
  * Counts the lines a headline wraps to by rendering it with Satori (glyphs left
  * as `<text>`) and counting distinct text baselines in the SVG it emits.
  */
-async function measureHeadlineLines(text: string, canvasWidth: number): Promise<number> {
-  const metrics = {
-    fontSize: headlineFontSize(canvasWidth),
-    lineHeight: Math.round(headlineFontSize(canvasWidth) * HEADLINE_LINE_HEIGHT),
-  };
-  const width = headlineWidth(canvasWidth);
+export async function measureHeadlineLinesAt(
+  text: string,
+  metrics: { fontSize: number; lineHeight: number },
+  width: number,
+): Promise<number> {
   const svg = await satori(h('div', { style: { ...headlineStyle(metrics), width } }, text), {
     width,
     height: metrics.lineHeight * (MAX_HEADLINE_LINES + MEASURE_SPARE_LINES),
@@ -94,6 +94,15 @@ async function measureHeadlineLines(text: string, canvasWidth: number): Promise<
   const lines = parseBaselines(svg);
   if (lines === 0) throw new Error('Headline produced no text; is the font loaded?');
   return lines;
+}
+
+async function measureHeadlineLines(text: string, canvasWidth: number): Promise<number> {
+  const fontSize = headlineFontSize(canvasWidth);
+  return measureHeadlineLinesAt(
+    text,
+    { fontSize, lineHeight: Math.round(fontSize * HEADLINE_LINE_HEIGHT) },
+    headlineWidth(canvasWidth),
+  );
 }
 
 /** Everything needed to draw a shot, without drawing it. Does not run the guards. */
@@ -130,20 +139,11 @@ async function backgroundUri(
 /** The split screen picture: the after rows on top, the before rows below, at capture size. */
 async function splitScreen(layout: Layout, after: Uint8Array, before: Uint8Array): Promise<Buffer> {
   const { capture, split } = layout;
-  const slice = async (bytes: Uint8Array, rows: { y: number; height: number }): Promise<Buffer> =>
-    sharp(bytes)
-      .extract({ left: 0, top: rows.y, width: capture.width, height: rows.height })
-      .png()
-      .toBuffer();
-  return sharp({
-    create: { width: capture.width, height: capture.height, channels: 4, background: '#ffffff' },
-  })
-    .composite([
-      { input: await slice(after, split.afterSlice), left: 0, top: 0 },
-      { input: await slice(before, split.beforeSlice), left: 0, top: split.afterSlice.height },
-    ])
-    .png()
-    .toBuffer();
+  return splitPicture(
+    capture,
+    { bytes: after, rows: split.afterSlice },
+    { bytes: before, rows: split.beforeSlice },
+  );
 }
 
 /** The seam line's colour, as the framed shot draws it. */

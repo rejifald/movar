@@ -5,6 +5,7 @@ import { GoogleSerp } from './sites/google-serp';
 import type { SerpResult } from './sites/google-serp';
 import { COPY, Tochka24, tochka24HeadHtml } from './sites/tochka24';
 import type { SiteLang } from './sites/tochka24';
+import { YouTubeDesktop } from './sites/youtube-desktop';
 import { YouTubeFeed } from './sites/youtube-feed';
 import type { FeedVideo } from './sites/youtube-feed';
 
@@ -232,6 +233,20 @@ export function youtubeFeedPage(): string {
       chips: ['Усі', 'Музика', 'Подорожі', 'Кулінарія', 'Нещодавно завантажені', 'Дивилися'],
       videos: YT_VIDEOS,
       tabs: ['Головна', 'Shorts', 'Підписки', 'Бібліотека'],
+    }),
+  });
+}
+
+/** www.youtube.com: the same videos in the desktop home grid (rail + 4 columns). */
+export function youtubeDesktopPage(): string {
+  return documentHtml({
+    lang: 'uk',
+    title: 'YouTube',
+    body: createElement(YouTubeDesktop, {
+      chips: ['Усі', 'Музика', 'Подорожі', 'Кулінарія', 'Нещодавно завантажені', 'Дивилися'],
+      videos: YT_VIDEOS,
+      nav: ['Головна', 'Shorts', 'Підписки', 'Бібліотека', 'Історія'],
+      search: 'Пошук',
     }),
   });
 }

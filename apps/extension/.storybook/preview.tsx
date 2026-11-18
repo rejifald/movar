@@ -42,17 +42,6 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
-    options: {
-      // Order the Marketplace/Screenshots/* entries by the numbered index
-      // the capture script writes to PNG filenames. Keeps the Storybook
-      // sidebar reading the same way as the captured screenshot set.
-      storySort: {
-        order: [
-          'Marketplace',
-          ['Screenshots', ['PopupOnNews', 'CorrectionApplied', 'PickerSurvivor', 'SearchRewrite']],
-        ],
-      },
-    },
   },
 };
 

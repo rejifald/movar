@@ -83,6 +83,27 @@ const SERP_CSS = `
   h3 { margin: 0 0 4px; font: 400 19px/1.3 Arial, 'Helvetica Neue', Helvetica, sans-serif; color: var(--link); }
   .snip { color: var(--ink-soft); font-size: 14px; line-height: 1.5; }
   .translate { display: inline-block; margin-top: 6px; font-size: 13px; color: var(--accent) !important; }
+  /* Desktop (>= 1100px): logo, search box and avatar share a header row; tabs and
+     results hang off a ~650px column aligned with the search box. Phone CSS above
+     is untouched below this breakpoint. */
+  @media (min-width: 1100px) {
+    body { display: grid; grid-template-columns: 188px 692px 1fr; align-content: start;
+      padding-top: 18px; }
+    .head { display: contents; }
+    .brand { grid-column: 1; grid-row: 1; align-self: center; justify-self: start;
+      margin-left: 28px; font-size: 30px; }
+    .avatar { grid-column: 3; grid-row: 1; align-self: center; justify-self: end; margin: 0 28px 0 0; }
+    .box { grid-column: 2; grid-row: 1; margin: 0; padding: 12px 20px; font-size: 16px; }
+    .tabs { grid-column: 2; grid-row: 2; margin: 14px 0 0; padding: 0; gap: 26px; }
+    .tabs::after { content: ''; flex: 1; }
+    #search { grid-column: 2; grid-row: 3; padding: 8px 0 64px; }
+    .card { padding: 14px 0 12px; border-bottom: 0; margin-bottom: 14px; }
+    .site { margin-bottom: 4px; }
+    cite { max-width: 560px; }
+    h3 { font-size: 20px; line-height: 1.3; }
+    h3:hover { text-decoration: underline; }
+    .snip { max-width: 652px; }
+  }
 `;
 
 function Magnifier(): JSX.Element {

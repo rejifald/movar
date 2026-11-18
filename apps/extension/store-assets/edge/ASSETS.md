@@ -26,7 +26,7 @@ dimensions below):
 | Asset                      | Required                                               | Dimensions                                       | Format | Status                                                                                                                                                                                                                                                                          |
 | -------------------------- | ------------------------------------------------------ | ------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Extension logo             | required (per language)                                | 300×300 recommended; 128×128 minimum; 1:1 aspect | PNG    | reused: [`../chrome/icon-128.png`](../chrome/icon-128.png) at the 128×128 minimum. Optional upgrade to 300×300 noted in §2.                                                                                                                                                     |
-| Screenshots                | optional, max 6 per language                           | 1280×800 OR 640×480                              | PNG    | reused: [`../screenshots/en/*.png`](../screenshots/en/) (4 shots) and [`../screenshots/uk/*.png`](../screenshots/uk/) (5 shots) — already rendered at 1280×800                                                                                                                  |
+| Screenshots                | optional, max 6 per language                           | 1280×800 OR 640×480                              | PNG    | pending: no Edge screenshots yet. They wait for a real Edge window capture, to be added to `tooling/store-listing` once the native Edge listing is live — tracked in https://github.com/rejifald/movar/issues/631                                                               |
 | Small promotional tile     | optional                                               | 440×280                                          | PNG    | reused: [`../chrome/promo-tile-440x280.png`](../chrome/promo-tile-440x280.png) — Chrome's CWS small promo tile lands on Edge's exact dimensions                                                                                                                                 |
 | Large promotional tile     | optional                                               | 1400×560                                         | PNG    | needs production via `pnpm --filter @movar/extension capture:storybook-assets` after a new `Marketplace/Promo/EdgeLargeTile` story is added — see §2 and §5                                                                                                                     |
 | YouTube promo video URL    | optional                                               | n/a (URL only)                                   | n/a    | n/a for v1 — no video produced                                                                                                                                                                                                                                                  |
@@ -89,23 +89,11 @@ Edge accepts **1280×800** as one of two valid sizes (the other is
 the same synthetic-storyboard contract documented in
 [`../REQUIREMENTS.md`](../REQUIREMENTS.md) §5, so they upload unchanged.
 
-Edge allows **1–6 screenshots** per language. Our set fits within the
-ceiling:
-
-- **EN:** 4 shots from [`../screenshots/en/`](../screenshots/en/)
-  - `01-popup-on-news.png`
-  - `02-correction-applied.png`
-  - `03-search-rewrite.png`
-  - `04-language-dialog.png`
-- **UK:** 5 shots from [`../screenshots/uk/`](../screenshots/uk/) (adds the UK-only Knowledge Panel)
-  - `01-popup-on-news.png`
-  - `02-correction-applied.png`
-  - `03-search-rewrite.png`
-  - `04-language-dialog.png`
-  - `05-knowledge-panel.png`
-
-Regenerate with `pnpm --filter @movar/extension capture:storybook-assets`
-if any storyboard changes.
+Edge allows **1–6 screenshots** per language (1280×800 or 640×480). There are
+none yet: the old Storybook-made `screenshots/{uk,en}/` sets are retired, and
+Edge screenshots are pending a real Edge window capture, to be added to
+`tooling/store-listing` once the Edge listing is live. Tracking:
+https://github.com/rejifald/movar/issues/631
 
 ### Small promotional tile
 
@@ -228,10 +216,8 @@ on the Partner Center side and is populated once here.
 6. **Upload imagery (per language):**
    - Extension logo: [`../chrome/icon-128.png`](../chrome/icon-128.png)
      (or `edge/icon-300.png` once rendered per §2).
-   - Screenshots: all four from
-     [`../screenshots/en/`](../screenshots/en/) for the EN listing; all
-     five from [`../screenshots/uk/`](../screenshots/uk/) for the UK
-     listing.
+   - Screenshots: none yet — pending a real Edge capture (see §1 and
+     https://github.com/rejifald/movar/issues/631).
    - Small promotional tile:
      [`../chrome/promo-tile-440x280.png`](../chrome/promo-tile-440x280.png)
      for both locales.

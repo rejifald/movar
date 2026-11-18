@@ -478,7 +478,7 @@ done
    [`store-assets/screenshots/app-store/`](../apps/extension/store-assets/screenshots/app-store/README.md)
    (`SCREENSHOTS=0` skips it); the sets below are what was hand-uploaded before that.
    Screenshots: **macOS shows the macOS app
-   itself** (`store-assets/screenshots/macos/{uk,en}/`, 2560×1600), captured from
+   itself** (`store-assets/screenshots/app-store/mac/{uk,en}/` as `05-07`, 2560×1600), captured from
    the built app by `pnpm --filter @movar/extension capture:macos-screenshots`;
    iOS/iPadOS use the simulator captures in `store-assets/screenshots/app-store/`, and
    the landscape 1280×800 `{en,uk}` storyboards remain the Chrome / Edge / Firefox

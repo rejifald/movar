@@ -10,6 +10,8 @@
     "test": "vitest run",
     "mock": "tsx src/mock/serve.ts",
     "capture": "tsx src/capture/run.ts",
+    "capture:desktop": "tsx src/capture/desktop/run.ts",
+    "place": "tsx src/publish/place.ts",
     "frame": "tsx src/render/cli.ts",
     "check:mock-scenes": "tsx test/mock-scenes.e2e.mts"
   },

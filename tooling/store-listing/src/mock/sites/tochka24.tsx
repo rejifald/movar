@@ -151,6 +151,29 @@ const CSS = `
   .feature { padding: 18px 18px 16px; border: 1px solid var(--rule); border-radius: 16px; background: var(--surface); }
   .feature h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -0.01em; }
   .feature p { margin: 0; font-size: 15px; color: var(--soft); }
+  /* Desktop (>= 1100px): a centred 1120px column. Header and nav keep the phone DOM;
+     the page wrapper becomes a two-column grid (hero | art, features across). */
+  @media (min-width: 1100px) {
+    header { padding: 16px max(32px, calc((100% - 1120px) / 2)); }
+    #lang-menu { right: max(32px, calc((100% - 1120px) / 2)); top: 68px; min-width: 220px; }
+    #lang-menu a { font-size: 15px; padding: 10px 12px; }
+    .page { display: grid; grid-template-columns: 1fr 1fr; column-gap: 56px; max-width: 1120px;
+      margin: 0 auto; padding: 0 32px; align-content: start; }
+    .nav { grid-column: 1 / -1; padding: 18px 0 0; gap: 32px; font-size: 15px; }
+    .hero { grid-column: 1; align-self: center; padding: 72px 0 56px; }
+    h1 { font-size: 52px; margin-bottom: 20px; }
+    .hero p { font-size: 20px; max-width: 520px; margin-bottom: 32px; }
+    .cta { padding: 16px 30px; font-size: 17px; }
+    .art { grid-column: 2; margin: 40px 0 32px; height: auto; min-height: 360px; border-radius: 28px; }
+    .art i:nth-child(1) { left: 8% !important; top: 12% !important; width: 34% !important; height: 26% !important; }
+    .art i:nth-child(2) { left: 30% !important; top: 42% !important; width: 42% !important; height: 30% !important; }
+    .art i:nth-child(3) { left: auto !important; right: 7% !important; top: 10% !important; width: 22% !important; height: 30% !important; }
+    .features { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 16px 0 72px; }
+    .feature { padding: 24px 24px 22px; }
+    .feature h3 { font-size: 19px; }
+    #language-gate { padding-top: 15vh; }
+    #language-gate .panel { max-width: 460px; padding: 32px 30px 28px; }
+  }
   /* Language gate: a full-viewport blocking overlay (Movar's gate geometry test
      wants position:fixed covering >=75% of both axes). */
   /* Dimmed, never blurred, and the panel near the top: the listing's before shot
@@ -264,32 +287,34 @@ export function Tochka24({ lang, gate = false }: Readonly<Tochka24Props>): JSX.E
           </>
         )}
       </header>
-      <nav className="nav" aria-label="Menu">
-        {c.nav.map((n) => (
-          <span key={n}>{n}</span>
-        ))}
-      </nav>
-      <section className="hero">
-        <span className="eyebrow">{c.eyebrow}</span>
-        <h1>{c.title}</h1>
-        <p>{c.body}</p>
-        <a className="cta" href={`${ORIGIN}/order`}>
-          {c.cta} →
-        </a>
-      </section>
-      <div className="art" aria-hidden="true">
-        <i style={{ left: 22, top: 26, width: 96, height: 58 }} />
-        <i style={{ left: 130, top: 60, width: 120, height: 64 }} />
-        <i style={{ right: 20, top: 18, width: 60, height: 60 }} />
+      <div className="page">
+        <nav className="nav" aria-label="Menu">
+          {c.nav.map((n) => (
+            <span key={n}>{n}</span>
+          ))}
+        </nav>
+        <section className="hero">
+          <span className="eyebrow">{c.eyebrow}</span>
+          <h1>{c.title}</h1>
+          <p>{c.body}</p>
+          <a className="cta" href={`${ORIGIN}/order`}>
+            {c.cta} →
+          </a>
+        </section>
+        <div className="art" aria-hidden="true">
+          <i style={{ left: 22, top: 26, width: 96, height: 58 }} />
+          <i style={{ left: 130, top: 60, width: 120, height: 64 }} />
+          <i style={{ right: 20, top: 18, width: 60, height: 60 }} />
+        </div>
+        <section className="features">
+          {c.features.map((f) => (
+            <div className="feature" key={f.title}>
+              <h3>{f.title}</h3>
+              <p>{f.body}</p>
+            </div>
+          ))}
+        </section>
       </div>
-      <section className="features">
-        {c.features.map((f) => (
-          <div className="feature" key={f.title}>
-            <h3>{f.title}</h3>
-            <p>{f.body}</p>
-          </div>
-        ))}
-      </section>
       {gate ? (
         <div
           id="language-gate"

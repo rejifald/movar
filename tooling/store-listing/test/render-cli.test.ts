@@ -8,12 +8,13 @@ describe('parseCliOptions', () => {
       out: 'o',
       locale: 'en',
       canvas: 'iphone',
+      chromeTop: undefined,
     });
     expect(parseCliOptions({ captures: 'c', out: 'o', locale: 'uk', canvas: 'ipad' }).canvas).toBe(
       'ipad',
     );
     expect(() => parseCliOptions({ captures: 'c', out: 'o', locale: 'uk', canvas: 'tv' })).toThrow(
-      /iphone or ipad/,
+      /iphone, ipad, desktop or mac/,
     );
   });
   it('asks for --captures and --out', () => {

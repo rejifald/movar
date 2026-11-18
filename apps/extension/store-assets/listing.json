@@ -1,0 +1,59 @@
+{
+  "$comment": "Non-prose listing source of truth for the store listings. Summary and description prose live in copy/*.md (not duplicated here). Read by scripts/amo-listing.mjs (AMO sync) and scripts/chrome-listing-bundle.mjs (Chrome Web Store hand-off). amo block seeded from the live AMO listing 2026-11-16 so a first sync of these fields changes nothing; chrome block seeded from REQUIREMENTS.md and the Chrome docs in this folder, fields under `unverified` have not been checked against the live dashboard.",
+  "amo": {
+    "slug": "movar",
+    "defaultLocale": "uk",
+    "$localeMap": "repo copy locale -> AMO locale code",
+    "localeMap": {
+      "uk": "uk",
+      "en": "en-US"
+    },
+    "name": {
+      "en-US": "Movar",
+      "uk": "Movar"
+    },
+    "$categories": "AMO category slugs for Firefox extensions (GET /api/v5/addons/categories/). Max 2 recommended by Mozilla, live listing has 3.",
+    "categories": ["search-tools", "appearance", "language-support"],
+    "$tags": "Must come from GET /api/v5/addons/tags/ (a closed list). Owner chose privacy + search (2026-11-16).",
+    "tags": ["privacy", "search"],
+    "homepage": "https://movar.fyi",
+    "supportEmail": "support@movar.fyi",
+    "supportUrl": "https://www.movar.fyi",
+    "screenshots": {
+      "$comment": "AMO previews are not per-locale: images come from the AMO_SCREENSHOT_LOCALE folder (default uk), the Firefox window capture framed at 1280x800 by tooling/store-listing; captions are set in both locales and double as alt text. Keyed by the file name without its NN- prefix. Signed off by the owner on 2026-11-17.",
+      "locale": "uk",
+      "captions": {
+        "search": {
+          "uk": "Пошук — вашою мовою. Угорі з Моваром, унизу без нього",
+          "en": "Search in your language. Top: with Movar, bottom: without"
+        },
+        "site-no-modal": {
+          "uk": "Сайти — одразу вашою мовою, без вікна вибору. Угорі з Моваром, унизу без нього",
+          "en": "Sites open in your language, no language pop-up. Top: with Movar, bottom: without"
+        },
+        "site-menu": {
+          "uk": "У перемикачі — лише ваші мови. Угорі з Моваром, унизу без нього",
+          "en": "Only your languages in the switcher. Top: with Movar, bottom: without"
+        },
+        "youtube": {
+          "uk": "YouTube: відео іншими мовами сховано. Угорі з Моваром, унизу без нього",
+          "en": "YouTube: videos in other languages hidden. Top: with Movar, bottom: without"
+        }
+      }
+    }
+  },
+  "chrome": {
+    "defaultLanguage": "en",
+    "name": {
+      "en": "Movar",
+      "uk": "Movar"
+    },
+    "category": "Productivity",
+    "homepageUrl": "https://movar.fyi",
+    "supportEmail": "support@movar.fyi",
+    "privacyPolicyUrl": "https://movar.fyi/privacy",
+    "maxScreenshots": 5,
+    "unverified": ["category", "homepageUrl", "supportEmail", "defaultLanguage"],
+    "$unverified": "Taken from REQUIREMENTS.md section 3, not read back from the live Developer Dashboard. CWS has no public read API for listing metadata."
+  }
+}

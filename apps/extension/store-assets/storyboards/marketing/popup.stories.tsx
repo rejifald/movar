@@ -15,7 +15,7 @@ import { ukSettings } from '../stories/_seed';
  * yet; the asset is produced ahead of demand so editors can drop it
  * in without spinning the pipeline).
  *
- * Difference vs. `Marketplace/Screenshots/PopupOnNews`: that one
+ * Difference vs. the retired `Marketplace/Screenshots/PopupOnNews`: that one
  * composes the popup over a fictitious news article for the store
  * listings at 1280×800. This one is just the popup itself, framed in
  * a light surface so it reads as a UI fragment on a marketing page.

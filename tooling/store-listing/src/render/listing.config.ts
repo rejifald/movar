@@ -44,6 +44,17 @@ export const APP_STORE_CANVASES: Readonly<
   ipad: { width: 2064, height: 2752 },
 };
 
+/** Landscape canvases for desktop browser-window captures. */
+export type LandscapeCanvas = 'desktop' | 'mac';
+
+/** Firefox AMO + Chrome Web Store (1280x800) and the Mac App Store (2560x1600, matching the host-app shots). */
+export const LANDSCAPE_CANVASES: Readonly<
+  Record<LandscapeCanvas, { readonly width: number; readonly height: number }>
+> = {
+  desktop: { width: 1280, height: 800 },
+  mac: { width: 2560, height: 1600 },
+};
+
 /** iPhone 6.9" App Store canvas. */
 export const APP_STORE_CANVAS = APP_STORE_CANVASES.iphone;
 

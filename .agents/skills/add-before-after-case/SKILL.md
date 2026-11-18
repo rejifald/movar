@@ -17,9 +17,8 @@ description: |
 Both surfaces narrate the same "what Movar fixes" stories — they just
 deliver them in different shapes:
 
-- **Marketplace** ships one composed 1280×800 diptych PNG per scene
-  (the diptych frame is in the PNG). One numbered file per locale lands
-  in `apps/extension/store-assets/screenshots/{en,uk}/NN-<slug>.png`.
+- **Marketplace** screenshots are no longer made in Storybook — they
+  come from real captures in `tooling/store-listing`.
 - **Marketing** ships two single-half PNGs per pair — each captured
   light **and** `-dark`, at natural content height — and the Astro
   layer at `apps/marketing/src/components/ExampleDrum.astro` composes
@@ -31,10 +30,9 @@ Both share backdrop components and the same Playwright capture script
 at `apps/extension/scripts/capture-storybook-assets.mts`. Story title
 prefix routes the output:
 
-| Prefix                      | Output root                          | Story dir                |
-| --------------------------- | ------------------------------------ | ------------------------ |
-| `Marketplace/Screenshots/*` | `store-assets/screenshots/{en,uk}/`  | `storyboards/stories/`   |
-| `Marketing/Screenshots/*`   | `apps/marketing/public/screenshots/` | `storyboards/marketing/` |
+| Prefix                    | Output root                          | Story dir                |
+| ------------------------- | ------------------------------------ | ------------------------ |
+| `Marketing/Screenshots/*` | `apps/marketing/public/screenshots/` | `storyboards/marketing/` |
 
 ## Procedure
 
@@ -85,22 +83,11 @@ full height (not an 800px crop); `darkVariant` emits the `-dark` sibling
 under `prefers-color-scheme: dark` (give the backdrop a dark `@media`
 block over its scoped CSS vars).
 
-### 3. Marketplace diptych story
+### 3. Marketplace screenshots (retired from Storybook)
 
-Add one story under
-`apps/extension/store-assets/storyboards/stories/<scene>.stories.tsx`
-titled `Marketplace/Screenshots/<Scene>` with the next free
-`screenshotIndex`. Compose the two backdrops inside
-`BeforeAfterFrameWithFrame`, passing `hideChrome` on each. Export
-`English` and `Ukrainian` story functions — or, if a locale is
-intentionally skipped, document the reason in the file header and omit
-that export (the capture script throws on stories named anything other
-than `English` / `Ukrainian`, so omitting is cleaner than a renamed
-export).
-
-Caption bodies live inline in the story render functions (search-rewrite
-is the canonical template) — keep them under three lines at the diptych's
-caption width (~540px @ 18px body).
+The `Marketplace/Screenshots/*` stories are retired. Store screenshots
+now come from real browser captures in `tooling/store-listing`; there is
+no marketplace story to add for a new case.
 
 ### 4. Marketing site integration
 
@@ -163,7 +150,7 @@ applied:
 - Marketing stories: `apps/extension/store-assets/storyboards/marketing/google-god-of-war-{with,without}.stories.tsx`
 - Marketplace diptych story: `apps/extension/store-assets/storyboards/stories/knowledge-panel.stories.tsx` (UK-only — see header)
 - Marketing PNGs: `apps/marketing/public/screenshots/google-god-of-war-{with,without}-movar.png`
-- Marketplace PNG: `apps/extension/store-assets/screenshots/uk/05-knowledge-panel.png`
+- Marketplace PNG: retired — the old Storybook-made `screenshots/{uk,en}/` sets were removed; store listings now use real captures from `tooling/store-listing` (see its AGENTS.md)
 
 When in doubt, mirror the structure of scene #3 (search-rewrite —
 fully bilingual) or scene #5 (knowledge-panel — UK-only with a

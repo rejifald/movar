@@ -275,6 +275,7 @@ describe('corpus — picker fixtures (@movar/lang-pickers)', () => {
     'stls-value-attr',
     'hotline-bare-div-picker',
     'bigfive-listbox',
+    'solar-tech-sibling-backdrop-gate',
   ] as const;
 
   for (const name of pickerFixtures) {

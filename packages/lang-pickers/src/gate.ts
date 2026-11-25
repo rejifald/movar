@@ -138,19 +138,27 @@ function sharesGateRoot(backdrop: HTMLElement, container: HTMLElement): boolean 
  * No hit-testing (jsdom, detached documents) means no answer — fail closed.
  */
 function findBackdropBeneath(container: HTMLElement, viewport: GateViewport): HTMLElement | null {
-  const doc = container.ownerDocument;
-  if (typeof doc.elementsFromPoint !== 'function') return null;
-  const rect = container.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return null;
-  const stack = doc.elementsFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  const stack = hitStackAtCentre(container);
   const [topmost] = stack;
   if (topmost === undefined || !container.contains(topmost)) return null;
-  for (const el of stack) {
-    if (!(el instanceof HTMLElement) || el.contains(container)) continue;
-    if (!isBlockingOverlay(el, viewport)) continue;
-    return sharesGateRoot(el, container) ? el : null;
-  }
-  return null;
+  const backdrop = stack.find((el): el is HTMLElement => isForeignOverlay(el, container, viewport));
+  return backdrop !== undefined && sharesGateRoot(backdrop, container) ? backdrop : null;
+}
+
+/** Paint-order stack (topmost first) at `el`'s centre; empty when the document
+ *  can't hit-test or `el` has no box. */
+function hitStackAtCentre(el: HTMLElement): Element[] {
+  const doc = el.ownerDocument;
+  if (typeof doc.elementsFromPoint !== 'function') return [];
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return [];
+  return doc.elementsFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+}
+
+/** A blocking overlay that is not one of `container`'s own ancestors (those the
+ *  enclosing walk already judged). */
+function isForeignOverlay(el: Element, container: HTMLElement, viewport: GateViewport): boolean {
+  return el instanceof HTMLElement && !el.contains(container) && isBlockingOverlay(el, viewport);
 }
 
 /**

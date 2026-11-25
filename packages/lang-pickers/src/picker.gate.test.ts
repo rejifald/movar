@@ -278,6 +278,16 @@ describe('findGateOverlay', () => {
       expect(findGateOverlay(picker, VIEWPORT)).toBeNull();
     });
 
+    it('fails closed when the picker has no box to hit-test', () => {
+      setupSiblingBackdropGate();
+      const buttons = document.querySelector('#buttons');
+      if (buttons) stubRect(buttons, 0, 0);
+      stubHitStack('buttons', 'panel', 'dim', 'column');
+      const [picker] = findLanguagePickers();
+      if (!picker) throw new Error('picker not classified');
+      expect(findGateOverlay(picker, VIEWPORT)).toBeNull();
+    });
+
     it('rejects a backdrop that does not cover the viewport', () => {
       setupSiblingBackdropGate();
       const dim = document.querySelector('#dim');

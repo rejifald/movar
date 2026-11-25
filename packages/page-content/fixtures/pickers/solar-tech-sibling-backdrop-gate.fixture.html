@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  solar-tech.com.ua product page capture (2026-11-25). Trimmed per the corpus README.
+
+  The page is ALREADY Ukrainian (<html lang="uk">, /ua/ path) and still throws up
+  a «Якою мовою Ви бажаєте переглянути наш сайт?» gate. Its shape is what makes
+  it worth a fixture: the fixed wrapper `#language-form` is a 505px column
+  (max-width + margin:auto), NOT a full-viewport box, and the full-viewport dim
+  layer `.overlay` is the panel's SIBLING inside it. No ancestor of the picker
+  covers the viewport, so an ancestor-only gate check misses it; findGateOverlay
+  finds it by hit-testing for a covering backdrop painted beneath the picker.
+  Both modal anchors are cookie-setting links; the Ukrainian one is this URL.
+
+  Contaminating chrome: the same page carries two ordinary in-flow switchers
+  (desktop `#header_lang` form, `.mobile_lang`) with the same ru/ua entries.
+  All three classify as pickers; only the modal is a gate.
+
+  Verdict surface: @movar/lang-pickers classification. The gate geometry and
+  hit-test need layout (jsdom has none) — see
+  packages/lang-pickers/src/picker.gate.test.ts with stubbed rects/hit stacks.
+-->
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <title>Стійка монтажна для інвертора та акумуляторних батарей — Solar-Tech</title>
+  </head>
+  <body class="overflow">
+    <header>
+      <div class="lang">
+        <form id="header_lang">
+          <ul>
+            <li><a href="https://solar-tech.com.ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html">ru</a></li>
+            <li class="active"><a href="https://solar-tech.com.ua/ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html">ua</a></li>
+          </ul>
+        </form>
+      </div>
+      <div class="scroll_box">
+        <div class="mobile_lang clearfix">
+          <ul>
+            <li><a href="https://solar-tech.com.ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html">ru</a></li>
+            <li class="active"><a href="https://solar-tech.com.ua/ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html">ua</a></li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <h1>Монтажна стійка для інвертора та акумуляторних батарей</h1>
+      <p>
+        Стійка призначена для монтажу інверторного обладнання та акумуляторних
+        батарей. Ціна вказана при оплаті готівкою, доставка по Україні.
+      </p>
+    </main>
+
+    <div
+      class="lang-popup"
+      id="language-form"
+      style="position: fixed; inset: 0; z-index: 10; max-width: 505px; margin: 0 auto; display: flex; align-items: center;"
+    >
+      <div class="overlay" style="position: fixed; inset: 0; z-index: 2; background: rgba(0, 0, 0, 0.5);"></div>
+      <div class="popup-wrapper" style="position: relative; z-index: 3; background: #fff;">
+        <div class="popup-title">Якою мовою Ви бажаєте переглянути наш сайт?</div>
+        <div class="lang-buttons">
+          <a data-code="ru" data-link="https://solar-tech.com.ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html" class="case link-click" href="https://solar-tech.com.ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html">
+            <button class="lang-button"><span class="button-text">Російська</span></button>
+          </a>
+          <a data-code="ua" data-link="https://solar-tech.com.ua/ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html" class="case link-click" href="https://solar-tech.com.ua/ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html">
+            <button class="lang-button"><span class="button-text">Українська</span></button>
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

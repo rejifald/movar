@@ -1,0 +1,25 @@
+{
+  "surface": "picker",
+  "shape": {
+    "selectors": {
+      "#language-form": 1,
+      "#language-form > .overlay": 1,
+      "#language-form a[data-code]": 2,
+      "#header_lang a[href]": 2,
+      ".mobile_lang a[href]": 2
+    }
+  },
+  "picker": {
+    "containerMatches": "#language-form .lang-buttons",
+    "links": 2,
+    "languages": ["ru", "uk"]
+  },
+  "page": {
+    "url": "https://solar-tech.com.ua/ua/inverters/control-display/stoika-montazhnaya-dlya-invertora-i-akumulyatornyh-batarei.html",
+    "htmlLang": "uk",
+    "activeLanguage": "uk",
+    "detectedLanguage": "uk",
+    "expectNavigation": false,
+    "note": "Already Ukrainian; the modal's uk anchor is this very URL. The gate (a backdrop painted beneath the picker, not an ancestor of it) is dismissed by trySatisfyLanguageGate, a separate pass — the switch ladder itself must not navigate."
+  }
+}

@@ -57,8 +57,10 @@ also works directly, e.g. `@movar/lang-pickers/extract`):
   stops the search rather than falling through to a worse one.
 - **gate** — `findGateOverlay(picker, viewport?)`, `MIN_GATE_COVERAGE`, type
   `GateViewport`. Answers "is this picker inside an overlay that blocks the page
-  until you choose?" — the interstitial-modal pattern. Pure geometry + computed
-  style; the decision to act on a `true` lives in
+  until you choose?" — the interstitial-modal pattern: either an ancestor is
+  the blocking overlay, or the picker paints above a covering backdrop from its
+  own modal markup (one `elementsFromPoint` hit-test). Pure geometry + computed
+  style + hit-testing; the decision to act on a `true` lives in
   `apps/extension/src/lib/language-gate.ts`.
 - `@movar/lang-pickers/picker.test-utils` — shared test helpers (`setBody`,
   `elFromHtml`, `expectSinglePickerWithLangs`, `setup001ComUaPicker`,
@@ -148,6 +150,14 @@ and `<html lang>` so DOM state never leaks between cases.
   `getBoundingClientRect` there is a zero box, so unit tests must stub the rect
   per element (see `src/picker.gate.test.ts`). The native-`<dialog>` branch is
   gated on `:modal`, which jsdom throws on, so that path is e2e-only.
+- **The dim backdrop is not always an ancestor of the picker.** solar-tech.com.ua
+  wraps its gate in a 505px fixed column and puts the full-viewport `.overlay`
+  beside the panel, so no ancestor covers the viewport. `findGateOverlay` falls
+  back to a hit-test at the picker's centre: the picker must be topmost, a
+  covering fixed box must sit beneath it in the same stack, and the two must
+  meet below `<body>` (else a high-z sticky header above some unrelated modal's
+  backdrop would read as a gate). jsdom has no `elementsFromPoint` — stub it on
+  `document` per test and restore it after; unstubbed, the fallback fails closed.
 - **Gate geometry measures OVERLAP with the viewport, not box size.** A closed
   off-canvas drawer (`position:fixed` + full size + `translateX(-100%)`) is a
   full-viewport-sized box that blocks nothing, and mobile drawers routinely

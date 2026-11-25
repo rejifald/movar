@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
+import type { Picker } from '@movar/lang-pickers/types';
 import { filterPickers as filterPickersWithPresenter } from './picker-filter';
 import { testContentPresenter } from './dom.test-utils';
 import { teardownContentModification } from './content-modification';
@@ -9,7 +10,7 @@ import {
   getMarkedOptions,
   getTooltipHosts,
 } from '@movar/lang-pickers/picker.test-utils';
-import { filterWithTestPresenter as filterPickers } from './picker.filter.test-utils';
+import { filterWithTestPresenter as filterPickers } from './picker-filter.test-utils';
 
 describe('filterPickers — native <select> marks the option in place', () => {
   // An <option> can carry neither a chip (it may not contain an element) nor a
@@ -281,5 +282,56 @@ describe('filterPickers — divider element edge cases', () => {
     expect(document.querySelector<HTMLAnchorElement>('#ru')!.style.display).toBe('none');
     // RU's wrapper holds the only hidden link, so the `|` before it is stranded.
     expect(document.querySelector<HTMLElement>('.sep')!.style.display).toBe('none');
+  });
+});
+
+describe('filterPickers — native pickers a caller built by hand', () => {
+  it('demotes the in-place mark on a picker that carries no allLinks', () => {
+    // `allLinks` is optional; the mark refresh falls back to `links`, so a
+    // conceal-mode flip to `hide` still takes the label off and hides the
+    // option outright.
+    setupSelectPicker();
+    const [found] = findLanguagePickers();
+    const picker: Picker = { container: found!.container, links: found!.links, layout: 'native' };
+    filterPickers([picker], ['uk', 'en'], { blocked: ['ru'] });
+    expect(getMarkedOptions()).toHaveLength(1);
+
+    filterPickersWithPresenter([picker], ['uk', 'en'], { blocked: ['ru'] });
+
+    const ru = document.querySelector<HTMLOptionElement>('option[value="ru"]')!;
+    expect(getMarkedOptions()).toHaveLength(0);
+    expect(ru.textContent).toBe('Русский');
+    expect(ru.hidden).toBe(true);
+  });
+
+  it('hides a non-option entry outright and never relabels it', () => {
+    // concealOption only knows how to mark an `<option>`; anything else in a
+    // native picker is hidden the plain way, and the label refresh that runs
+    // on every pass must skip it rather than overwrite its text.
+    setBody(`
+      <div id="picker">
+        <select id="lang-select">
+          <option id="opt-uk" value="uk">Українська</option>
+          <option id="opt-en" value="en">English</option>
+        </select>
+        <a id="ru" href="/ru/x">RU</a>
+      </div>
+    `);
+    const container = document.querySelector<HTMLElement>('#picker')!;
+    const uk = document.querySelector<HTMLElement>('#opt-uk')!;
+    const ru = document.querySelector<HTMLElement>('#ru')!;
+    const links = [
+      { el: uk, language: 'uk' as const },
+      { el: ru, language: 'ru' as const },
+    ];
+    const picker: Picker = { container, links, allLinks: links, layout: 'native' };
+
+    filterPickers([picker], ['uk'], { blocked: ['ru'] });
+    filterPickers([picker], ['uk'], { blocked: ['ru'] });
+
+    expect(ru.style.display).toBe('none');
+    expect(ru.textContent).toBe('RU');
+    expect(ru.hasAttribute('data-movar-original-text')).toBe(false);
+    expect(getMarkedOptions()).toHaveLength(0);
   });
 });

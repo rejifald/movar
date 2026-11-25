@@ -96,7 +96,7 @@ Rules:
   either way; only `wxt prepare` / the build fails, at pre-push. Tests inside an entrypoint
   _folder_ (`popup/App.test.tsx`) are fine.
 - **Split a suite** when one file grows unrelated `describe`s or hundreds of lines: by feature
-  or surface, with descriptive names (`picker.filter.restore.test.ts`, not `picker.filter2.test.ts`), with shared helpers in a sibling `<subject>.test-utils.ts`.
+  or surface, with descriptive names (`picker-filter.restore.test.ts`, not `picker-filter2.test.ts`), with shared helpers in a sibling `<subject>.test-utils.ts`.
   Share setup through helpers, not copied `beforeEach` blocks.
 
 ### Vitest environments

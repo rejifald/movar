@@ -11,7 +11,7 @@ import {
   getTooltipHosts,
   setupListboxPicker,
 } from '@movar/lang-pickers/picker.test-utils';
-import { filterWithTestPresenter as filterPickers } from './picker.filter.test-utils';
+import { filterWithTestPresenter as filterPickers } from './picker-filter.test-utils';
 
 /** What a teardown does to the page: drop every injected host, leaving the
  *  module-level bookkeeping behind exactly as the real sweeps do. */
@@ -423,5 +423,64 @@ describe('filterPickers — a chip in a grouped list measures rows, not whatever
     filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
 
     expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('37px');
+  });
+});
+
+/** Give the rows listed a laid-out height; every other row stays at jsdom's 0
+ *  and so is not measured at all. */
+function measure(heights: Record<string, number>): void {
+  for (const [code, px] of Object.entries(heights)) {
+    Object.defineProperty(document.querySelector<HTMLElement>(`#opt-${code}`)!, 'offsetHeight', {
+      value: px,
+      configurable: true,
+    });
+  }
+}
+
+describe('filterPickers — a chip measured against rows of mixed height', () => {
+  it('takes the smaller height when two row heights are equally common', () => {
+    // A floor under the row is invisible; a floor over it is the too-tall band
+    // the measurement exists to prevent — so a tie resolves downwards whichever
+    // row comes first.
+    setupListboxPicker();
+    measure({ sq: 30, de: 20 });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('20px');
+  });
+
+  it('takes the smaller height when the smaller row comes first', () => {
+    setupListboxPicker();
+    measure({ sq: 20, de: 30 });
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(expectEntryCurtained('#opt-ru').style.minHeight).toBe('20px');
+  });
+});
+
+describe('filterPickers — one chip of several restores the whole list', () => {
+  it('brings back every hidden row and leaves no chip standing', () => {
+    // Two hidden languages, two chips. Clicking either restores the picker in
+    // place; the first chip to come down must not take the picker's watch with
+    // it while the second is still up, and the second must still come down.
+    setupListboxPicker();
+    const list = document.querySelector<HTMLElement>('#picker')!;
+    const be = document.createElement('li');
+    be.setAttribute('role', 'option');
+    be.id = 'opt-be';
+    be.setAttribute('value', 'be');
+    be.textContent = 'Беларуская';
+    list.append(be);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru', 'be'] });
+    expect(getEntryCurtainHosts()).toHaveLength(2);
+
+    expectEntryCurtained('#opt-ru')
+      .shadowRoot!.querySelector<HTMLButtonElement>('button.chip')!
+      .click();
+
+    expect(getEntryCurtainHosts()).toHaveLength(0);
+    for (const id of ['#opt-ru', '#opt-be']) {
+      const row = document.querySelector<HTMLElement>(id)!;
+      expect(row.style.getPropertyValue('display')).toBe('');
+      expect(row.hasAttribute('data-movar-hidden')).toBe(false);
+    }
   });
 });

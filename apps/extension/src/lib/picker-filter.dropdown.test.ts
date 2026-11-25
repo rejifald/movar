@@ -12,7 +12,7 @@ import {
   getTooltipHosts,
   setupListboxPicker,
 } from '@movar/lang-pickers/picker.test-utils';
-import { filterWithTestPresenter as filterPickers } from './picker.filter.test-utils';
+import { filterWithTestPresenter as filterPickers } from './picker-filter.test-utils';
 
 describe('filterPickers — a dropdown that opens without touching the DOM', () => {
   /** jsdom ships no ResizeObserver, so the slot watcher is never built unless

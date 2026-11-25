@@ -6,7 +6,10 @@ import {
   setupTwoLanguagePicker,
   expectContainerCurtained,
 } from '@movar/lang-pickers/picker.test-utils';
-import { filterWithTestPresenter as filterPickers } from './picker.filter.test-utils';
+import { filterWithTestPresenter as filterPickers } from './picker-filter.test-utils';
+import { filterPickers as filterPickersWithPresenter } from './picker-filter';
+import { testContentPresenter } from './dom.test-utils';
+import type { ContentPresenter } from './content-presenter';
 
 /** Filter the '#picker' container keeping only 'uk'+'en', then return the
  *  picker element and its immediately preceding curtain host element. Asserts
@@ -349,5 +352,28 @@ describe('filterPickers — useless delimiter cleanup', () => {
     `);
     filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
     expect(document.querySelector<HTMLElement>('.info')!.style.display).toBe('');
+  });
+});
+
+describe('filterPickers — a presenter that declines the container chip', () => {
+  it('still reports the collapsed container and tries again on the next pass', () => {
+    // ContentPresenter may return null for any surface. The links are hidden
+    // either way; with no chip standing the container is not "already
+    // curtained", so the next pass reports it and asks again rather than
+    // treating it as done.
+    const declining: ContentPresenter = {
+      ...testContentPresenter,
+      attachPickerContainerCurtain: () => null,
+    };
+    setupTwoLanguagePicker();
+
+    const first = filterPickersWithPresenter(findLanguagePickers(), ['uk'], undefined, declining);
+    const second = filterPickersWithPresenter(findLanguagePickers(), ['uk'], undefined, declining);
+
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+    expect(document.querySelector('[data-movar-curtain]')).toBeNull();
+    const picker = document.querySelector('#picker');
+    expect(first.hiddenContainers).toEqual([picker]);
+    expect(second.hiddenContainers).toEqual([picker]);
   });
 });

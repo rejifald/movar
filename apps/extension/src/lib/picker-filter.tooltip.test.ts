@@ -7,7 +7,7 @@ import {
   setupStlsStorePicker,
   getTooltipHosts,
 } from '@movar/lang-pickers/picker.test-utils';
-import { filterWithTestPresenter as filterPickers } from './picker.filter.test-utils';
+import { filterWithTestPresenter as filterPickers } from './picker-filter.test-utils';
 
 /** Assert that the '#picker' container was left fully visible and uncurtained
  *  after a blocked-mode filterPickers call. */
@@ -284,5 +284,37 @@ describe('filterPickers — container curtain uses chip skin', () => {
 
     expect(picker.style.display).toBe('flex');
     expect(picker.previousElementSibling).toBeNull();
+  });
+});
+
+function byId(id: string): HTMLElement {
+  return document.querySelector<HTMLElement>(`#${id}`)!;
+}
+
+describe('filterPickers — survivor tooltip names each hidden language once', () => {
+  it('lists a language once even when two of its entries are hidden', () => {
+    // Discovery dedups regional variants, but a caller that hands over both
+    // `ru-RU` and `ru-UA` entries in `links` must still get one "Русский" in the
+    // tooltip, not two.
+    setBody(`
+      <div id="picker"><a id="ua" href="/uk/x">UA</a><a id="ru-ru" href="/ru-ru/x">RU</a
+      ><a id="ru-ua" href="/ru-ua/x">RU (UA)</a></div>
+    `);
+    const links = [
+      { el: byId('ua'), language: 'uk' as const },
+      { el: byId('ru-ru'), language: 'ru' as const },
+      { el: byId('ru-ua'), language: 'ru' as const },
+    ];
+    const container = byId('picker');
+
+    filterPickers([{ container, links, allLinks: links, layout: 'inline' }], ['uk'], {
+      blocked: ['ru'],
+    });
+
+    expect(byId('ru-ru').style.display).toBe('none');
+    expect(byId('ru-ua').style.display).toBe('none');
+    const body =
+      getTooltipHosts()[0]!.shadowRoot!.querySelector('.body')?.textContent.toLowerCase() ?? '';
+    expect(body.match(/русск/g)).toHaveLength(1);
   });
 });

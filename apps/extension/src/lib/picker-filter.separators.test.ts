@@ -8,7 +8,8 @@ import {
 import {
   filterWithTestPresenter as filterPickers,
   describeNodes,
-} from './picker.filter.test-utils';
+} from './picker-filter.test-utils';
+import { restoreOriginalBorders } from './picker-filter';
 
 describe('filterPickers — orphan edge-border cleanup', () => {
   // The fourth divider shape: the separator is not a node at all but a CSS
@@ -300,5 +301,110 @@ describe('filterPickers — text-node separator trimming (spizhenko pattern)', (
     expect(pickers2).toHaveLength(1);
     const langs = pickers2[0]!.links.map((l) => l.language).toSorted();
     expect(langs).toEqual(['en', 'ru']);
+  });
+});
+
+describe('filterPickers — separators the cleanup passes must leave standing', () => {
+  // Each pass trims a separator only on the side that faces a hidden entry. The
+  // cases below are the shapes where some or all of the separator still sits
+  // between two things the visitor can see, so taking it away would glue two
+  // live entries together.
+
+  it('keeps a text-node separator that sits between two survivors', () => {
+    setBody(
+      `<div id="picker"><a id="ua" href="/ua/x">UA</a> | <a id="en" href="/en/x">EN</a> | <a id="ru" href="/ru/x">RU</a></div>`,
+    );
+    const container = document.querySelector<HTMLElement>('#picker')!;
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    // UA | EN is structure and stays a bare text node; only the `|` that now
+    // dangles after EN is wrapped and emptied.
+    expect(describeNodes(container)).toEqual([
+      'el:a:UA',
+      'text: | ',
+      'el:a:EN',
+      'el:span[text-divider]:',
+      'el:a[hidden]:RU',
+    ]);
+  });
+
+  it('leaves a container-level caption with no separator characters untouched', () => {
+    // "Мова:" is the picker's own label, not a divider — `:` is not in the
+    // separator set — so it must survive the text-node pass verbatim.
+    setBody(
+      `<div id="picker">Мова: <a id="ua" href="/ua/x">UA</a> | <a id="ru" href="/ru/x">RU</a> | <a id="en" href="/en/x">EN</a></div>`,
+    );
+    const container = document.querySelector<HTMLElement>('#picker')!;
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(container.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+    expect(container.firstChild?.nodeValue).toBe('Мова: ');
+  });
+
+  it('looks past a framework comment node to find the hidden neighbour', () => {
+    // React, Vue and Angular all leave `<!---->` placeholders between siblings.
+    // The `|` here faces RU only through one, so a walk that stopped at the
+    // comment would read "no neighbour" and leave the separator stranded.
+    setBody(
+      `<div id="picker"><a id="ua" href="/ua/x">UA</a><a id="ru" href="/ru/x">RU</a><!---->|<a id="en" href="/en/x">EN</a></div>`,
+    );
+    const container = document.querySelector<HTMLElement>('#picker')!;
+
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+
+    expect(describeNodes(container)).toEqual([
+      'el:a:UA',
+      'el:a[hidden]:RU',
+      'other',
+      'el:span[text-divider]:',
+      'el:a:EN',
+    ]);
+  });
+
+  it('does not trim a leaf label whose separator faces away from the hidden entry', () => {
+    // 001.com.ua mirrored: the hidden RU sits BEFORE the "UA  |  " leaf, whose
+    // separator trails off the container's edge. Only a leading run would face
+    // RU, and there is none, so the label is left exactly as the site drew it.
+    setBody(`
+      <ul>
+        <li id="header-languages" class="switch-lang"><a id="ru" href="https://example.com/?lang=ru">RU</a><span id="ua">UA&nbsp;&nbsp;|&nbsp;&nbsp;</span></li>
+      </ul>
+    `);
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    const before = ua.textContent;
+
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+    expect(ua.textContent).toBe(before);
+    expect(ua.hasAttribute('data-movar-original-text')).toBe(false);
+  });
+});
+
+describe('filterPickers — an edge-border snapshot survives a later pass', () => {
+  it('keeps the site’s own border for the restore after the survivor is re-rendered', () => {
+    // A site touching the survivor (here: toggling a class) dirties the
+    // separator signature, so the border pass runs again over an entry whose
+    // border Movar already zeroed. Re-snapshotting then would record our own
+    // `0px` as the original and make the restore a no-op.
+    setBody(`
+      <div id="picker">
+        <span id="ua" value="UA" style="border-right: 1px solid #e0e0e0">UA</span
+        ><a id="ru" value="RU">RU</a>
+      </div>
+    `);
+    const ua = document.querySelector<HTMLElement>('#ua')!;
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('0px');
+
+    ua.classList.add('is-active');
+    filterPickers(findLanguagePickers(), ['uk'], { blocked: ['ru'] });
+
+    expect(ua.getAttribute('data-movar-original-border-right')).toBe('1px');
+    restoreOriginalBorders(ua);
+    expect(ua.style.getPropertyValue('border-right-width')).toBe('1px');
+    expect(ua.style.getPropertyPriority('border-right-width')).toBe('');
   });
 });

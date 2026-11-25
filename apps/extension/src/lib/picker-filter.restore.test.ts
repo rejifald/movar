@@ -2,15 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { detachAllTooltips } from './tooltip';
 import { HIDDEN_ATTR } from '@movar/lang-pickers/types';
+import type { Picker } from '@movar/lang-pickers/types';
 import {
   setBody,
   setupTwoLanguagePicker,
   getTooltipHosts,
+  expectEntryCurtained,
 } from '@movar/lang-pickers/picker.test-utils';
 import {
   filterWithTestPresenter as filterPickers,
   describeNodes,
-} from './picker.filter.test-utils';
+} from './picker-filter.test-utils';
 
 /** Every DOM write `run` makes inside `target`, synchronously. */
 function recordWrites(target: HTMLElement, run: () => void): MutationRecord[] {
@@ -410,5 +412,71 @@ describe('filterPickers — what the unguarded re-run is load-bearing for (#586)
 
     expect(records.length).toBeGreaterThan(0);
     expect(divider.style.display).toBe('none');
+  });
+});
+
+describe('restorePickerInPlace — container shapes beyond plain anchors', () => {
+  it('restores past an inline SVG icon in the picker container', () => {
+    // A globe icon beside the entries is an SVGElement, not an HTMLElement: it
+    // has no inline display of ours to put back, and the restore must step over
+    // it rather than trip on it.
+    setBody(`
+      <div id="picker"><svg id="globe" width="16" height="16"><circle r="4"></circle></svg
+      ><a id="ua" href="/ua/x">UA</a><a id="ru" href="/ru/x">RU</a><a id="en" href="/en/x">EN</a></div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    expect(document.querySelector<HTMLElement>('#ru')!.style.display).toBe('none');
+
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    const ru = document.querySelector<HTMLElement>('#ru')!;
+    expect(ru.style.display).toBe('');
+    expect(ru.hasAttribute(HIDDEN_ATTR)).toBe(false);
+    expect(document.querySelector('#picker')!.firstElementChild?.id).toBe('globe');
+  });
+
+  it('un-hides an <option> row of a listbox without inventing a label for it', () => {
+    // `<option>` rows outside a `<select>` read as a LIST picker, so they are
+    // hidden outright (display + the `hidden` attribute older engines need)
+    // and explained by a chip — never relabelled in place. The restore has to
+    // clear `hidden` too, and find no label snapshot to put back.
+    setBody(`
+      <div id="picker" role="listbox"><option id="opt-uk" value="uk">Українська</option
+      ><option id="opt-ru" value="ru">Русский</option
+      ><option id="opt-en" value="en">English</option></div>
+    `);
+    filterPickers(findLanguagePickers(), ['uk', 'en'], { blocked: ['ru'] });
+    const ru = document.querySelector<HTMLOptionElement>('#opt-ru')!;
+    expect(ru.hidden).toBe(true);
+    expect(ru.hasAttribute('data-movar-original-text')).toBe(false);
+
+    expectEntryCurtained('#opt-ru')
+      .shadowRoot!.querySelector<HTMLButtonElement>('button.chip')!
+      .click();
+
+    expect(ru.hidden).toBe(false);
+    expect(ru.disabled).toBe(false);
+    expect(ru.style.display).toBe('');
+    expect(ru.textContent).toBe('Русский');
+    expect(ru.hasAttribute(HIDDEN_ATTR)).toBe(false);
+  });
+
+  it('hides and restores a caller-built picker that carries no allLinks', () => {
+    // `allLinks` is optional on Picker: a caller that never deduped passes only
+    // `links`, and both the hide and the restore fall back to it.
+    setupTwoLanguagePicker();
+    const [found] = findLanguagePickers();
+    const picker: Picker = { container: found!.container, links: found!.links, layout: 'inline' };
+
+    const result = filterPickers([picker], ['uk'], { blocked: ['ru'] });
+
+    const ru = document.querySelector<HTMLElement>('#ru')!;
+    expect(result.hiddenLinks.map((l) => l.language)).toEqual(['ru']);
+    expect(ru.style.display).toBe('none');
+
+    getTooltipHosts()[0]!.shadowRoot!.querySelector<HTMLButtonElement>('.action')!.click();
+
+    expect(ru.style.display).toBe('');
+    expect(ru.hasAttribute(HIDDEN_ATTR)).toBe(false);
   });
 });

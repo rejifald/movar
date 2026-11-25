@@ -98,20 +98,82 @@ function isBlockingOverlay(el: HTMLElement, viewport: GateViewport): boolean {
   return coversViewport(el, viewport);
 }
 
-/**
- * The overlay element gating the page behind `picker`, or null when the picker
- * is an ordinary in-page switcher. Walks the container and its ancestors,
- * because the classified links sit inside a panel inside the backdrop and it is
- * the backdrop that blocks.
- */
-export function findGateOverlay(
-  picker: Picker,
-  viewport: GateViewport = currentViewport(),
-): HTMLElement | null {
-  let el: HTMLElement | null = picker.container;
+/** The blocking overlay among the container and its nearest ancestors. */
+function findEnclosingOverlay(container: HTMLElement, viewport: GateViewport): HTMLElement | null {
+  let el: HTMLElement | null = container;
   for (let depth = 0; el !== null && depth <= MAX_GATE_DEPTH; depth++) {
     if (isBlockingOverlay(el, viewport)) return el;
     el = el.parentElement;
   }
   return null;
+}
+
+/** True when `backdrop` and `container` meet below `<body>`, within the same
+ *  ancestor budget as the enclosing walk — i.e. the backdrop is part of the
+ *  picker's own modal markup, not some unrelated body-level overlay that a
+ *  high-z header happens to paint above. */
+function sharesGateRoot(backdrop: HTMLElement, container: HTMLElement): boolean {
+  const { body, documentElement } = container.ownerDocument;
+  let el: HTMLElement | null = container.parentElement;
+  for (let depth = 0; el !== null && depth <= MAX_GATE_DEPTH; depth++) {
+    if (el === body || el === documentElement) return false;
+    if (el.contains(backdrop)) return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
+/**
+ * A covering backdrop painted BENEATH the picker that is not one of its
+ * ancestors — the "dim layer as the panel's sibling" modal shape
+ * (solar-tech.com.ua: a 505px fixed column holding both the panel and a
+ * full-viewport `.overlay`). The ancestor walk can't see it: no ancestor covers
+ * the viewport.
+ *
+ * One hit-test at the picker's centre settles both facts that make it a gate:
+ * the picker is the topmost thing there (nothing covers it), and further down
+ * the same stack sits a visible fixed box covering the viewport. Requiring the
+ * two to share a root below `<body>` keeps a sticky header's switcher from
+ * reading as a gate when it merely paints above some other modal's backdrop.
+ * No hit-testing (jsdom, detached documents) means no answer — fail closed.
+ */
+function findBackdropBeneath(container: HTMLElement, viewport: GateViewport): HTMLElement | null {
+  const stack = hitStackAtCentre(container);
+  const [topmost] = stack;
+  if (topmost === undefined || !container.contains(topmost)) return null;
+  const backdrop = stack.find((el): el is HTMLElement => isForeignOverlay(el, container, viewport));
+  return backdrop !== undefined && sharesGateRoot(backdrop, container) ? backdrop : null;
+}
+
+/** Paint-order stack (topmost first) at `el`'s centre; empty when the document
+ *  can't hit-test or `el` has no box. */
+function hitStackAtCentre(el: HTMLElement): Element[] {
+  const doc = el.ownerDocument;
+  if (typeof doc.elementsFromPoint !== 'function') return [];
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return [];
+  return doc.elementsFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+}
+
+/** A blocking overlay that is not one of `container`'s own ancestors (those the
+ *  enclosing walk already judged). */
+function isForeignOverlay(el: Element, container: HTMLElement, viewport: GateViewport): boolean {
+  return el instanceof HTMLElement && !el.contains(container) && isBlockingOverlay(el, viewport);
+}
+
+/**
+ * The overlay element gating the page behind `picker`, or null when the picker
+ * is an ordinary in-page switcher. Two shapes qualify: the picker sits INSIDE a
+ * blocking overlay (the classified links sit in a panel inside the backdrop, and
+ * it is the backdrop that blocks), or the picker paints ABOVE a covering
+ * backdrop that belongs to the same modal markup (see `findBackdropBeneath`).
+ */
+export function findGateOverlay(
+  picker: Picker,
+  viewport: GateViewport = currentViewport(),
+): HTMLElement | null {
+  return (
+    findEnclosingOverlay(picker.container, viewport) ??
+    findBackdropBeneath(picker.container, viewport)
+  );
 }

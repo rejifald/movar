@@ -21,17 +21,16 @@ let subscribe: Bridge['subscribe'];
 
 async function loadFreshBridge(): Promise<void> {
   vi.resetModules();
-  ({
-    callNative,
-    probe,
-    useNativeTab,
-    hostSettingsSource,
-    openChangelog,
-    openFeedback,
-    openSafariPreferences,
-    openSourceCode,
-    subscribe,
-  } = await import('./bridge'));
+  const bridge = await import('./bridge');
+  callNative = bridge.callNative;
+  probe = bridge.probe;
+  useNativeTab = bridge.useNativeTab;
+  hostSettingsSource = bridge.hostSettingsSource;
+  openChangelog = bridge.openChangelog;
+  openFeedback = bridge.openFeedback;
+  openSafariPreferences = bridge.openSafariPreferences;
+  openSourceCode = bridge.openSourceCode;
+  subscribe = bridge.subscribe;
 }
 
 /** Drive the state feed the way Swift's `evaluateJavaScript("show(...)")` does. */

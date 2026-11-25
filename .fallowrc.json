@@ -105,6 +105,9 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
+      // Each jsdom member owns a small DOM-reset setup file (docs/testing.md); they
+      // repeat by design, like the tests they serve.
+      "**/test-setup.ts",
       "packages/options-ui/src/PrioritySection.tsx",
       "packages/lang-pickers/src/active.ts"
     ]

@@ -413,7 +413,7 @@ driving the reset comparisons. If `location.href` never left `priorHref` (a canc
 nav, or a cross-document nav already unloading this page), the deferred check is a no-op —
 nothing changed here. A history/`popstate`/polling change already arrives post-commit
 (`location === newUrl`) and runs synchronously, exactly as before. Pinned by three tests in
-`content.test.ts` ("defers the reset + re-apply until a pre-commit SPA navigation lands",
+`content.spa-navigation.test.ts` ("defers the reset + re-apply until a pre-commit SPA navigation lands",
 "skips the re-apply when a pre-commit navigation never lands", "defers when the watcher oldUrl
 drifted after a canceled nav").
 
@@ -707,7 +707,7 @@ never tested on, and nothing stopped them from running there.
   right after "thinking" and the answer stayed blank until a manual refresh. Cause: the
   empty-results retry wasn't gated by the rewrite's `udm` allowlist, as described in Root
   cause shape 1. Fixed by gating the retry in `applyOnceInner` on `isInSearchParamsScope`.
-  Test: `content.test.ts`, "never retries on Google AI Mode, even with lr present and no
+  Test: `content.runtime-messaging.test.ts`, "never retries on Google AI Mode, even with lr present and no
   organic cards".
 - **Google News `hl` fight (2026-10-24).** `googleRule` matched `isGoogleHost` (every
   subdomain) and the DNR rule matched all subdomains through `requestDomains`, so
@@ -863,7 +863,7 @@ the adopted blob, nothing ever re-adopts it, and the defaults write fires
   way the setting was lost in both places. Fixed by `lib/settings-bootstrap.ts`
   (`initialiseSettings`, `syncFromNative`, `syncToNative` on one queue, adoption before
   defaults). Tests: the "Safari first run" suite in
-  `entrypoints/__tests__/background.test.ts` and `lib/settings-bootstrap.test.ts`.
+  `entrypoints/__tests__/background.lifecycle.test.ts` and `lib/settings-bootstrap.test.ts`.
 - **Open:** popup and options write a whole blob from the snapshot they read on mount and
   never refresh it, so a host-app adoption or a synced change from another device that lands
   while the page is open is reverted by the next toggle. `persistConcealHide` reads fresh,

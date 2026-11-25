@@ -66,7 +66,7 @@ also works directly, e.g. `@movar/lang-pickers/extract`):
   `setupSelectPicker`, `setupListboxPicker`, `expectContainerCurtained`,
   `expectEntryCurtained`, `getTooltipHosts`, `getEntryCurtainHosts`,
   `getControlBadges`). Imported
-  by `apps/extension/src/lib/picker.filter.test.ts` and `picker.find.test.ts`.
+  by `apps/extension/src/lib/picker.filter.*.test.ts` and `picker.find.test.ts`.
 
 ## Layout
 
@@ -183,4 +183,4 @@ and `<html lang>` so DOM state never leaks between cases.
 - **Key test files**: `src/picker.classify.test.ts` (element-level signal
   matrix), `src/picker.redirect.test.ts` (redirect + bosch-style form-POST
   fallback); real-site regression tests live in
-  `apps/extension/src/lib/picker.find.test.ts` and `picker.filter.test.ts`.
+  `apps/extension/src/lib/picker.find.test.ts` and `picker.filter.*.test.ts`.

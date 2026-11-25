@@ -43,7 +43,7 @@ describe('google.com — rule + strategy integration on /search', () => {
     // live 2026-08-09; same plain-results shape as udm=14), so the udm
     // allow-list must accept it — else hl/lr are never applied there. The
     // mirror-image refusal (udm=50 never engages) is pinned in
-    // entrypoints/__tests__/content.test.ts.
+    // entrypoints/__tests__/content.spa-navigation.test.ts.
     const rule = getRuleForHost('www.google.com');
     expect(rule).toBeDefined();
     if (!rule) return;

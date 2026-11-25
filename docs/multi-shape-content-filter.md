@@ -169,7 +169,7 @@ const TIKTOK_FILTER: SiteContentFilter = {
 **Files**
 
 - `apps/extension/src/lib/content-filter.ts` — types + `applyContentFilter` rewrite
-- `apps/extension/src/lib/content-filter.test.ts` — adjust fixtures only
+- `apps/extension/src/lib/content-filter.*.test.ts` — adjust fixtures only
 
 **Tests**
 

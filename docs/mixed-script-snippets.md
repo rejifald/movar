@@ -178,7 +178,7 @@ characters, now under the floor), is smaller than it looks. On Google that
 card carries `sl=ru`, and the declared path decides it. That path is
 franc-free (`packages/lang-detect/src/declared.ts`), so this change doesn't
 touch it, and the extension test that pins the card concealed
-(`content-conceal.test.ts`, "still conceals a card declared ru") is a
+(`content-conceal.apply.test.ts`, "still conceals a card declared ru") is a
 declared-path test. What's left is an undeclared shop card whose only
 Cyrillic is under 24 characters, which is the same recall floor as plain
 short Cyrillic text today.

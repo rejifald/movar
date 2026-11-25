@@ -3,81 +3,16 @@ import {
   AUDIT_USER_AGENT,
   createProber,
   DEFAULT_MAX_HOPS,
-  DEFAULT_REQUEST_BUDGET,
   isChallengeResponse,
-  parseRobots,
   RequestBudgetExhaustedError,
   resolveLocation,
-  robotsAllows,
   sha256,
 } from './probe';
-import type { FetchLike, FetchLikeResponse } from './probe';
+import type { FetchLike } from './probe';
 import { LOCAL_VANTAGE } from './node';
 import { adjudicableProbes, deriveCapabilities } from '../capability';
 import { networkEvidence } from '../../test/fixtures';
-
-/** A real fetch is asynchronous; yielding a microtask keeps the stubs honest. */
-async function tick(): Promise<void> {
-  await Promise.resolve();
-}
-
-/** Every test injects this. Nothing here touches a real network. */
-interface StubResponse {
-  readonly status: number;
-  readonly headers?: Readonly<Record<string, string>>;
-  readonly body?: string;
-}
-
-function respond(stub: StubResponse): FetchLikeResponse {
-  const headers = stub.headers ?? {};
-  return {
-    status: stub.status,
-    headers: {
-      get: (name) => headers[name.toLowerCase()] ?? null,
-      forEach: (fn: (value: string, key: string) => void) => {
-        for (const [key, value] of Object.entries(headers)) fn(value, key);
-      },
-    },
-    text: async () => {
-      await tick();
-      return stub.body ?? '';
-    },
-  };
-}
-
-/** A fetch that answers from a URL map and records what it was asked. */
-function stubFetch(routes: Readonly<Record<string, StubResponse>>): {
-  readonly fetchImpl: FetchLike;
-  readonly seen: { url: string; headers: Record<string, string> }[];
-} {
-  const seen: { url: string; headers: Record<string, string> }[] = [];
-  const fetchImpl: FetchLike = async (url, init) => {
-    seen.push({ url, headers: init.headers });
-    const stub = routes[url];
-    if (stub === undefined) throw new Error(`unstubbed ${url}`);
-    await tick();
-    return respond(stub);
-  };
-  return { fetchImpl, seen };
-}
-
-const HOME = 'https://example.com/';
-
-/** A transport that always fails, for the `error` outcome. */
-const failingFetch: FetchLike = async () => {
-  await tick();
-  throw new Error('ECONNRESET');
-};
-
-/** A redirect to a URL never seen before, forever: only the hop cap ends it. */
-function endlessChain(): FetchLike {
-  let n = 0;
-  return async () => {
-    n += 1;
-    await tick();
-    return respond({ status: 302, headers: { location: `https://example.com/${n}` } });
-  };
-}
+import { tick, respond, stubFetch, HOME, failingFetch, endlessChain } from './probe.test-utils';
 
 describe('createProber', () => {
   it('records a plain 200 as ok, with its headers and a body hash', async () => {
@@ -618,115 +553,6 @@ describe('createProber', () => {
   });
 });
 
-/**
- * The module doc claims the request budget is "enforced here rather than
- * trusted to callers". These pin that claim for every caller, not just the CLI
- * — `parseArgs` validates `--budget` at the edge, but the Safari host app
- * collector, a relay, or a test harness constructs a prober directly.
- */
-describe('createProber option validation', () => {
-  /** Never routed anywhere: construction must fail before a request exists. */
-  const { fetchImpl } = stubFetch({});
-
-  const NOT_A_COUNT: readonly number[] = [
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-    Number.NEGATIVE_INFINITY,
-    -1,
-    -0.5,
-    1.5,
-    Number.MAX_SAFE_INTEGER + 1,
-  ];
-
-  /**
-   * The reported defect. Unguarded, this constructed happily and then ran
-   * unbounded against a live third-party site: `spent >= NaN` is false forever,
-   * so `RequestBudgetExhaustedError` never throws, and `remaining()` is `NaN`,
-   * which never satisfies the collector's `if (prober.remaining() === 0) break`.
-   */
-  it('rejects a NaN budget at construction, since NaN silently uncaps the run', () => {
-    expect(() => createProber({ vantage: LOCAL_VANTAGE, fetchImpl, budget: Number.NaN })).toThrow(
-      TypeError,
-    );
-  });
-
-  it('rejects every budget that is not a non-negative safe integer', () => {
-    for (const budget of NOT_A_COUNT) {
-      expect(() => createProber({ vantage: LOCAL_VANTAGE, fetchImpl, budget })).toThrow(TypeError);
-    }
-  });
-
-  /**
-   * Same shape, same failure mode. A `NaN` hop cap makes `hop <= maxHops` false
-   * on the first pass, so `walk` returns without fetching at all and the probe
-   * reports `error` for a request nobody made; a `NaN` timeout is coerced to 1 ms
-   * by `setTimeout`, aborting every request almost immediately.
-   */
-  it('rejects a malformed maxHops or timeoutMs on the same terms', () => {
-    for (const value of NOT_A_COUNT) {
-      expect(() => createProber({ vantage: LOCAL_VANTAGE, fetchImpl, maxHops: value })).toThrow(
-        TypeError,
-      );
-      expect(() => createProber({ vantage: LOCAL_VANTAGE, fetchImpl, timeoutMs: value })).toThrow(
-        TypeError,
-      );
-    }
-  });
-
-  /**
-   * The two conditions must stay distinguishable. `RequestBudgetExhaustedError`
-   * means a run reached its ceiling and a caller may legitimately catch it to
-   * report partial coverage; a malformed ceiling is a bug in the caller's code,
-   * and must not be swallowed by that same handler.
-   */
-  it('refuses a malformed budget with a TypeError, never RequestBudgetExhaustedError', () => {
-    let thrown: unknown;
-    try {
-      createProber({ vantage: LOCAL_VANTAGE, fetchImpl, budget: Number.NaN });
-    } catch (error) {
-      thrown = error;
-    }
-    expect(thrown).toBeInstanceOf(TypeError);
-    expect(thrown).not.toBeInstanceOf(RequestBudgetExhaustedError);
-  });
-
-  it('names the offending option and value, since construction is refused over it', () => {
-    expect(() => createProber({ vantage: LOCAL_VANTAGE, fetchImpl, budget: Number.NaN })).toThrow(
-      /budget.*NaN/u,
-    );
-    expect(() => createProber({ vantage: LOCAL_VANTAGE, fetchImpl, maxHops: -1 })).toThrow(
-      /maxHops.*-1/u,
-    );
-  });
-
-  /** The point of a runtime guard on a typed API: the callers without types. */
-  it('guards a caller the type system does not', () => {
-    expect(() =>
-      createProber({ vantage: LOCAL_VANTAGE, fetchImpl, budget: '40' as unknown as number }),
-    ).toThrow(TypeError);
-  });
-
-  /**
-   * Zero is a real answer for each of the three — spend nothing, follow no
-   * redirect, abort at once — so the guard must be a range check and never a
-   * falsy one, and an omitted option must still fall through to its default.
-   */
-  it('accepts zero for each option, and the defaults when they are omitted', () => {
-    expect(() =>
-      createProber({
-        vantage: LOCAL_VANTAGE,
-        fetchImpl,
-        budget: 0,
-        maxHops: 0,
-        timeoutMs: 0,
-      }),
-    ).not.toThrow();
-
-    const prober = createProber({ vantage: LOCAL_VANTAGE, fetchImpl });
-    expect(prober.remaining()).toBe(DEFAULT_REQUEST_BUDGET);
-  });
-});
-
 describe('isChallengeResponse', () => {
   it('trusts an explicit challenge header', () => {
     expect(isChallengeResponse({ 'cf-mitigated': 'challenge' }, null)).toBe(true);
@@ -744,93 +570,5 @@ describe('resolveLocation', () => {
 
   it('returns null for an unusable Location', () => {
     expect(resolveLocation('not a url', ':::')).toBeNull();
-  });
-});
-
-describe('robots.txt', () => {
-  const ROBOTS = `
-    User-agent: BadBot
-    Disallow: /
-
-    User-agent: *
-    Disallow: /private
-    Allow: /private/public
-  `;
-
-  it('reads the wildcard group, not another agent’s', () => {
-    const rules = parseRobots(ROBOTS);
-    expect(rules.disallow).toContain('/private');
-    expect(robotsAllows(rules, '/anything')).toBe(true);
-  });
-
-  it('disallows a matching prefix', () => {
-    expect(robotsAllows(parseRobots(ROBOTS), '/private/thing')).toBe(false);
-  });
-
-  it('lets a longer Allow win over a shorter Disallow', () => {
-    expect(robotsAllows(parseRobots(ROBOTS), '/private/public/page')).toBe(true);
-  });
-
-  it('ignores comments and blank lines', () => {
-    const rules = parseRobots('# comment\n\nUser-agent: *\nDisallow: /x # trailing');
-    expect(rules.disallow).toEqual(['/x']);
-  });
-
-  it('expands a * inside a Disallow pattern', () => {
-    const rules = parseRobots('User-agent: *\nDisallow: /*/private');
-    expect(robotsAllows(rules, '/uk/private')).toBe(false);
-    expect(robotsAllows(rules, '/uk/private/deep')).toBe(false);
-    expect(robotsAllows(rules, '/uk/public')).toBe(true);
-  });
-
-  it('anchors a Disallow pattern ending in $ to the end of the path', () => {
-    const rules = parseRobots('User-agent: *\nDisallow: /*.json$');
-    expect(robotsAllows(rules, '/data.json')).toBe(false);
-    expect(robotsAllows(rules, '/a/b/data.json')).toBe(false);
-    expect(robotsAllows(rules, '/data.json.html')).toBe(true);
-  });
-
-  it('anchors the start of a $-terminated pattern too', () => {
-    const rules = parseRobots('User-agent: *\nDisallow: /data.json$');
-    expect(robotsAllows(rules, '/data.json')).toBe(false);
-    expect(robotsAllows(rules, '/a/data.json')).toBe(true);
-  });
-
-  it('honours the query-string idiom Disallow: /*?', () => {
-    const rules = parseRobots('User-agent: *\nDisallow: /*?');
-    expect(robotsAllows(rules, '/search?q=1')).toBe(false);
-    expect(robotsAllows(rules, '/search')).toBe(true);
-  });
-
-  it('matches every other pattern character literally', () => {
-    const rules = parseRobots('User-agent: *\nDisallow: /a.b(c)+d');
-    expect(robotsAllows(rules, '/a.b(c)+d')).toBe(false);
-    expect(robotsAllows(rules, '/axb(c)d')).toBe(true);
-    expect(robotsAllows(rules, '/a.bccd')).toBe(true);
-  });
-
-  it('keeps longest-pattern-wins when the longer pattern holds a wildcard', () => {
-    const rules = parseRobots('User-agent: *\nDisallow: /private\nAllow: /private/*/public');
-    expect(robotsAllows(rules, '/private/uk/public')).toBe(true);
-    expect(robotsAllows(rules, '/private/uk/other')).toBe(false);
-  });
-
-  it('reads a group whose consecutive user-agent lines start with the wildcard', () => {
-    const rules = parseRobots('User-agent: *\nUser-agent: Googlebot\nDisallow: /private');
-    expect(rules.disallow).toEqual(['/private']);
-    expect(robotsAllows(rules, '/private/thing')).toBe(false);
-  });
-
-  it('reads consecutive user-agent lines the same way in either order', () => {
-    const wildcardFirst = parseRobots('User-agent: *\nUser-agent: Googlebot\nDisallow: /private');
-    const wildcardLast = parseRobots('User-agent: Googlebot\nUser-agent: *\nDisallow: /private');
-    expect(wildcardFirst).toEqual(wildcardLast);
-  });
-
-  it('starts a new group at the first user-agent line after a rule', () => {
-    const rules = parseRobots(
-      'User-agent: *\nDisallow: /a\n\nUser-agent: BadBot\nUser-agent: OtherBot\nDisallow: /b',
-    );
-    expect(rules.disallow).toEqual(['/a']);
   });
 });

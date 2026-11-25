@@ -119,8 +119,12 @@ describe('CORE_RULESET', () => {
   });
 
   it('gives every pack rule a citation, since the kernel stamps it on findings', () => {
-    for (const rule of withPack(CORE_RULESET, ...UA_PACK_FAMILIES).rules) {
-      if (rule.id.startsWith('core/')) continue;
+    const packRules = withPack(CORE_RULESET, ...UA_PACK_FAMILIES).rules.filter(
+      (rule) => !rule.id.startsWith('core/'),
+    );
+    // Guard: an empty set would make the loop below pass vacuously.
+    expect(packRules.length).toBeGreaterThan(0);
+    for (const rule of packRules) {
       expect(ruleCitation(rule)).not.toBeNull();
     }
   });

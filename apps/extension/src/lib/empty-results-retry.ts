@@ -64,16 +64,11 @@ export interface EmptyResultsRetryDeps {
   suspendRedirect(): Promise<void>;
   /** False once a pause/snooze/settings change supersedes the scheduling tick. */
   isActive(): boolean;
-}
-
-/** URL of the pending confirm, so mutation-tick bursts on the same page arm a
- *  single timer. Purely an optimization — a duplicate confirm would bail on
- *  the loop-guard marker anyway. Module-level like the content script's other
- *  page-scoped flags; reset per test via {@link resetEmptyResultsRetryState}. */
-let pendingHref: string | null = null;
-
-export function resetEmptyResultsRetryState(): void {
-  pendingHref = null;
+  /** URL of the pending confirm, so mutation-tick bursts on the same page arm a
+   *  single timer. Purely an optimization — a duplicate confirm would bail on
+   *  the loop-guard marker anyway. The caller owns one slot per page (the
+   *  content runtime holds it for the page's lifetime). */
+  readonly pending: { href: string | null };
 }
 
 /** `href` with the filter param dropped, or null when the param isn't present
@@ -108,7 +103,7 @@ async function confirmAndRetry(
   href: string,
 ): Promise<void> {
   // Unconditional: whatever happens below, the next tick may re-arm freely.
-  pendingHref = null;
+  deps.pending.href = null;
   if (isSuperseded(deps, href)) return;
   if (!isConfirmedEmpty(retry, deps)) return;
   const retryHref = retryTargetUrl(href, retry.dropParam);
@@ -145,12 +140,12 @@ export function maybeScheduleEmptyResultsRetry(
   deps: EmptyResultsRetryDeps,
 ): void {
   const href = deps.location.href;
-  if (pendingHref === href || deps.recentlyAttemptedHere(href)) return;
+  if (deps.pending.href === href || deps.recentlyAttemptedHere(href)) return;
   if (retryTargetUrl(href, retry.dropParam) == null) return;
   // Results already visible — the common healthy-SERP case. Skip without
   // arming a timer; a later mutation tick re-enters if the page empties.
   if (deps.countMatches(retry.resultsSelector) > 0) return;
-  pendingHref = href;
+  deps.pending.href = href;
   deps.whenSettled(() => {
     setTimeout(() => void confirmAndRetry(retry, target, deps, href), RETRY_SETTLE_DELAY_MS);
   });

@@ -18,7 +18,7 @@ import {
 import type { ConcealMode } from '@movar/settings';
 import type { ContentNode, PageContentModel } from '@movar/page-content/types';
 import type { ContentPresenter } from './content-presenter';
-import { testContentPresenter } from './dom-test-helpers';
+import { testContentPresenter } from './dom.test-utils';
 
 /** A presenter whose curtain attachment always fails — exercises the
  *  hard-hide fallback taken when presentation can't be provided. */

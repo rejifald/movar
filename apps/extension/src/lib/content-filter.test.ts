@@ -13,7 +13,7 @@ import type { PageContentModel } from '@movar/page-content/types';
 import { browser } from 'wxt/browser';
 import { loadContentMessages, setContentLocale } from './i18n/content';
 import { contentStringsUk } from './i18n/content-strings-uk';
-import { testContentPresenter } from './dom-test-helpers';
+import { testContentPresenter } from './dom.test-utils';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.

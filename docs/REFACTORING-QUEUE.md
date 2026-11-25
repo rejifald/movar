@@ -2,7 +2,7 @@
 type: queue
 id: REFACTORING-QUEUE
 status: live
-date: 2026-10-24
+date: 2026-11-25
 summary: Auto-generated agent task queue from fallow refactoring targets.
 ---
 
@@ -12,7 +12,7 @@ summary: Auto-generated agent task queue from fallow refactoring targets.
 
 - Source report: [.metrics/fallow.md](../.metrics/fallow.md)
 - Health score: **80 (B)**
-- Targets surfaced: **2** (parsed: 2)
+- Targets surfaced: **1** (parsed: 1)
 
 ## How to consume
 
@@ -31,47 +31,13 @@ To run a batch in parallel, use the `dispatch` skill with this file as input.
 
 | Category       | Count | Typical effort            |
 | :------------- | ----: | :------------------------ |
-| 💀 dead code   |     1 | low:0 / medium:1 / high:0 |
 | 💥 high impact |     1 | low:0 / medium:1 / high:0 |
 
 ---
 
 ## Tasks
 
-### REFACTOR-001 · 💀 dead code · medium effort · efficiency 13.1
-
-**File:** `packages/theme/src/render.ts`  
-**Action:** Remove 10 unused exports to reduce surface area (100% dead)  
-**Confidence:** high
-
-**Acceptance:**
-
-- All exports flagged as unused are removed (or re-justified by adding a real consumer).
-- `pnpm metrics:audit` reports no new findings on this file.
-- `pnpm validate` is green.
-
-<details><summary>Subagent prompt</summary>
-
-```
-Task REFACTOR-001.
-
-**Target file:** `packages/theme/src/render.ts`
-**Issue:** Remove 10 unused exports to reduce surface area (100% dead)
-**Category:** dead code · **Effort:** medium · **Confidence:** high · **Efficiency:** 13.1
-
-Constraints:
-- Do not commit; the orchestrator commits after verification.
-- Do not modify unrelated files; scope strictly to this target.
-- Match existing code style; do not introduce new dependencies without justification.
-
-Verification (must all pass before reporting done):
-1. `pnpm metrics:audit` — fallow audit on the working-tree diff; no new findings.
-2. `pnpm validate` — typecheck + lint + test workspace-wide.
-```
-
-</details>
-
-### REFACTOR-002 · 💥 high impact · medium effort · efficiency 10.8
+### REFACTOR-001 · 💥 high impact · medium effort · efficiency 11.4
 
 **File:** `packages/lang-pickers/src/classify.ts`  
 **Action:** Split high-impact file (268 LOC) — 8 dependents amplify every change  
@@ -86,11 +52,11 @@ Verification (must all pass before reporting done):
 <details><summary>Subagent prompt</summary>
 
 ```
-Task REFACTOR-002.
+Task REFACTOR-001.
 
 **Target file:** `packages/lang-pickers/src/classify.ts`
 **Issue:** Split high-impact file (268 LOC) — 8 dependents amplify every change
-**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 10.8
+**Category:** high impact · **Effort:** medium · **Confidence:** medium · **Efficiency:** 11.4
 
 Constraints:
 - Do not commit; the orchestrator commits after verification.

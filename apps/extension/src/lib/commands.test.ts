@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import { fakeBrowser } from 'wxt/testing';
 import { browser } from 'wxt/browser';
-import { handleCommand } from '../background';
-import { getPauseState } from '../../lib/pause';
+import { handleCommand } from './commands';
+import { getPauseState } from './pause';
 
 // fakeBrowser types `tabs.query`/`sendMessage` with the callback overload
 // (returns void), so widen the spies to the promise-returning shape the worker

@@ -21,7 +21,6 @@ import {
   getSnoozedHosts,
   onPauseChange,
   onSnoozeChange,
-  pauseFor,
   RESUME_ALARM,
   resume,
   resumeIfExpired,
@@ -36,6 +35,7 @@ import {
   refreshTabById,
   refreshTabIcon,
 } from '../lib/toolbar-icon';
+import { handleCommand } from '../lib/commands';
 import { appendCorrectionEventsSerialized } from '../lib/events';
 import type { MovarMessage } from '../lib/messaging';
 
@@ -49,20 +49,6 @@ import type { MovarMessage } from '../lib/messaging';
  *  before the resync, or syncGoogleSearchRedirectRule would honor the still-set
  *  suspension and leave the rule down (#301). */
 const RESTORE_GOOGLE_REDIRECT_ALARM = 'movar:restore-google-redirect';
-
-/** Reveal everything Movar concealed on the active tab — the keyboard-shortcut
- *  twin of the popup's "Show everything". Reuses the existing content handler;
- *  no new message type. A tab without a content script (chrome://, store, …)
- *  rejects sendMessage, which we swallow — there's nothing to reveal there. */
-async function revealActiveTab(): Promise<void> {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id == null) return;
-  try {
-    await browser.tabs.sendMessage(tab.id, { type: 'movar:restoreHidden' } satisfies MovarMessage);
-  } catch {
-    // No receiver in the active tab — nothing concealed there to reveal.
-  }
-}
 
 /** Open the first-run onboarding page in a new tab. Swallows failures — a
  *  refused tab create must not break the install-time settings seed. */
@@ -106,19 +92,6 @@ async function syncUninstallUrl(): Promise<void> {
   } catch {
     // A refused hook must not break the wake path. The page stays reachable at
     // movar.fyi/uninstall; it just won't open by itself.
-  }
-}
-
-/** Dispatch a manifest `commands` keyboard shortcut to its action. Exported for
- *  a direct unit test; the ids match the `commands` block in wxt.config.ts.
- *  toggle-pause flips the GLOBAL pause (timed 1h ↔ resume); reveal-all reuses
- *  the content script's restore handler on the active tab. */
-export async function handleCommand(command: string): Promise<void> {
-  if (command === 'toggle-pause') {
-    const { paused } = await getPauseState();
-    await (paused ? resume() : pauseFor('1h'));
-  } else if (command === 'reveal-all') {
-    await revealActiveTab();
   }
 }
 

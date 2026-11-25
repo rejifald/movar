@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setContentLocale } from './i18n/content';
 import { createContentPresenterAdapter } from './content-presenter-factory';
-import { getHost, getShadow, setBody } from './dom-test-helpers';
+import { getHost, getShadow, setBody } from './dom.test-utils';
 
 const RealDisplayNames = Intl.DisplayNames;
 

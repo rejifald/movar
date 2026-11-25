@@ -1,8 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { App } from './App';
-import { resetBridgeForTest } from './bridge';
 import type { Platform } from './bridge';
+import type { App as AppComponent } from './App';
 import { messagesEn } from './i18n/messages-en';
 import { messagesUk } from './i18n/messages-uk';
 
@@ -21,8 +20,13 @@ function nativeShow(platform: Platform, enabled?: boolean, useSettings?: boolean
  *  tests below can assert on it. */
 let scrollToSpy: ReturnType<typeof vi.spyOn>;
 
-beforeEach(() => {
-  resetBridgeForTest();
+// App subscribes to module-level bridge state; re-evaluate both per case so each
+// starts with an empty state feed.
+let App: typeof AppComponent;
+
+beforeEach(async () => {
+  vi.resetModules();
+  ({ App } = await import('./App'));
   document.body.className = '';
   scrollToSpy = vi.spyOn(globalThis, 'scrollTo').mockImplementation(() => {});
 });

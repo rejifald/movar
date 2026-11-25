@@ -39,7 +39,7 @@ import { pickRedirectTarget } from '@movar/lang-pickers/redirect';
 import { attemptLanguageSwitch } from './language-switch';
 import type { LanguageSwitchDeps } from './language-switch';
 import { filterPickers } from './picker-filter';
-import { testContentPresenter } from './dom-test-helpers';
+import { testContentPresenter } from './dom.test-utils';
 
 const SEARCH_HREF =
   'https://yato.com.ua/search/?search=%D0%BC%D0%BE%D0%BB%D0%BE%D1%82%D0%BE%D0%BA&description=true';

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers as filterPickersWithPresenter } from './picker-filter';
-import { testContentPresenter } from './dom-test-helpers';
+import { testContentPresenter } from './dom.test-utils';
 import { teardownContentModification } from './content-modification';
 import { detachAllCurtains } from './curtain';
 import { detachAllTooltips } from './tooltip';

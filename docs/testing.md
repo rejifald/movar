@@ -104,13 +104,17 @@ Rules:
 - **jsdom** for anything that reads the DOM (extension, the model packages, i18n, options-ui,
   diagnostics, safari-host-app). **node** for pure packages (audit, host-match, brand,
   lang-detect, store-listing). There is no browser mode.
-- **Setup files reset global DOM state** between tests (`apps/extension/src/lib/test-setup.ts`;
-  `src/test-setup.ts` in page-content, lang-pickers, page-mode, page-language). A suite that
-  leaks `<html lang>`, a curtain or a tooltip into the next test is a bug in the suite; add the
-  teardown to the setup file rather than to one spec.
+- **Every jsdom member has a setup file that resets global DOM state** between tests
+  (`apps/extension/src/lib/test-setup.ts`; `src/test-setup.ts` everywhere else), wired through
+  `setupFiles` and excluded from coverage. A suite that leaks `<html lang>`, a curtain or a
+  tooltip into the next test is a bug in the suite; add the teardown to the setup file rather
+  than to one spec. A new jsdom member starts with one.
 - The extension uses the `WxtVitest()` plugin, which supplies a fake `browser` API. Packages
-  with only `--passWithNoTests` (events, fonts, theme, ui) have no config yet: add a
+  with no tests yet (events, fonts, ui) run `--passWithNoTests` and have no config: add a
   `vitest.config.ts` with the coverage block below when the first real test lands.
+- **A mock shared across tests needs its calls cleared.** A module-level `vi.mock(…, () => ({
+fn: vi.fn() }))` keeps its recorded calls between tests unless something clears them; set
+  `clearMocks: true` in the member's config or call `vi.clearAllMocks()` in `afterEach`.
 
 ### Coverage: no `json-summary`, not counted
 
@@ -121,10 +125,12 @@ config with the `json-summary` reporter writes:
 coverage: {
   provider: 'v8',
   reporter: ['text', 'lcov', 'json-summary'],
-  include: ['src/**/*.ts'],
-  exclude: ['src/**/*.test.ts'],
+  include: ['src/**/*.{ts,tsx}'],
+  exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.test-utils.{ts,tsx}', 'src/test-setup.ts'],
 }
 ```
+
+Exclude test helpers and setup files too, or they count as production code.
 
 A member without it is **absent** from the denominator — not uncovered, invisible. A new,
 fully covered package then adds nothing while an uncovered line elsewhere counts in full, and
@@ -243,6 +249,14 @@ fixed build, so a retry would only hide a real race.
   passes whether or not the element exists. Use `await expect(locator).toBeVisible()`.
 - In Vitest 4, `vi.restoreAllMocks()` does **not** clear recorded calls; it only restores
   `vi.spyOn` originals. Use `vi.clearAllMocks()` or `mockClear()` when a later test counts calls.
+- A loop of assertions over a filtered list passes when the list is empty. Assert the list is
+  non-empty first.
+- Testing Library's `getBy*` throws when nothing matches, so `expect(getByText('x')).toBeTruthy()`
+  only ever fails in the query. That is safe but says less than it seems; don't copy it into a
+  `queryBy*` (which returns `null`) without switching the matcher to `.not.toBeNull()`.
+- Proving that something does **not** happen (no navigation, no curtain) needs a bounded
+  window. Write it as a named wait with a comment saying what it gives a chance to happen, never
+  as a bare sleep used for synchronisation.
 - Focused tests (`.only`) fail lint: the `tests` preset forces `vitest/no-focused-tests` to error.
 
 ---

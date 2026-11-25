@@ -160,7 +160,7 @@ async function triggerMessage(sendResponse: () => void, msg?: unknown): Promise<
 
 /** fakeBrowser leaves `commands` unimplemented; stub `onCommand` so the
  *  worker's keyboard-shortcut listener registers in main() without throwing.
- *  The dispatch behaviour itself is covered in background.commands.test.ts. */
+ *  The dispatch behaviour itself is covered in lib/commands.test.ts. */
 function stubCommands(): void {
   (browser as unknown as { commands: { onCommand: { addListener: () => void } } }).commands = {
     onCommand: { addListener: vi.fn() },

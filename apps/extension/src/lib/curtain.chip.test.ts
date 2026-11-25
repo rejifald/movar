@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { attachCurtain } from './curtain';
 import type { ActionContext, CurtainOptions } from './curtain';
-import { setBody, getHost, getShadow } from './dom-test-helpers';
+import { setBody, getHost, getShadow } from './dom.test-utils';
 
 // Global setup in test-setup.ts clears body/head/lang before each test and
 // invokes detachAllCurtains in afterEach when a [data-movar-curtain] host

@@ -1255,7 +1255,7 @@ function cleanupSurvivingContainer(picker: Picker, presenter: ContentPresenter |
   // READS, not writes. #586 describes the passes as writing to the DOM every
   // tick; they do not. hideElement, hideEdgeBorderSide and both trims each
   // early-out once their work is done, so a steady tick is pure traversal, and
-  // a characterization test in picker.filter.test.ts pins that. What is saved
+  // a characterization test in picker-filter.restore.test.ts pins that. What is saved
   // is the traversal itself — including hideUselessDividers' O(children x
   // links) `contains` scan — at the cost of one signature walk. Measured in
   // jsdom over a 12-language picker in steady state, three runs each: ~120 ->

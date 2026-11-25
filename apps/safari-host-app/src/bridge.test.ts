@@ -3,19 +3,35 @@ import { act, renderHook } from '@testing-library/react';
 import { SITE_URL, SOURCE_URL } from '@movar/brand';
 import { defaultSettings } from '@movar/settings';
 import type { MovarSettings } from '@movar/settings';
-import {
-  callNative,
-  probe,
-  useNativeTab,
-  hostSettingsSource,
-  openChangelog,
-  openFeedback,
-  openSafariPreferences,
-  openSourceCode,
-  resetBridgeForTest,
-  subscribe,
-} from './bridge';
+import type * as BridgeModule from './bridge';
 import type { HostState, Platform } from './bridge';
+
+// The bridge keeps module-level buffers (state feed, tab selection, in-flight
+// requests). Each case gets a pristine copy by re-evaluating the module.
+type Bridge = typeof BridgeModule;
+let callNative: Bridge['callNative'];
+let probe: Bridge['probe'];
+let useNativeTab: Bridge['useNativeTab'];
+let hostSettingsSource: Bridge['hostSettingsSource'];
+let openChangelog: Bridge['openChangelog'];
+let openFeedback: Bridge['openFeedback'];
+let openSafariPreferences: Bridge['openSafariPreferences'];
+let openSourceCode: Bridge['openSourceCode'];
+let subscribe: Bridge['subscribe'];
+
+async function loadFreshBridge(): Promise<void> {
+  vi.resetModules();
+  const bridge = await import('./bridge');
+  callNative = bridge.callNative;
+  probe = bridge.probe;
+  useNativeTab = bridge.useNativeTab;
+  hostSettingsSource = bridge.hostSettingsSource;
+  openChangelog = bridge.openChangelog;
+  openFeedback = bridge.openFeedback;
+  openSafariPreferences = bridge.openSafariPreferences;
+  openSourceCode = bridge.openSourceCode;
+  subscribe = bridge.subscribe;
+}
 
 /** Drive the state feed the way Swift's `evaluateJavaScript("show(...)")` does. */
 function nativeShow(platform: Platform, enabled?: boolean, useSettings?: boolean): void {
@@ -48,8 +64,8 @@ function removeBridge(): void {
   delete (globalThis as unknown as { webkit?: unknown }).webkit;
 }
 
-beforeEach(() => {
-  resetBridgeForTest();
+beforeEach(async () => {
+  await loadFreshBridge();
 });
 
 afterEach(() => {
@@ -354,10 +370,6 @@ describe('probe — the Movar Audit egress channel', () => {
 });
 
 describe('__movarSelectTab — the native tab channel', () => {
-  afterEach(() => {
-    resetBridgeForTest();
-  });
-
   it('replays the latest selection to a late subscriber', () => {
     // Same reason `show()` is installed at module eval: Swift can push a tab
     // before React has mounted, and a selection dropped in that gap would leave

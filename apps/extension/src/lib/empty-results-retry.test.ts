@@ -4,7 +4,6 @@ import type { EmptyResultsRetry } from '../sites/types';
 import {
   RETRY_SETTLE_DELAY_MS,
   maybeScheduleEmptyResultsRetry,
-  resetEmptyResultsRetryState,
   retryTargetUrl,
 } from './empty-results-retry';
 import type { EmptyResultsRetryDeps } from './empty-results-retry';
@@ -69,6 +68,7 @@ function makeDeps(
     record: vi.fn(async () => {}),
     suspendRedirect: vi.fn(async () => {}),
     isActive: () => active,
+    pending: { href: null },
   };
   return deps;
 }
@@ -79,7 +79,6 @@ async function elapseSettleDelay(): Promise<void> {
 
 beforeEach(() => {
   vi.useFakeTimers();
-  resetEmptyResultsRetryState();
 });
 
 afterEach(() => {

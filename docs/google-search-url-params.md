@@ -229,7 +229,7 @@ re-attaching; a genuine `hl`/`lr` drift still forces a rewrite unconditionally.
 
 Regression coverage: `strategy.searchParams.test.ts`'s `onlyWhenParamValueIn`
 block (the scoping gate) and `ignoreStripParamsForTrigger` block (the
-defense-in-depth, leaf-level), and `content.test.ts`'s "never redirects on
+defense-in-depth, leaf-level), and `content.spa-navigation.test.ts`'s "never redirects on
 Google AI Mode (udm=50), not even on the first tick" and "still corrects a
 genuine hl/lr regression on a repeat tick, on the plain results page" (full
 orchestration).

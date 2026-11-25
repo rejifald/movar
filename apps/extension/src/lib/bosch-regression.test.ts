@@ -12,7 +12,7 @@ import path from 'node:path';
 import { classifyLanguageElement } from '@movar/lang-pickers/classify';
 import { findLanguagePickers } from '@movar/lang-pickers/extract';
 import { filterPickers } from './picker-filter';
-import { testContentPresenter } from './dom-test-helpers';
+import { testContentPresenter } from './dom.test-utils';
 
 // The bosch capture lives in the shared content corpus
 // (packages/page-content/fixtures/pickers/) as the form-button picker case —

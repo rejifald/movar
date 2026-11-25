@@ -21,11 +21,7 @@ import { applyStrategy } from './strategy';
 import { tryStrategySwitch } from './language-switch';
 import type { LanguageSwitchDeps } from './language-switch';
 import { clearAttempt, hasAttemptedNavTo, markAttempt, recentlyAttemptedHere } from './loop-guard';
-import {
-  RETRY_SETTLE_DELAY_MS,
-  maybeScheduleEmptyResultsRetry,
-  resetEmptyResultsRetryState,
-} from './empty-results-retry';
+import { RETRY_SETTLE_DELAY_MS, maybeScheduleEmptyResultsRetry } from './empty-results-retry';
 import type { EmptyResultsRetryDeps } from './empty-results-retry';
 
 /** The stuck URL: rewrite already applied (hl/lr at target, no strippable
@@ -118,6 +114,7 @@ function makeRetryDeps(
     markAttempt,
     record: vi.fn(async () => {}),
     isActive: () => true,
+    pending: { href: null },
     // The DNR redirect rule is suspended (via the background) before the retry
     // navigates, so it can't re-add the dropped filter param; a no-op here.
     suspendRedirect: vi.fn(async () => {}),
@@ -127,7 +124,6 @@ function makeRetryDeps(
 beforeEach(() => {
   vi.useFakeTimers();
   clearAttempt();
-  resetEmptyResultsRetryState();
   document.body.innerHTML = EMPTY_SERP_BODY;
 });
 

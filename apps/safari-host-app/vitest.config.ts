@@ -10,11 +10,19 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
+    clearMocks: true,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json-summary'],
+      reporter: ['text', 'lcov', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/main.tsx', 'src/vite-env.d.ts'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.test-utils.{ts,tsx}',
+        'src/test-setup.ts',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+      ],
     },
   },
 });

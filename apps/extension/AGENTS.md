@@ -132,7 +132,7 @@ src/
     curtain.ts            — DOM overlay primitive (cover/replace, pill/chip skins)
     tooltip.ts            — inline tooltip overlay for hidden picker entries
     is-touch.ts           — touch-device detection for curtain behaviour
-    dom-test-helpers.ts   — test-only DOM utilities
+    dom.test-utils.ts   — test-only DOM utilities
     strategy.ts           — applyStrategy: consumes @movar/host-match strategies
     dnr.ts                — declarativeNetRequest Accept-Language rule sync
     settings.ts           — getSettings/setSettings (browser.storage.sync)

@@ -106,6 +106,8 @@ pnpm metrics         # refresh the code-health / coverage / bundle-size snapshot
 Scoped runs while iterating: `pnpm --filter @movar/extension test` (one package),
 `nx run extension:typecheck`. The complete command reference is in
 [`AGENTS.md`](AGENTS.md) ("Toolchain & commands").
+Which test layer a change needs, where it goes and how baselines are regenerated:
+[`docs/testing.md`](docs/testing.md).
 
 ## Conventions
 

@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest';
 import type { PageMode } from '@movar/page-mode/types';
 import { attachCurtain } from './curtain';
 import type { CurtainMode, CurtainSkin } from './curtain';
-import { setBody, getHost, getShadow } from './dom-test-helpers';
+import { setBody, getHost, getShadow } from './dom.test-utils';
 
 /** Collapse the `<style>` text to a length marker so CSS edits don't churn the
  *  structural baseline — the whole point is to snapshot the element tree, not

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CurtainOptions } from './curtain';
 import { attachCurtain, setAllCurtainsColorScheme } from './curtain';
-import { getHost, setBody } from './dom-test-helpers';
+import { getHost, setBody } from './dom.test-utils';
 
 // Global teardown lives in test-setup.ts: detachAllCurtains runs in
 // afterEach whenever a [data-movar-curtain] host remains.

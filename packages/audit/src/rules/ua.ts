@@ -22,7 +22,7 @@
  * address (see {@link determineMarket}). An undeterminable market makes
  * every other rule in this file `not-applicable`, never `fail` — that is
  * the safety property this pack exists to preserve, and it is exercised
- * hard in `ua.test.ts`. `ua/market-determination` does not gate on itself:
+ * hard in `ua.market.test.ts`. `ua/market-determination` does not gate on itself:
  * it is `info`-graded and always reports which signals fired (or that none
  * did), so the applicability decision is auditable by the site it names.
  *

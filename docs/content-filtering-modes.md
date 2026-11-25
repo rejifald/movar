@@ -103,7 +103,7 @@ function concealStyle(pref: ConcealMode): 'blur' | 'hide' {
 
 **Copy-surface audit (the wide blast radius).** "Hide" appears across store listings, marketing, privacy pages, README, and `docs/copy.md`. The capability claim _"hides Russian"_ must stay literally true for store reviewers — and it does (hide remains a mode). But the in-product control's reframe to "filter" should be reconciled with those surfaces so the product and its copy agree (the standard product-claim copy reconciliation; no automated guard).
 
-**Tests.** Per-mode conceal in `content-conceal.test.ts` (curtain applies even to old `hide`-floor nodes; hide hard-hides every node); durable hide-reveal survives a re-scan; "Hide all" curtain action in `curtain.*.test.ts`; popup mode selector + relabel in the popup/options specs.
+**Tests.** Per-mode conceal in `content-conceal.*.test.ts` (curtain applies even to old `hide`-floor nodes; hide hard-hides every node); durable hide-reveal survives a re-scan; "Hide all" curtain action in `curtain.*.test.ts`; popup mode selector + relabel in the popup/options specs.
 
 ## Known limitations
 

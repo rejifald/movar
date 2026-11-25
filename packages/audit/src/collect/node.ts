@@ -246,7 +246,7 @@ function warmOrderOf(headers: readonly (string | null)[]): readonly (string | nu
  * spend the budget on targets discovered from half the pages and then find
  * nothing left for the leg that was asked for by name. What the run loses
  * either way it loses visibly: a withheld target is `not-collected` under an
- * absent `traversal`, never a pass. `node.test.ts` pins the order so changing
+ * absent `traversal`, never a pass. `node.cookies.test.ts` pins the order so changing
  * it stays a decision somebody makes on purpose.
  */
 async function collectWarmLeg(

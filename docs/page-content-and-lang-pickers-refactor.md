@@ -33,7 +33,7 @@ The content model **never** produces an aggregate verdict that feeds the redirec
 Every PR keeps these tests green without modification:
 
 - `apps/extension/src/lib/picker.*.test.ts`
-- `apps/extension/src/lib/content-filter.test.ts`
+- `apps/extension/src/lib/content-filter.*.test.ts`
 - `apps/extension/src/lib/google-rule.integration.test.ts`
 - `apps/extension/src/lib/bosch-regression.test.ts`
 - `apps/extension/src/lib/spizhenko-regression.test.ts`

@@ -5,7 +5,7 @@ import type { ConcealMode } from '@movar/settings';
 import type { SnippetClassifier } from './content-conceal';
 import { GOOGLE_EXTRACTOR } from '@movar/page-content/google';
 import { applyContentFilter } from './content-conceal';
-import { testContentPresenter } from './dom-test-helpers';
+import { testContentPresenter } from './dom.test-utils';
 
 // Tests run franc's rung-3 directly (no background worker) so the 'unknown'
 // residual behaves exactly as the in-process classifier used to.

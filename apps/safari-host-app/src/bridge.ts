@@ -296,17 +296,6 @@ if (typeof globalThis !== 'undefined') {
   globalThis.__movarSelectTab = selectTab;
 }
 
-/** Test-only: reset every module-level buffer (state feed + native tab
- *  selection + in-flight requests + seq) between cases. */
-export function resetBridgeForTest(): void {
-  latest = null;
-  listeners.clear();
-  nativeTab = null;
-  tabListeners.clear();
-  pending.clear();
-  seq = 0;
-}
-
 // ---------------------------------------------------------------------------
 // React surface — the host-state hook.
 // ---------------------------------------------------------------------------

@@ -6,5 +6,18 @@ export default defineConfig({
     // <html lang>, so its tests need a DOM. The rest of the package (catalogue
     // shape, plural, resolve, display-names) is pure and runs fine here too.
     environment: 'jsdom',
+    globals: false,
+    setupFiles: ['./src/test-setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'json-summary'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.test-utils.{ts,tsx}',
+        'src/**/*.stories.tsx',
+        'src/test-setup.ts',
+      ],
+    },
   },
 });

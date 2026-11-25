@@ -519,6 +519,8 @@ const gateDeps: LanguageGateDeps = {
  *  switchDeps' `location` accessors do (WXT's Node-side entrypoint analysis
  *  would throw on an eager capture). */
 const emptyRetryDeps: Omit<EmptyResultsRetryDeps, 'isActive'> = {
+  // One slot per page: the content script's module lifetime.
+  pending: { href: null },
   location: switchDeps.location,
   countMatches: (selector) => document.querySelectorAll(selector).length,
   whenSettled: (fn) => {

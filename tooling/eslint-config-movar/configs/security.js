@@ -24,7 +24,11 @@ export const security = [
   {
     // Tests scaffold DOM fixtures by hand (`el.innerHTML = '<div>…</div>'`);
     // that is not an injection risk inside a jsdom test runner.
-    files: ['src/**/*.{test,spec}.{ts,tsx}', 'src/**/__tests__/**/*.{ts,tsx}'],
+    files: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'src/**/*.test-utils.{ts,tsx}',
+      'src/**/__tests__/**/*.{ts,tsx}',
+    ],
     rules: {
       'no-unsanitized/method': 'off',
       'no-unsanitized/property': 'off',

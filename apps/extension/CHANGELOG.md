@@ -1,5 +1,24 @@
 # @movar/extension
 
+## 1.10.0
+
+### Minor Changes
+
+- a04a49b: The Safari app becomes one list instead of three tabs. On iPhone it opens on «Мовар»:
+  the Safari setup card until you confirm it, then Movar Audit with this session's audits,
+  then your language settings, each opening its own screen. On Mac the same list is the
+  window's sidebar, and its status row shows whether the extension is on, with a button
+  that opens Safari's settings. The language Detector is removed from the app, and the
+  engine drops its `detect.*` messages.
+
+### Patch Changes
+
+- c300202: Close language-choice modals whose dimmed backdrop sits beside the dialog rather than around it (e.g. solar-tech.com.ua), so Movar picks your language there too.
+- c981753: Safari: a setting changed in the Movar app before Safari's first launch (such as turning
+  on hiding of Russian content) is no longer lost when the extension starts for the first
+  time. First-run setup now adopts the app's settings before it fills in any defaults, and
+  the extension's syncs with the app run one at a time instead of overlapping.
+
 ## 1.9.3
 
 ### Patch Changes

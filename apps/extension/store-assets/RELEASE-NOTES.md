@@ -83,6 +83,40 @@ this block is parsed, so it never becomes a category.
 
 ---
 
+## 1.10.0
+
+A minor release because the Safari app changed shape; the two fixes ride along.
+The app redesign leads under Покращено: it is the change every Safari user sees
+on opening the app. The language-gate fix is framed by its symptom — the site
+stayed in the wrong language — not by where the backdrop sits in the page. The
+first-run fix is marked Safari-only, since no other browser has the app.
+
+### Українська (uk)
+
+```
+Що нового у версії 1.10.0
+
+Покращено
+• Застосунок Мовар для Safari тепер — один список замість трьох вкладок. На iPhone спершу картка налаштування Safari, доки ви її не підтвердите, далі Мовар Аудит з аудитами цього сеансу, а потім мовні налаштування; кожен пункт відкриває свій екран. На Mac цей самий список став бічною панеллю вікна, а рядок стану показує, чи увімкнено розширення, і має кнопку «Відкрити параметри Safari». Детектор мови із застосунку прибрано.
+
+Виправлено
+• Деякі сайти показують вікно вибору мови поверх сторінки — наприклад, solar-tech.com.ua. Частину таких вікон Мовар не впізнавав, і сайт лишався не тією мовою. Тепер Мовар обирає там вашу мову.
+• Safari: налаштування, змінене в застосунку Мовар до першого запуску Safari (наприклад, приховування російського вмісту), більше не губиться, коли розширення запускається вперше.
+```
+
+### English (en)
+
+```
+What's new in 1.10.0
+
+Improved
+• The Movar app for Safari is now one list instead of three tabs. On iPhone it starts with the Safari setup card until you confirm it, then Movar Audit with this session's audits, then your language settings; each opens its own screen. On Mac the same list is the window's sidebar, and its status row shows whether the extension is on, with an "Open Safari Settings" button. The language Detector is gone from the app.
+
+Fixed
+• Some sites show a language-choice window over the page — solar-tech.com.ua, for example. Movar missed some of these windows, and the site stayed in the wrong language. Movar now picks your language there.
+• Safari: a setting changed in the Movar app before Safari's first launch (such as hiding Russian content) is no longer lost when the extension starts for the first time.
+```
+
 ## 1.9.3
 
 Two Google fixes, both from links and URLs that something other than the reader
